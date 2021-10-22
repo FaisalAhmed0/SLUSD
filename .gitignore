@@ -1,0 +1,6 @@
+videos/
+logs/
+checkpoints/
+training_videos/
+testing_logs/
+logs_finetune/
