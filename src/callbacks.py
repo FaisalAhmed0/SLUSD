@@ -2,6 +2,8 @@ import torch
 import torch.optim as opt
 import torch.nn.functional as F
 
+from torch.nn.utils import clip_grad_norm_
+
 import numpy as np
 
 from stable_baselines3.common.callbacks import BaseCallback
@@ -43,7 +45,7 @@ class DiscriminatorCallback(BaseCallback):
         self.d = discriminator
         self.buffer = buffer
         self.hyerparams = hyerparams
-        self.optimizer = opt.Adam(discriminator.parameters(), lr=hyerparams['learning_rate'])
+        self.optimizer = opt.Adam(self.d.parameters(), lr=hyerparams['learning_rate'])
         self.epochs = hyerparams['n_epochs']
         self.batch_size = hyerparams['batch_size']
         self.criterion = F.cross_entropy
@@ -52,7 +54,7 @@ class DiscriminatorCallback(BaseCallback):
         self.min_buffer_size = min_buffer_size
         self.save_dir = save_dir
         self.on_policy = on_policy
-
+        print("brkbgkl")
     def _on_step(self) -> bool:
         """
         This method will be called by the model after each call to `env.step()`.
@@ -81,6 +83,20 @@ class DiscriminatorCallback(BaseCallback):
           env_obs = torch.clone(obs[:, : -self.n_skills])
           skills  =  torch.argmax(obs[:, -self.n_skills: ], dim=1)
           return env_obs, skills
+
+    def gradient_norm(self, net):
+        '''
+        gradient_norm(net)
+        This function calulate the gradient norm of a neural network model.
+        net: network model
+        '''
+        total_norm = 0
+        total_weights_norm = 0
+        for param in net.parameters():
+          param_norm = param.grad.detach().data.norm(2)
+          total_weights_norm += param.detach().data.norm(2) ** 2
+          total_norm += param_norm.item() ** 2
+        return total_norm**0.5, total_weights_norm**0.5
           
 
     def _on_rollout_end(self) -> None:
@@ -90,8 +106,7 @@ class DiscriminatorCallback(BaseCallback):
         # print("Sample")
         # print(self.locals['replay_buffer'].pos)
         # print(self.locals['replay_buffer'].buffer_size)
-        model = self.d
-        model.train()
+        self.d.train()
         # print(self.locals)
         # print(self.globals)
         # print(f"s:{self.num_timesteps}")
@@ -104,22 +119,29 @@ class DiscriminatorCallback(BaseCallback):
           # print("-----------------Training the Discriminator-----------------")
             # initlize the average losses
             epoch_loss = 0
-            if self.on_policy:
-              inputs, targets = self.buffer.sample(self.batch_size)
-            else:
-              obs, _, _, _, _= self.locals['replay_buffer'].sample(self.batch_size)
-              inputs, targets = self.split_obs(obs)
-            outputs = model(inputs.to(conf.device))
-            loss = self.criterion(outputs, targets.to(conf.device).to(torch.int64))
-            self.optimizer.zero_grad()
-            loss.backward()
-            self.optimizer.step()
+            for _ in range(1):
+              if self.on_policy:
+                inputs, targets = self.buffer.sample(self.batch_size)
+              else:
+                obs, _, _, _, _= self.locals['replay_buffer'].sample(self.batch_size)
+                inputs, targets = self.split_obs(obs)
+              outputs = self.d(inputs.to(conf.device))
+              loss = self.criterion(outputs, targets.to(conf.device).to(torch.int64))
+              self.optimizer.zero_grad()
+              loss.backward()
+              # clip_grad_norm_(model.parameters(), 0.1)
+              self.optimizer.step()
+              epoch_loss += loss.cpu().detach().item()
+            
+            grad_norms, weights_norm = self.gradient_norm(self.d)
             # epoch_loss += loss.cpu().detach().item()
             # compute the average loss
-            # epoch_loss /= iterations
-            self.sw.add_scalar("discrimiator loss", loss.cpu().detach().item(), self.num_timesteps)
+            epoch_loss /= 1
+            self.sw.add_scalar("discrimiator loss", epoch_loss, self.num_timesteps)
+            self.sw.add_scalar("discrimiator grad norm", grad_norms, self.num_timesteps)
+            self.sw.add_scalar("discrimiator wights norm", weights_norm, self.num_timesteps)
               # print(f"Discriminator training loss: {epoch_loss}")
-            torch.save(model.state_dict(), self.save_dir + "/disc.pth")
+            torch.save(self.d.state_dict(), self.save_dir + "/disc.pth")
 
 
 
