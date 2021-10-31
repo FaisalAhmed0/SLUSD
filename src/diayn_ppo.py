@@ -9,20 +9,25 @@ import argparse
 from torch.utils.tensorboard import SummaryWriter
 
 import numpy as np
+import matplotlib.pyplot as plt
 import pandas as pd
 
+from collections import deque
 import random
 
 from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import  EvalCallback
 from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3.common.monitor import Monitor
+from stable_baselines3.common.env_util import make_vec_env
 
 from models import Discriminator
 from replayBuffers import DataBuffer
 from config import conf
 from callbacks import DiscriminatorCallback, VideoRecorderCallback
-from env_wrappers import RewardWrapper, SkillWrapper
+from env_wrappers import RewardWrapper, SkillWrapperVideo, SkillWrapper
+
+from typing import Any, Dict
 
 import time
 
@@ -81,10 +86,12 @@ def run_experiment(args):
     # create the environment # monitor_dir=testing_log_dir
     
     
-    env = DummyVecEnv([lambda: RewardWrapper(SkillWrapper(Monitor(gym.make(args.env), conf.log_dir + f"/ppo_{args.env}_{timestamp}"), conf.n_z, max_steps=conf.max_steps), d, conf.n_z),
-    lambda: RewardWrapper(SkillWrapper(Monitor(gym.make(args.env), conf.log_dir + f"/ppo_{args.env}_{timestamp}"), conf.n_z, max_steps=conf.max_steps), d, conf.n_z),
-    lambda: RewardWrapper(SkillWrapper(Monitor(gym.make(args.env), conf.log_dir + f"/ppo_{args.env}_{timestamp}"), conf.n_z, max_steps=conf.max_steps), d, conf.n_z),
-    lambda: RewardWrapper(SkillWrapper(Monitor(gym.make(args.env), conf.log_dir + f"/ppo_{args.env}_{timestamp}"), conf.n_z, max_steps=conf.max_steps), d, conf.n_z)])
+    env = DummyVecEnv([lambda: Monitor(RewardWrapper(SkillWrapper(gym.make(args.env), conf.n_z, max_steps=conf.max_steps), d, conf.n_z), conf.log_dir + f"/ppo_{args.env}_{timestamp}"),
+    lambda: Monitor(RewardWrapper(SkillWrapper(gym.make(args.env), conf.n_z, max_steps=conf.max_steps), d, conf.n_z), conf.log_dir + f"/ppo_{args.env}_{timestamp}"),
+    lambda: Monitor(RewardWrapper(SkillWrapper(gym.make(args.env), conf.n_z, max_steps=conf.max_steps), d, conf.n_z), conf.log_dir + f"/ppo_{args.env}_{timestamp}"),
+    lambda: Monitor(RewardWrapper(SkillWrapper(gym.make(args.env), conf.n_z, max_steps=conf.max_steps), d, conf.n_z), conf.log_dir + f"/ppo_{args.env}_{timestamp}")])
+    
+
     # env = Monitor(env, conf.log_dir + f"/ppo_{args.env}")
     # env = gym.make(env_name)
 
@@ -111,10 +118,13 @@ def run_experiment(args):
     # evaluation_callback = EvaluationCallBack(env_name, eval_freq=500, n_evals=eval_runs, log_dir=log_dir)
     discriminator_callback = DiscriminatorCallback(d, buffer, discriminator_hyperparams, sw=sw, n_skills=conf.n_z, min_buffer_size=conf.min_train_size, save_dir=conf.log_dir + f"/ppo_{args.env}_{timestamp}", on_policy=True)
 
-    eval_env = RewardWrapper(SkillWrapper(Monitor(gym.make(args.env), conf.log_dir + f"/ppo_{args.env}_{timestamp}" + f"/eval_results"), conf.n_z), d, conf.n_z)
+    eval_env =  RewardWrapper(SkillWrapper(gym.make(args.env), conf.n_z), d, conf.n_z)
+    eval_env = Monitor(eval_env, conf.log_dir + f"/ppo_{args.env}_{timestamp}" + f"/eval_results")
+    # eval_env =  Monitor(RewardWrapper(SkillWrapper(gym.make(args.env), conf.n_z), d, conf.n_z), "./`")
+    # eval_env = make_vec_env(lambda : RewardWrapper(SkillWrapper(gym.make(args.env), conf.n_z), d, conf.n_z))
     eval_callback = EvalCallback(eval_env, best_model_save_path=conf.log_dir + f"/ppo_{args.env}_{timestamp}",
                                 log_path=conf.log_dir + f"/ppo_{args.env}_{timestamp}" + f"/eval_results", eval_freq=1000,
-                                deterministic=True, render=False)
+                                deterministic=False, render=False)
 
 
     if args.r == "True":

@@ -114,8 +114,11 @@ class RewardWrapper(gym.Wrapper):
     super(RewardWrapper, self).__init__(env)
 
     # save the discriminator
+
     self.discriminator = discriminator
     self.n_skills = n_skills
+    self.reward = 0
+    self.t = 0
   
 
   def step(self, action):
@@ -127,8 +130,19 @@ class RewardWrapper(gym.Wrapper):
 
     env_obs, skill = self.split_obs(obs)
     obs_t = torch.FloatTensor(env_obs).to(conf.device)
-    reward = torch.log_softmax(self.discriminator(obs_t).detach(), dim=-1)[int(skill)] - np.log(1/conf.n_z)
+    reward = (torch.log_softmax(self.discriminator(obs_t).detach(), dim=-1)[int(skill)] - np.log(1/conf.n_z)).item()
+    # self.t += 1
+    # self.reward += reward
+    # if done:
+    #   print(done)
+    #   print(self.t)
+    #   print(self.reward)
+    #   input()
+    #   self.t = 0
+    #   self.reward = 0
     # print(f"reward in wrappers: {reward}")
+    # print(f"obs type: {type(obs)}")
+    # print(f"reward type: {type(reward)}")
     return obs, reward, done, info
 
   def split_obs(self, obs):
