@@ -127,9 +127,8 @@ class RewardWrapper(gym.Wrapper):
 
     env_obs, skill = self.split_obs(obs)
     obs_t = torch.FloatTensor(env_obs).to(conf.device)
-    with torch.no_grad():
-      self.discriminator.eval()
-      reward = torch.log_softmax(self.discriminator(obs_t), dim=-1)[int(skill)] - np.log(1/conf.n_z)
+    reward = torch.log_softmax(self.discriminator(obs_t).detach(), dim=-1)[int(skill)] - np.log(1/conf.n_z)
+    # print(f"reward in wrappers: {reward}")
     return obs, reward, done, info
 
   def split_obs(self, obs):
