@@ -9,10 +9,8 @@ import argparse
 from torch.utils.tensorboard import SummaryWriter
 
 import numpy as np
-import matplotlib.pyplot as plt
 import pandas as pd
 
-from collections import deque
 import random
 
 from stable_baselines3 import PPO
@@ -24,9 +22,7 @@ from models import Discriminator
 from replayBuffers import DataBuffer
 from config import conf
 from callbacks import DiscriminatorCallback, VideoRecorderCallback
-from env_wrappers import RewardWrapper, SkillWrapperVideo, SkillWrapper
-
-from typing import Any, Dict
+from env_wrappers import RewardWrapper, SkillWrapper
 
 import time
 
