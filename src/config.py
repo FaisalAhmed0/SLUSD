@@ -1,3 +1,4 @@
+import torch
 from argparse import Namespace
 # configiration variables
 conf = Namespace(
@@ -17,7 +18,7 @@ log_dir_finetune  = "logs_finetune/",
 eval_runs = 5,
 
 # total time steps
-total_timesteps = int(1e5),
+total_timesteps = int(5e6),
 
 # layer size of the actor
 layer_size_policy = 300,
@@ -35,11 +36,11 @@ n_z = 8,
 buffer_size = int(1e7),
 
 # buffer size before training
-min_train_size = int(1e4),
+min_train_size = int(5e4),
 
 # max steps in the environment
 max_steps = 1000,
 
 # device
-device = "cpu",
+device = "cuda" if torch.cuda.is_available() else "cpu",
 )
