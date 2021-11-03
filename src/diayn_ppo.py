@@ -41,7 +41,7 @@ ppo_hyperparams = dict(
     gae_lambda = 0.95,
     n_steps = 2048,
     clip_range = 0.1,
-    ent_coef=0.1,
+    ent_coef=1,
 )
 
 # Discriminator Hyperparameters
@@ -124,7 +124,7 @@ def run_experiment(args):
     # eval_env = make_vec_env(lambda : RewardWrapper(SkillWrapper(gym.make(args.env), conf.n_z), d, conf.n_z))
     eval_callback = EvalCallback(eval_env, best_model_save_path=conf.log_dir + f"/ppo_{args.env}_{timestamp}",
                                 log_path=conf.log_dir + f"/ppo_{args.env}_{timestamp}" + f"/eval_results", eval_freq=1000,
-                                deterministic=False, render=False)
+                                deterministic=True, render=False)
 
 
     if args.r == "True":

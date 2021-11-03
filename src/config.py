@@ -18,7 +18,7 @@ log_dir_finetune  = "logs_finetune/",
 eval_runs = 5,
 
 # total time steps
-total_timesteps = int(5e6),
+total_timesteps = int(1e8),
 
 # layer size of the actor
 layer_size_policy = 300,
@@ -30,7 +30,7 @@ layer_size_value = 300,
 layer_size_discriminator = 300,
 
 # number of skills
-n_z = 8,
+n_z = 4,
 
 # buffer size for the discriminator 
 buffer_size = int(1e7),
