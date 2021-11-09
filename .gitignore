@@ -5,4 +5,5 @@ training_videos/
 testing_logs/
 logs_finetune/
 videos_finetune/
+.ipynb_checkpoints/
 MUJOCO_LOG.TXT
