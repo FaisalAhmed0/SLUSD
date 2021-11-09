@@ -63,7 +63,7 @@ timestamp = time.time()
 
 def cmd_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--env', type=str, default="MountainCar-v0")
+    parser.add_argument('--env', type=str, default="MountainCarContinuous-v0")
     parser.add_argument("--r", type=str, default="False")
     args = parser.parse_args()
     return args
@@ -78,11 +78,21 @@ def run_experiment(args):
     
     # tensorboard summary writer
     sw = SummaryWriter(log_dir=conf.log_dir + f"ppo_{args.env}_{timestamp}", comment=f"PPO Discriminator, env_name:{args.env}")
-    # save the hyperparams 
+    
+    # save the hyperparams in a csv files
     ppo_hyperparams_df = pd.DataFrame(ppo_hyperparams, index=[0])
     ppo_hyperparams_df.to_csv(conf.log_dir + f"ppo_{args.env}_{timestamp}/ppo_hyperparams.csv")
     discriminator_hyperparams_df = pd.DataFrame(discriminator_hyperparams, index=[0])
     discriminator_hyperparams_df.to_csv(conf.log_dir + f"ppo_{args.env}_{timestamp}/discriminator_hyperparams.csv")
+    # convert the config namespace to a dictionary
+    config_d = vars(conf)
+    config_df = pd.DataFrame(config_d, index=[0])
+    config_df.to_csv(conf.log_dir + f"ppo_{args.env}_{timestamp}/configs.csv")
+    
+    input()
+    
+    
+    
     # create the environment # monitor_dir=testing_log_dir
     
     

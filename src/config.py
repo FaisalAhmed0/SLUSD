@@ -36,7 +36,7 @@ n_z = 4,
 buffer_size = int(1e7),
 
 # buffer size before training
-min_train_size = int(5e4),
+min_train_size = int(1e4),
 
 # max steps in the environment
 max_steps = 1000,
