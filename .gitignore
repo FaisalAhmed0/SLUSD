@@ -4,3 +4,4 @@ checkpoints/
 training_videos/
 testing_logs/
 logs_finetune/
+videos_finetune/
