@@ -7,3 +7,5 @@ logs_finetune/
 videos_finetune/
 .ipynb_checkpoints/
 MUJOCO_LOG.TXT
+src/__pycache__/
+Untitled.ipynb

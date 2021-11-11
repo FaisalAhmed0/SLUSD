@@ -35,7 +35,7 @@ torch.random.manual_seed(seed)
 
 
 # shared parameters
-params = dict( n_skills = 4,
+params = dict( n_skills = 6,
            pretrain_steps = int(2e6),
            finetune_steps = int(1e5),
            buffer_size = int(1e7),
@@ -137,6 +137,7 @@ def pretrain(args, directory):
                 policy_kwargs = dict(activation_fn=nn.Tanh,
                                 net_arch=[dict(pi=[conf.layer_size_policy, conf.layer_size_policy], vf=[conf.layer_size_value, conf.layer_size_value])]),
                 tensorboard_log = directory,
+                seed = seed
                 )
         
         # Create Callbacks
@@ -150,7 +151,7 @@ def pretrain(args, directory):
                                     log_path=f"{directory}/eval_results", eval_freq=1000,
                                     deterministic=True, render=False)
         # train the agent
-        model.learn(total_timesteps=params['pretrain_steps'], callback=[video_loging_callback, discriminator_callback, eval_callback], log_interval=1, tb_log_name="PPO Pretrain")
+        model.learn(total_timesteps=params['pretrain_steps'], callback=[ discriminator_callback, eval_callback], log_interval=1, tb_log_name="PPO Pretrain")
         
     elif args.alg == "sac":
         env = DummyVecEnv([lambda: Monitor(RewardWrapper(SkillWrapper(gym.make(args.env), params['n_skills'], max_steps=conf.max_steps), d, params['n_skills']), directory)])
@@ -166,6 +167,7 @@ def pretrain(args, directory):
                     learning_starts = sac_hyperparams['learning_starts'],
                     policy_kwargs = dict(net_arch=dict(pi=[conf.layer_size_policy, conf.layer_size_policy], qf=[conf.layer_size_value, conf.layer_size_value])),
                     tensorboard_log = directory,
+                    seed = seed
                     )
         
         # Create Callbacks
@@ -178,16 +180,16 @@ def pretrain(args, directory):
         eval_callback = EvalCallback(eval_env, best_model_save_path=directory, log_path=directory, eval_freq=1000, deterministic=True, render=False)
 
         # train the agent
-        model.learn(total_timesteps=params['pretrain_steps'], callback=[video_loging_callback, discriminator_callback, eval_callback], log_interval=1, tb_log_name="SAC Pretrain")
+        model.learn(total_timesteps=params['pretrain_steps'], callback=[ discriminator_callback, eval_callback], log_interval=1, tb_log_name="SAC Pretrain")
 
 # finetune the pretrained policy on a specific task
 def finetune(args, directory):
     env = DummyVecEnv([lambda: SkillWrapper(gym.make(args.env), params['n_skills'], max_steps=conf.max_steps)])
     model_dir = directory + "/best_model"
     if args.alg == "sac":
-        model = SAC.load(model_dir, env=env)
+        model = SAC.load(model_dir, env=env, seed=seed)
     elif args.alg == "ppo":
-        model = PPO.load(model_dir, env=env,  clip_range= get_schedule_fn(ppo_hyperparams['clip_range']))
+        model = PPO.load(model_dir, env=env,  clip_range= get_schedule_fn(ppo_hyperparams['clip_range']), seed=seed)
     
     best_skill_index = best_skill(model, args.env,  params['n_skills'])
     # env_finetune = DummyVecEnv([lambda: SkillWrapperFinetune(gym.make(args.env), params['n_skills'], max_steps=conf.max_steps, skill=best_skill_index)])
@@ -220,11 +222,11 @@ def finetune(args, directory):
 
                 )
 
-    env = DummyVecEnv([lambda: Monitor(SkillWrapperFinetune(gym.make(args.env), params['n_skills'], max_steps=gym.make(args.env)._max_episode_steps, skill=best_skill_index),f"{directory}/finetune_train_results" )])
+    env = DummyVecEnv([lambda: SkillWrapperFinetune( Monitor(gym.make(args.env),  f"{directory}/finetune_train_results" ), params['n_skills'],max_steps=gym.make(args.env)._max_episode_steps, skill=best_skill_index) ])
     
-    eval_env = SkillWrapperFinetune(gym.make(args.env), params['n_skills'], max_steps=gym.make(args.env)._max_episode_steps, skill=best_skill_index)
+    eval_env = SkillWrapperFinetune(Monitor(gym.make(args.env),  f"{directory}/finetune_eval_results"), params['n_skills'], max_steps=gym.make(args.env)._max_episode_steps, skill=best_skill_index)
     eval_env = Monitor(eval_env, f"{directory}/finetune_eval_results")
-    eval_callback = EvalCallback(eval_env, best_model_save_path=directory,
+    eval_callback = EvalCallback(eval_env, best_model_save_path=directory + f"/best_finetuned_model_skillIndex:{best_skill_index}",
                                 log_path=directory, eval_freq=1000,
                                 deterministic=True, render=False)
     if args.alg == "sac":
@@ -236,7 +238,7 @@ def finetune(args, directory):
     
 
     # record a video of the agent
-    record_video_finetune(args.env, best_skill_index, model, params['n_skills'] ,video_length=1000, video_folder='videos_finetune/', alg=args.alg)
+    # record_video_finetune(args.env, best_skill_index, model, params['n_skills'] ,video_length=1000, video_folder='videos_finetune/', alg=args.alg)
 
 
 

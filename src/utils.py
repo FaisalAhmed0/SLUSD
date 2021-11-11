@@ -112,12 +112,12 @@ def best_skill(model, env_name, n_skills):
     for skill in range(n_skills):
         obs = env.reset()
         aug_obs = augment_obs(obs, skill, n_skills)
-        reward = 0
+        total_reward = 0
         done = False
         while not done:
             action, _ = model.predict(aug_obs, deterministic=True)
             obs, reward, done, _ = env.step(action)
             aug_obs = augment_obs(obs, skill, n_skills)
-            reward += 1
-        total_rewards.append(reward)
+            total_reward += reward
+        total_rewards.append(total_reward)
     return np.argmax(total_rewards)
