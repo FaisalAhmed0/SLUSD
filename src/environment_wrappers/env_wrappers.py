@@ -3,7 +3,7 @@ import gym
 import torch
 import numpy as np
 
-from config import conf
+from src.config import conf
 
 class SkillWrapper(gym.Wrapper):
   """

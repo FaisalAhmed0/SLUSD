@@ -8,8 +8,8 @@ import numpy as np
 
 from stable_baselines3.common.callbacks import BaseCallback
 
-from utils import record_video
-from config import conf
+from src.utils import record_video
+from src.config import conf
 
 # callback to save a video while training
 class VideoRecorderCallback(BaseCallback):

@@ -22,11 +22,11 @@ from stable_baselines3.common.monitor import Monitor
 
 import time
 
-from models import Discriminator
-from replayBuffers import DataBuffer
-from config import conf
-from callbacks import DiscriminatorCallback, VideoRecorderCallback
-from env_wrappers import RewardWrapper, SkillWrapperVideo, SkillWrapper
+from src.models.models import Discriminator
+from src.replayBuffers import DataBuffer
+from src.config import conf
+from src.callbacks.callbacks import DiscriminatorCallback, VideoRecorderCallback
+from src.environment_wrappers.env_wrappers import RewardWrapper, SkillWrapperVideo, SkillWrapper
 
 from typing import Any, Dict
 

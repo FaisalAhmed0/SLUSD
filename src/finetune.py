@@ -8,12 +8,12 @@ from stable_baselines3.common.callbacks import  EvalCallback
 from stable_baselines3.common.utils import get_schedule_fn
 from stable_baselines3.common.monitor import Monitor
 
-from config import conf
-from env_wrappers import SkillWrapperFinetune, RewardWrapper, SkillWrapper
-from utils import record_video_finetune, best_skill
-from models import Discriminator
-from replayBuffers import DataBuffer
-from callbacks import DiscriminatorCallback, VideoRecorderCallback
+from src.config import conf
+from src.environment_wrappers.env_wrappers import RewardWrapper, SkillWrapperVideo, SkillWrapper
+from src.utils import record_video_finetune, best_skill
+from src.models.models import Discriminator
+from src.replayBuffers import DataBuffer
+from src.callbacks.callbacks import DiscriminatorCallback, VideoRecorderCallback
 
 import torch
 import torch.nn as nn

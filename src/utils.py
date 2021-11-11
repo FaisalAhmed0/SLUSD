@@ -4,8 +4,8 @@ import gym
 import numpy as np
 import matplotlib.pyplot as plt
 
-from env_wrappers import SkillWrapperFinetune, SkillWrapperVideo
-from config import conf
+from src.environment_wrappers.env_wrappers import RewardWrapper, SkillWrapperVideo, SkillWrapper
+from src.config import conf
 
 import torch
 

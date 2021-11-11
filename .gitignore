@@ -8,4 +8,10 @@ videos_finetune/
 .ipynb_checkpoints/
 MUJOCO_LOG.TXT
 src/__pycache__/
+src/.ipynb_checkpoints/
+src/callbacks/__pycache__/
+src/diayn/__pycache__/
+src/environment_wrappers/__pycache__/
+src/models/__pycache__/
+slusd.egg-info/
 Untitled.ipynb
