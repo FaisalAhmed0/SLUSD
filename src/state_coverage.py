@@ -20,7 +20,7 @@ def cmd_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--env', type=str, default="MountainCarContinuous-v0")
     parser.add_argument("--alg", type=str, default="ppo")
-    parser.add_argument("--skills", type=str, default=4)
+    parser.add_argument("--skills", type=int, default=4)
     parser.add_argument("--stamp", type=str, required=True)
     args = parser.parse_args()
     return args
