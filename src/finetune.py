@@ -9,7 +9,7 @@ from stable_baselines3.common.utils import get_schedule_fn
 from stable_baselines3.common.monitor import Monitor
 
 from src.config import conf
-from src.environment_wrappers.env_wrappers import RewardWrapper, SkillWrapperVideo, SkillWrapper
+from src.environment_wrappers.env_wrappers import RewardWrapper, SkillWrapperVideo, SkillWrapper, SkillWrapperFinetune
 from src.utils import record_video_finetune, best_skill
 from src.models.models import Discriminator
 from src.replayBuffers import DataBuffer
@@ -35,8 +35,8 @@ torch.random.manual_seed(seed)
 
 
 # shared parameters
-params = dict( n_skills = 6,
-           pretrain_steps = int(2e6),
+params = dict( n_skills = 20,
+           pretrain_steps = int(10e6),
            finetune_steps = int(1e5),
            buffer_size = int(1e7),
            min_train_size = int(1e4)
@@ -151,7 +151,7 @@ def pretrain(args, directory):
                                     log_path=f"{directory}/eval_results", eval_freq=1000,
                                     deterministic=True, render=False)
         # train the agent
-        model.learn(total_timesteps=params['pretrain_steps'], callback=[ discriminator_callback, eval_callback], log_interval=1, tb_log_name="PPO Pretrain")
+        model.learn(total_timesteps=params['pretrain_steps'], callback=[ discriminator_callback, eval_callback, video_loging_callback], log_interval=1, tb_log_name="PPO Pretrain")
         
     elif args.alg == "sac":
         env = DummyVecEnv([lambda: Monitor(RewardWrapper(SkillWrapper(gym.make(args.env), params['n_skills'], max_steps=conf.max_steps), d, params['n_skills']), directory)])
@@ -180,7 +180,7 @@ def pretrain(args, directory):
         eval_callback = EvalCallback(eval_env, best_model_save_path=directory, log_path=directory, eval_freq=1000, deterministic=True, render=False)
 
         # train the agent
-        model.learn(total_timesteps=params['pretrain_steps'], callback=[ discriminator_callback, eval_callback], log_interval=1, tb_log_name="SAC Pretrain")
+        model.learn(total_timesteps=params['pretrain_steps'], callback=[ discriminator_callback, eval_callback, video_loging_callback], log_interval=1, tb_log_name="SAC Pretrain")
 
 # finetune the pretrained policy on a specific task
 def finetune(args, directory):
@@ -238,7 +238,7 @@ def finetune(args, directory):
     
 
     # record a video of the agent
-    # record_video_finetune(args.env, best_skill_index, model, params['n_skills'] ,video_length=1000, video_folder='videos_finetune/', alg=args.alg)
+    record_video_finetune(args.env, best_skill_index, model, params['n_skills'] ,video_length=1000, video_folder='videos_finetune/', alg=args.alg)
 
 
 

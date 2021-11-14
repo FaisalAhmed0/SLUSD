@@ -2,13 +2,72 @@ from stable_baselines3.common.vec_env import VecVideoRecorder, DummyVecEnv
 
 import gym
 import numpy as np
-import matplotlib.pyplot as plt
 
 from src.environment_wrappers.env_wrappers import RewardWrapper, SkillWrapperVideo, SkillWrapper
 from src.config import conf
 
 import torch
 
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+from scipy.stats import multivariate_normal
+import os
+
+# plot a 2D gaussian 
+def plot_multinorm(data, args):
+    assert data.shape[1] == 2
+    # calculate the mean and the covariance
+    n_points = 50j
+    mean = np.mean(data, axis=0)
+    cov = np.cov(data, rowvar=0)
+    print(f"The mean is: {mean}")
+    print(f"Covariance is: {cov}")
+    # create the mesh
+    x, y = np.mgrid[-1.2:0.6:n_points, -0.07:0.07:n_points]
+    print(x.shape)
+    xy = np.column_stack([x.flat, y.flat])
+    print(xy.shape)
+    # create the gaussian object
+    multinorm = multivariate_normal.pdf(xy, mean, cov)
+    print(multinorm)
+    multinorm = multinorm.reshape(x.shape)
+    # create a figure
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    ax.set_xlabel("Position")
+    ax.set_ylabel("Velocity")
+    ax.set_xlim(-1.5, 0.7)
+    ax.set_ylim(-0.09, 0.09)
+    ax.plot_surface(x, y, multinorm)
+    entropy = multivariate_normal.entropy(mean, cov)
+    print(f"Entropy is: {entropy}")
+    files_dir = "Vis/MountainCar"
+    os.makedirs(files_dir, exist_ok=True)
+    fig.savefig(f'{files_dir}/State Distrbution for DIAYN with {args.alg} and {args.skills} skills', dpi=150)
+
+    
+    N = 60  
+    X = np.linspace(-1.2, 0.6, N)
+    Y = np.linspace(-0.07, 0.07, N)
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection=None)
+    ax.set_xlabel("Position")
+    ax.set_ylabel("Velocity")
+    ax.set_xlim(-1.5, 0.7)
+    ax.set_ylim(-0.09, 0.09)
+    X, Y = np.meshgrid(X, Y)
+    # Pack X and Y into a single 3-dimensional array
+    pos = np.empty(X.shape + (2,))
+    pos[:, :, 0] = X
+    pos[:, :, 1] = Y
+    Z = multivariate_normal.pdf(pos, mean, cov)
+    ax.contourf(X, Y, Z, zdir='z')
+    fig.savefig(f'{files_dir}/State Distrbution Contours for DIAYN with {args.alg} and {args.skills} skills', dpi=150)
+    
+    
+    
+    
+    
 
 # run a random agent
 def random_agent(env):
