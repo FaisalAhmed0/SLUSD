@@ -20,16 +20,16 @@ def plot_multinorm(data, args):
     n_points = 50j
     mean = np.mean(data, axis=0)
     cov = np.cov(data, rowvar=0)
-    print(f"The mean is: {mean}")
-    print(f"Covariance is: {cov}")
+    # print(f"The mean is: {mean}")
+    # print(f"Covariance is: {cov}")
     # create the mesh
     x, y = np.mgrid[-1.2:0.6:n_points, -0.07:0.07:n_points]
-    print(x.shape)
+    # print(x.shape)
     xy = np.column_stack([x.flat, y.flat])
-    print(xy.shape)
+    # print(xy.shape)
     # create the gaussian object
     multinorm = multivariate_normal.pdf(xy, mean, cov)
-    print(multinorm)
+    # print(multinorm)
     multinorm = multinorm.reshape(x.shape)
     # create a figure
     fig = plt.figure()

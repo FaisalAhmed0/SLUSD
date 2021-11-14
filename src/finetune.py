@@ -36,7 +36,7 @@ torch.random.manual_seed(seed)
 
 # shared parameters
 params = dict( n_skills = 20,
-           pretrain_steps = int(10e6),
+           pretrain_steps = int(20e6),
            finetune_steps = int(1e5),
            buffer_size = int(1e7),
            min_train_size = int(1e4)
@@ -177,7 +177,7 @@ def pretrain(args, directory):
         eval_env =  RewardWrapper(SkillWrapper(gym.make(args.env), params['n_skills']), d, params['n_skills'])
         eval_env = Monitor(eval_env,  f"{directory}/eval_results")
 
-        eval_callback = EvalCallback(eval_env, best_model_save_path=directory, log_path=directory, eval_freq=1000, deterministic=True, render=False)
+        eval_callback = EvalCallback(eval_env, best_model_save_path=directory, log_path=f"{directory}/eval_results", eval_freq=1000, deterministic=True, render=False)
 
         # train the agent
         model.learn(total_timesteps=params['pretrain_steps'], callback=[ discriminator_callback, eval_callback, video_loging_callback], log_interval=1, tb_log_name="SAC Pretrain")

@@ -54,7 +54,7 @@ def run_pretrained_policy(args):
                     data.append(obs.copy())
                     aug_obs = augment_obs(obs, skill, args.skills)
     data = np.array(data)
-    print(f"Size of the data is: {len(data)}")
+    # print(f"Size of the data is: {len(data)}")
     plot_multinorm(data, args)
     
     

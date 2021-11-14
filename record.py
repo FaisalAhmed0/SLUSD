@@ -102,7 +102,7 @@ def record_skill(model, env_name, args):
             total_reward += reward
         total_rewards.append(total_reward)
         env.close()
-    print(f"Total rewards: {total_rewards}")
+    # print(f"Total rewards: {total_rewards}")
     return np.argmax(total_rewards)
 
 
@@ -144,7 +144,7 @@ def record_learned_agent(best_skill, args):
         obs = obs[0]
         # aug_obs = augment_obs(obs, skill, n_skills)
         total_reward += reward
-    print(f"Final reward: {total_reward}")
+    # print(f"Final reward: {total_reward}")
     env.close()
 
 if __name__ == "__main__":
