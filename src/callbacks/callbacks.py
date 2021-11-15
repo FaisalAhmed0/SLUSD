@@ -103,20 +103,8 @@ class DiscriminatorCallback(BaseCallback):
         """
         This event is triggered before updating the policy.
         """
-        # print("Sample")
-        # print(self.locals['replay_buffer'].pos)
-        # print(self.locals['replay_buffer'].buffer_size)
-        self.d.train()
-        # print(self.locals)
-        # print(self.globals)
-        # print(f"s:{self.num_timesteps}")
-        # if ckpt:
-          # model.load_state_dict(torch.load(ckpt))
-        # best_val_loss = 100000
         current_buffer_size = len(self.buffer) if self.on_policy else self.locals['replay_buffer'].buffer_size if self.locals['replay_buffer'].full else self.locals['replay_buffer'].pos
-        # print(f"current_buffer_size: {current_buffer_size}")
         if current_buffer_size >= self.min_buffer_size:
-          # print("-----------------Training the Discriminator-----------------")
             # initlize the average losses
             epoch_loss = 0
             for _ in range(1):
@@ -134,13 +122,11 @@ class DiscriminatorCallback(BaseCallback):
               epoch_loss += loss.cpu().detach().item()
             
             grad_norms, weights_norm = self.gradient_norm(self.d)
-            # epoch_loss += loss.cpu().detach().item()
-            # compute the average loss
+            
             epoch_loss /= 1
             self.sw.add_scalar("discrimiator loss", epoch_loss, self.num_timesteps)
             self.sw.add_scalar("discrimiator grad norm", grad_norms, self.num_timesteps)
             self.sw.add_scalar("discrimiator wights norm", weights_norm, self.num_timesteps)
-              # print(f"Discriminator training loss: {epoch_loss}")
             torch.save(self.d.state_dict(), self.save_dir + "/disc.pth")
 
 

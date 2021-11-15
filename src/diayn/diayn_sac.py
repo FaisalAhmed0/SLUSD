@@ -54,7 +54,7 @@ discriminator_hyperparams = dict(
 )
 
 # set the seed
-seed = 1
+seed = 10
 random.seed(seed)
 np.random.seed(seed)
 torch.random.manual_seed(seed)
@@ -84,7 +84,7 @@ def run_experiment(args):
     discriminator_hyperparams_df.to_csv(conf.log_dir + f"sac_{args.env}_{timestamp}/discriminator_hyperparams.csv")
     
 
-    # create the environment # monitor_dir=testing_log_dir
+    # create the environment 
     env = DummyVecEnv([lambda: Monitor(RewardWrapper(SkillWrapper(gym.make(args.env), conf.n_z, max_steps=conf.max_steps), d, conf.n_z), conf.log_dir + f"/sac_{args.env}_{timestamp}")])
     
     
@@ -105,9 +105,7 @@ def run_experiment(args):
     
 
     # Create Callbacks
-    # save_best_model_callback = SaveOnBestTrainingRewardCallback(check_freq=100, log_dir=log_dir, verbose=0)
     video_loging_callback = VideoRecorderCallback(args.env, record_freq=1000, deterministic=d, n_z=conf.n_z, videos_dir=conf.videos_dir + f"/sac_{args.env}_{timestamp}")
-    # evaluation_callback = EvaluationCallBack(env_name, eval_freq=500, n_evals=eval_runs, log_dir=log_dir)
     discriminator_callback = DiscriminatorCallback(d, None, discriminator_hyperparams, sw=sw, n_skills=conf.n_z, min_buffer_size=conf.min_train_size, save_dir=conf.log_dir + f"/sac_{args.env}_{timestamp}", on_policy=False)
 
     eval_env =  RewardWrapper(SkillWrapper(gym.make(args.env), conf.n_z), d, conf.n_z)
@@ -116,13 +114,6 @@ def run_experiment(args):
     eval_callback = EvalCallback(eval_env, best_model_save_path=conf.log_dir + f"/sac_{args.env}_{timestamp}",
                                 log_path=conf.log_dir + f"/sac_{args.env}_{timestamp}", eval_freq=1000,
                                 deterministic=True, render=False)
-
-
-    # if args.r == "True":
-    #   print("Load saved model to resume training")
-    #   d.load_state_dict(torch.load(conf.log_dir + f"/sac_{args.env}" +  "/disc.pth", map_location=torch.device(conf.device)), )
-      # model.load(conf.log_dir + f"/sac_{args.env}" + "/best_model")
-
     # train the agent
     model.learn(total_timesteps=conf.total_timesteps, log_interval=1, callback=[video_loging_callback, discriminator_callback, eval_callback])
 

@@ -13,6 +13,20 @@ from mpl_toolkits.mplot3d import Axes3D
 from scipy.stats import multivariate_normal
 import os
 
+from entropy_estimators import continuous
+
+from gym.wrappers import Monitor
+import pyglet
+from pyglet import *
+
+
+def kde_entropy(data, args):
+    # from https://github.com/paulbrodersen/entropy_estimators
+    # compute the entropy using the k-nearest neighbour approach
+    # developed by Kozachenko and Leonenko (1987):
+    kozachenko = continuous.get_h(data, k=30, min_dist=0.00001)
+    print(f"kozachenko entropy is {kozachenko}")
+
 # plot a 2D gaussian 
 def plot_multinorm(data, args):
     assert data.shape[1] == 2
@@ -20,16 +34,13 @@ def plot_multinorm(data, args):
     n_points = 50j
     mean = np.mean(data, axis=0)
     cov = np.cov(data, rowvar=0)
-    # print(f"The mean is: {mean}")
-    # print(f"Covariance is: {cov}")
+    print(f"The mean is: {mean}")
+    print(f"Covariance is: {cov}")
     # create the mesh
     x, y = np.mgrid[-1.2:0.6:n_points, -0.07:0.07:n_points]
-    # print(x.shape)
     xy = np.column_stack([x.flat, y.flat])
-    # print(xy.shape)
     # create the gaussian object
     multinorm = multivariate_normal.pdf(xy, mean, cov)
-    # print(multinorm)
     multinorm = multinorm.reshape(x.shape)
     # create a figure
     fig = plt.figure()
@@ -44,8 +55,6 @@ def plot_multinorm(data, args):
     files_dir = "Vis/MountainCar"
     os.makedirs(files_dir, exist_ok=True)
     fig.savefig(f'{files_dir}/State Distrbution for DIAYN with {args.alg} and {args.skills} skills', dpi=150)
-
-    
     N = 60  
     X = np.linspace(-1.2, 0.6, N)
     Y = np.linspace(-0.07, 0.07, N)
@@ -63,11 +72,6 @@ def plot_multinorm(data, args):
     Z = multivariate_normal.pdf(pos, mean, cov)
     ax.contourf(X, Y, Z, zdir='z')
     fig.savefig(f'{files_dir}/State Distrbution Contours for DIAYN with {args.alg} and {args.skills} skills', dpi=150)
-    
-    
-    
-    
-    
 
 # run a random agent
 def random_agent(env):
@@ -91,26 +95,25 @@ def random_agent(env):
 
 # A function to record a video of the agent interacting with the environment
 def record_video(env_id, model, n_z, n_calls,video_length=1000, video_folder='videos/'):
-  """
-  :param env_id: (str)
-  :param model: (RL model)
-  :param video_length: (int)
-  :param prefix: (str)
-  :param video_folder: (str)
-  """
-  eval_env = DummyVecEnv([lambda: (SkillWrapperVideo(gym.make(env_id), n_z))])
-  eval_env = VecVideoRecorder(eval_env, video_folder=video_folder,
-                              record_video_trigger=lambda step: step == 0, video_length=video_length,
-                              name_prefix = f"env: {env_id}, time step: {n_calls}, skill: {eval_env.envs[0].skill}")
-                              
-  obs = eval_env.reset()
-  print("Here")
-  # Start the video at step=0 and record 500 steps
-  for _ in range(video_length):
-    action, _ = model.predict(obs)
-    obs, _, _, _ = eval_env.step(action)
-  # Close the video recorder
-  eval_env.close()
+    """
+    :param env_id: (str)
+    :param model: (RL model)
+    :param video_length: (int)
+    :param prefix: (str)
+    :param video_folder: (str)
+    """
+    display = pyglet.canvas.get_display()
+    screen = display.get_screens()
+    config = screen[0].get_best_config()
+    pyglet.window.Window(width=1024, height=1024, display=display, config=config)
+    env = SkillWrapperVideo(gym.make(env_id), n_z)
+    env = Monitor(env, video_folder, resume=True,force=False, uid=f"env: {env_id}, time step: {n_calls}, skill: {env.skill}")
+    obs = env.reset()
+    done = False
+    while not done:
+        action, _ = model.predict(obs)
+        obs, reward, done, info = env.step(action)
+    env.close()
 
 
   # A function to record a video of the agent interacting with the environment
@@ -122,7 +125,6 @@ def record_video_finetune(env_id, skill, model, n_z, video_length=1000, video_fo
   :param prefix: (str)
   :param video_folder: (str)
   """
-  # print("Here")
   eval_env = DummyVecEnv([lambda: (SkillWrapperVideo(gym.make(env_id), n_z))])
   eval_env = VecVideoRecorder(eval_env, video_folder=video_folder,
                               record_video_trigger=lambda step: step == 0, video_length=video_length,
@@ -130,11 +132,9 @@ def record_video_finetune(env_id, skill, model, n_z, video_length=1000, video_fo
                               
   eval_env.skill = skill
   obs = eval_env.reset()
-  # Start the video at step=0 and record 500 steps
   for _ in range(video_length):
     action, _ = model.predict(obs, deterministic=True)
     obs, _, _, _ = eval_env.step(action)
-    # print(obs)
   # Close the video recorder
   eval_env.close()
 

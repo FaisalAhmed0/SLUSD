@@ -104,11 +104,6 @@ def train(args, directory):
                 tensorboard_log = directory,
                 seed = seed
                 )
-        
-        # Create Callbacks
-        # video_loging_callback = VideoRecorderCallback(args.env, record_freq=5000, deterministic=d, n_z=params['n_skills'], videos_dir=conf.videos_dir +f"ppo_{args.env}_{timestamp}")
-        # evaluation_callback = EvaluationCallBack(env_name, eval_freq=500, n_evals=eval_runs, log_dir=log_dir)
-        # discriminator_callback = DiscriminatorCallback(d, buffer, discriminator_hyperparams, sw=sw, n_skills=params['n_skills'], min_buffer_size=params['min_train_size'], save_dir=directory, on_policy=True)
 
         eval_env =  gym.make(args.env)
         eval_env = Monitor(eval_env, f"{directory}/eval_results")
@@ -134,11 +129,6 @@ def train(args, directory):
                     tensorboard_log = directory,
                     seed = seed
                     )
-        
-        # Create Callbacks
-        # video_loging_callback = VideoRecorderCallback(args.env, record_freq=1000, deterministic=d, n_z=params['n_skills'], videos_dir=conf.videos_dir + f"/sac_{args.env}_{timestamp}")
-        # discriminator_callback = DiscriminatorCallback(d, None, discriminator_hyperparams, sw=sw, n_skills=params['n_skills'], min_buffer_size=params['min_train_size'], save_dir=directory, on_policy=False)
-
         eval_env =  gym.make(args.env)
         eval_env = Monitor(eval_env,  f"{directory}/eval_results")
 

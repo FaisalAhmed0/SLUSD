@@ -52,7 +52,7 @@ discriminator_hyperparams = dict(
 )
 
 # set the seed
-seed = 1
+seed = 10
 random.seed(seed)
 np.random.seed(seed)
 torch.random.manual_seed(seed)
@@ -95,11 +95,6 @@ def run_experiment(args):
     lambda: Monitor(RewardWrapper(SkillWrapper(gym.make(args.env), conf.n_z, max_steps=conf.max_steps), d, conf.n_z), conf.log_dir + f"/ppo_{args.env}_{timestamp}"),
     lambda: Monitor(RewardWrapper(SkillWrapper(gym.make(args.env), conf.n_z, max_steps=conf.max_steps), d, conf.n_z), conf.log_dir + f"/ppo_{args.env}_{timestamp}")])
     
-
-    # env = Monitor(env, conf.log_dir + f"/ppo_{args.env}")
-    # env = gym.make(env_name)
-
-
     # create the model with the speicifed hyperparameters
     model = PPO('MlpPolicy', env, verbose=1, 
                 learning_rate=ppo_hyperparams['learning_rate'], 
@@ -117,15 +112,11 @@ def run_experiment(args):
     
 
     # Create Callbacks
-    # save_best_model_callback = SaveOnBestTrainingRewardCallback(check_freq=100, log_dir=log_dir, verbose=0)
     video_loging_callback = VideoRecorderCallback(args.env, record_freq=5000, deterministic=d, n_z=conf.n_z, videos_dir=conf.videos_dir + f"/ppo_{args.env}_{timestamp}")
-    # evaluation_callback = EvaluationCallBack(env_name, eval_freq=500, n_evals=eval_runs, log_dir=log_dir)
     discriminator_callback = DiscriminatorCallback(d, buffer, discriminator_hyperparams, sw=sw, n_skills=conf.n_z, min_buffer_size=conf.min_train_size, save_dir=conf.log_dir + f"/ppo_{args.env}_{timestamp}", on_policy=True)
 
     eval_env =  RewardWrapper(SkillWrapper(gym.make(args.env), conf.n_z), d, conf.n_z)
     eval_env = Monitor(eval_env, conf.log_dir + f"/ppo_{args.env}_{timestamp}" + f"/eval_results")
-    # eval_env =  Monitor(RewardWrapper(SkillWrapper(gym.make(args.env), conf.n_z), d, conf.n_z), "./`")
-    # eval_env = make_vec_env(lambda : RewardWrapper(SkillWrapper(gym.make(args.env), conf.n_z), d, conf.n_z))
     eval_callback = EvalCallback(eval_env, best_model_save_path=conf.log_dir + f"/ppo_{args.env}_{timestamp}",
                                 log_path=conf.log_dir + f"/ppo_{args.env}_{timestamp}" + f"/eval_results", eval_freq=1000,
                                 deterministic=True, render=False)

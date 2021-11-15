@@ -130,20 +130,7 @@ class RewardWrapper(gym.Wrapper):
 
     env_obs, skill = self.split_obs(obs)
     obs_t = torch.FloatTensor(env_obs).to(conf.device)
-    # print(f'self.n_skills')
     reward = (torch.log_softmax(self.discriminator(obs_t).detach(), dim=-1)[int(skill)] - np.log(1/self.n_skills)).item()
-    # self.t += 1
-    # self.reward += reward
-    # if done:
-    #   print(done)
-    #   print(self.t)
-    #   print(self.reward)
-    #   input()
-    #   self.t = 0
-    #   self.reward = 0
-    # print(f"reward in wrappers: {reward}")
-    # print(f"obs type: {type(obs)}")
-    # print(f"reward type: {type(reward)}")
     return obs, reward, done, info
 
   def split_obs(self, obs):
@@ -167,12 +154,17 @@ class SkillWrapperFinetune(gym.Wrapper):
     shape = env.observation_space.shape[0]
     self.observation_space = gym.spaces.Box(low=low, high=high, dtype=np.float32, shape=[shape+n_skills,])
     self.env._max_episode_steps = max_steps
+    # seeds for the 5 evaluation runs
+    self.seeds = [0, 10, 1234, 5, 42]
+    self.i = 0
 
   
   def reset(self):
     """
     Reset the environment 
     """
+    self.i = (self.i+1) % 5
+    self.env.seed(self.seed[self.i])
     obs = self.env.reset()
     onehot = self.one_hot(self.skill)
     obs = np.array(list(obs) + list(onehot)).astype(np.float32)

@@ -7,7 +7,7 @@ import argparse
 
 import numpy as np
 
-from src.utils import plot_multinorm, augment_obs
+from src.utils import plot_multinorm, augment_obs, kde_entropy
 from src.environment_wrappers.env_wrappers import SkillWrapper
 from src.config import conf
 
@@ -31,13 +31,13 @@ def run_pretrained_policy(args):
     env = DummyVecEnv([lambda: SkillWrapper(gym.make(args.env), args.skills, max_steps=1000)])
     directory =  conf.log_dir_finetune + f"{args.alg}_{args.env}_{args.stamp}" + "/best_model"
     if args.alg == "sac":
-        model = SAC.load(directory, env = env)
+        model = SAC.load(directory)
     elif args.alg == "ppo":
-        model = PPO.load(directory, env = env, clip_range= get_schedule_fn(0.1))
+        model = PPO.load(directory, clip_range= get_schedule_fn(0.1))
     data = []
-    # run the model to collec the data
+    # run the model to collect the data
     with torch.no_grad():
-        for i in range(10):
+        for i in range(5):
             for skill in range(args.skills):
                 env = DummyVecEnv([lambda: gym.make(args.env) ])
                 obs = env.reset()
@@ -54,8 +54,12 @@ def run_pretrained_policy(args):
                     data.append(obs.copy())
                     aug_obs = augment_obs(obs, skill, args.skills)
     data = np.array(data)
+    np.random.shuffle(data)
+    print(f"length of the data: {len(data)}")
+    kde_entropy(data, args)
     # print(f"Size of the data is: {len(data)}")
-    plot_multinorm(data, args)
+    # plot_multinorm(data, args)
+    
     
     
 if __name__ == "__main__":

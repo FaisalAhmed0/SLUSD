@@ -36,7 +36,7 @@ torch.random.manual_seed(seed)
 
 # shared parameters
 params = dict( n_skills = 20,
-           pretrain_steps = int(20e6),
+           pretrain_steps = int(5e6),
            finetune_steps = int(1e5),
            buffer_size = int(1e7),
            min_train_size = int(1e4)
@@ -192,9 +192,8 @@ def finetune(args, directory):
         model = PPO.load(model_dir, env=env,  clip_range= get_schedule_fn(ppo_hyperparams['clip_range']), seed=seed)
     
     best_skill_index = best_skill(model, args.env,  params['n_skills'])
-    # env_finetune = DummyVecEnv([lambda: SkillWrapperFinetune(gym.make(args.env), params['n_skills'], max_steps=conf.max_steps, skill=best_skill_index)])
-    
     del model
+    
     if args.alg == "sac":
         model = SAC('MlpPolicy', env, verbose=1, 
                     learning_rate = sac_hyperparams['learning_rate'], 
@@ -247,7 +246,7 @@ if __name__ == "__main__":
     print(f"Experiment timestamp: {timestamp}")
     args = cmd_args()
     # experiment directory
-    exp_directory = conf.log_dir_finetune + f"{args.alg}_{args.env}_{timestamp}"
+    exp_directory = conf.log_dir_finetune + f"{args.alg}_{args.env}_skills:{params['n_skills']}_{timestamp}"
     # create a folder for the expirment
     os.makedirs(exp_directory)
     # save the exp parameters
