@@ -81,6 +81,7 @@ def augment_obs(obs, skill, n_skills):
     onehot = np.zeros(n_skills)
     onehot[skill] = 1
     aug_obs = np.array(list(obs) + list(onehot)).astype(np.float32)
+    # print(aug_obs)
     return torch.FloatTensor(aug_obs).unsqueeze(dim=0)
 
 
@@ -116,6 +117,7 @@ def record_skill(model, env_name, args):
 
 def record_skills(args):
     env = DummyVecEnv([lambda: SkillWrapper(gym.make(args.env),args.skills, max_steps=1000)])
+    # model_dir = conf.log_dir_finetune + f"{args.alg}_{args.env}_{args.stamp}" + "/best_model"
     model_dir = conf.log_dir_finetune + f"{args.alg}_{args.env}_skills:{args.skills}_{args.stamp}" + "/best_model"
     if args.alg == "sac":
         model = SAC.load(model_dir, env=env, seed=seed)

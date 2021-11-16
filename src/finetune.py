@@ -36,7 +36,7 @@ torch.random.manual_seed(seed)
 
 # shared parameters
 params = dict( n_skills = 20,
-           pretrain_steps = int(5e6),
+           pretrain_steps = int(2.5e6),
            finetune_steps = int(1e5),
            buffer_size = int(1e7),
            min_train_size = int(1e4)
