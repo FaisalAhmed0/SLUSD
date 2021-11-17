@@ -14,6 +14,7 @@ from src.utils import record_video_finetune, best_skill
 from src.models.models import Discriminator
 from src.replayBuffers import DataBuffer
 from src.callbacks.callbacks import DiscriminatorCallback, VideoRecorderCallback
+from src.diayn import DIAYN
 
 import torch
 import torch.nn as nn
@@ -35,8 +36,8 @@ torch.random.manual_seed(seed)
 
 
 # shared parameters
-params = dict( n_skills = 20,
-           pretrain_steps = int(2.5e6),
+params = dict( n_skills = 4,
+           pretrain_steps = int(1e5),
            finetune_steps = int(1e5),
            buffer_size = int(1e7),
            min_train_size = int(1e4)
@@ -251,10 +252,14 @@ if __name__ == "__main__":
     os.makedirs(exp_directory)
     # save the exp parameters
     save_params(args, exp_directory)
+    # create a diyan object
+    alg_params = ppo_hyperparams if args.alg == "ppo" else sac_hyperparams
+    diayn = DIAYN(params, alg_params, discriminator_hyperparams, args.env, args.alg, exp_directory, seed=seed, conf=conf, timestamp=timestamp)
     # pretraining step
-    pretrain(args, exp_directory)
+    diayn.pretrain()
+    # pretrain(args, exp_directory)
     # fine-tuning step 
-    finetune(args, exp_directory)
+    # finetune(args, exp_directory)
 
 
 
