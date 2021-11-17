@@ -164,7 +164,7 @@ class SkillWrapperFinetune(gym.Wrapper):
     Reset the environment 
     """
     self.i = (self.i+1) % 5
-    self.env.seed(self.seed[self.i])
+    self.env.seed(self.seeds[self.i])
     obs = self.env.reset()
     onehot = self.one_hot(self.skill)
     obs = np.array(list(obs) + list(onehot)).astype(np.float32)

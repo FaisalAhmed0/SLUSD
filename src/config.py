@@ -14,6 +14,9 @@ videos_dir = "videos/",
 # log directory for the fine tunning
 log_dir_finetune  = "logs_finetune/",
 
+# pretrain_steps_expriment_directory
+pretrain_steps_exper_dir = "pretrain_steps_exper/",
+
 # number of the runs for the agent evaluation
 eval_runs = 5,
 

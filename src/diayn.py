@@ -102,7 +102,7 @@ class DIAYN():
                         )
 
             # Create Callbacks
-            video_loging_callback = VideoRecorderCallback(self.env_name, record_freq=1000, deterministic=self.d,
+            video_loging_callback = VideoRecorderCallback(self.env_name, record_freq=5000, deterministic=self.d,
                                                           n_z=self.params['n_skills'], videos_dir=self.conf.videos_dir + f"/sac_{self.env_name}_{self.timestamp}")
             discriminator_callback = DiscriminatorCallback(self.d, None, self.discriminator_hyperparams, sw=self.sw,
                                                            n_skills=self.params['n_skills'], min_buffer_size=self.params['min_train_size'], save_dir=self.directory, on_policy=False)
@@ -165,11 +165,12 @@ class DIAYN():
         env = DummyVecEnv([lambda: SkillWrapperFinetune(Monitor(gym.make(
         self.env_name),  f"{self.directory}/finetune_train_results"), self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, skill=best_skill_index)])
 
-        eval_env = SkillWrapperFinetune(Monitor(gym.make(
-            self.env_name),  f"{self.directory}/finetune_eval_results"), self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, skill=best_skill_index)
+        eval_env = SkillWrapperFinetune(gym.make(
+            self.env_name), self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, skill=best_skill_index)
         eval_env = Monitor(eval_env, f"{self.directory}/finetune_eval_results")
+        
         eval_callback = EvalCallback(eval_env, best_model_save_path=self.directory + f"/best_finetuned_model_skillIndex:{best_skill_index}",
-                                    log_path=self.directory, eval_freq=1000,
+                                    log_path=f"{self.directory}/finetune_eval_results", eval_freq=1000,
                                     deterministic=True, render=False)
         if self.alg == "sac":
             model = SAC.load(model_dir, env=env, tensorboard_log=self.directory)
