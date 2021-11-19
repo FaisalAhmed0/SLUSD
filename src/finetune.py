@@ -22,8 +22,8 @@ torch.random.manual_seed(seed)
 
 
 # shared parameters
-params = dict( n_skills = 4,
-           pretrain_steps = int(1e5),
+params = dict( n_skills = 6,
+           pretrain_steps = int(2e6),
            finetune_steps = int(1e5),
            buffer_size = int(1e7),
            min_train_size = int(1e4)
@@ -51,7 +51,7 @@ sac_hyperparams = dict(
     buffer_size = int(1e7),
     tau = 0.01,
     gradient_steps = 1,
-    ent_coef=0.1,
+    ent_coef=1,
     learning_starts = 10000,
     algorithm = "sac"
 )

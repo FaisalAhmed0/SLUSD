@@ -61,7 +61,7 @@ sac_hyperparams = dict(
     buffer_size = int(1e7),
     tau = 0.01,
     gradient_steps = 1,
-    ent_coef=0.1,
+    ent_coef=1,
     learning_starts = 10000,
     algorithm = "sac"
 )
@@ -130,28 +130,39 @@ def record_skills(args):
 
 def record_learned_agent(best_skill, args):
     # TODO: test this
-    env = SkillWrapperFinetune(gym.make(args.env), args.skill, max_steps=gym.make(args.env)._max_episode_steps, skill=best_skill)
+    env = SkillWrapperFinetune(gym.make(args.env), args.skills, max_steps=gym.make(args.env)._max_episode_steps, skill=best_skill)
     video_folder = f"recorded_agents/env:{args.env}_alg: {args.alg}_finetune_videos"
 
-    env = Monitor(env, video_folder, resume=True,force=False, uid=f"env: {env_name}, skill: {skill}")
+    env = Monitor(env, video_folder, resume=True,force=False, uid=f"env: {args.env}, skill: {best_skill}")
     
     # env = DummyVecEnv([lambda: SkillWrapperFinetune(gym.make(args.env), args.skills, max_steps=gym.make(args.env)._max_episode_steps, skill=best_skill)])
     # env = VecVideoRecorder(env, video_folder=f"recorded_agents/env:{args.env}_alg: {args.alg}_finetune_videos",
     #                           record_video_trigger=lambda step: step == 0, video_length=1000,
     #                           name_prefix = f"env: {args.env}, alg: {args.alg}, best_skill: {best_skill}")
     # input()
-    directory =  conf.log_dir_finetune + f"{args.alg}_{args.env}_skills:{args.skills}_{args.stamp}" + f"best_finetuned_model_skillIndex:{best_skill}/" + "/best_model"
+    directory =  conf.log_dir_finetune + f"{args.alg}_{args.env}_skills:{args.skills}_{args.stamp}/" + f"best_finetuned_model_skillIndex:{best_skill}/" + "/best_model"
+    # model_dir = conf.log_dir_finetune + f"{args.alg}_{args.env}_{args.stamp}" + "/best_model"
     if args.alg == "sac":
-        model = SAC.load("./best_model_finetune", seed=seed)
+        model = SAC.load(directory, seed=seed)
     elif args.alg == "ppo":
-        model = PPO.load("./best_model_finetune", clip_range= get_schedule_fn(ppo_hyperparams['clip_range']), seed=seed)
-    obs = env.reset()[0]
+        model = PPO.load(directory, clip_range= get_schedule_fn(ppo_hyperparams['clip_range']), seed=seed)
+    print(model)
+    obs = env.reset()
+    # print("#######")
+    # print(obs)
+    n_skills = args.skills
+    # print(f"Number of skills: {n_skills}")
+    # aug_obs = augment_obs(obs, best_skill, n_skills)
+    # print("#########here#########")
+    # print(aug_obs)
+    # print(len(aug_obs))
     total_reward = 0
     done = False
     while not done:
         action, _ = model.predict(obs, deterministic=True)
         obs, reward, done, _ = env.step(action)
-        obs = obs[0]
+        obs = obs
+        # aug_obs = augment_obs(obs, best_skill, n_skills)
         total_reward += reward
     # print(f"Final reward: {total_reward}")
     env.close()
@@ -159,6 +170,6 @@ def record_learned_agent(best_skill, args):
 if __name__ == "__main__":
     args = cmd_args()
     record_skills(args)
-    best_skill = 4
+    best_skill = 3
     # record_learned_agent(best_skill, args)
 

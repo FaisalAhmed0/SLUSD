@@ -22,12 +22,12 @@ torch.random.manual_seed(seed)
 
 
 # pretraing steps
-pretrain_steps = [ int(50e3), int(100e3), int(200e3), int(500e3), int(1e6), int(2e6), int(5e6) ]
+pretrain_steps = [ int(100e3), int(200e3), int(500e3), int(1e6), int(5e6), int(10e6), int(50e6)]
 
 # shared parameters
-params = dict( n_skills = 4,
+params = dict( n_skills = 5,
            pretrain_steps = int(1e5),
-           finetune_steps = int(2e3),
+           finetune_steps = int(1e5),
            buffer_size = int(1e7),
            min_train_size = int(1e4)
              )
@@ -116,13 +116,16 @@ def plot_results(results_dict, args, stamp):
         x = results[:, 0]
         y = results[:, 1]
         yerr = results[:, 2]
-
         # First illustrate basic pyplot interface, using defaults where possible.
         plt.errorbar(x, y, yerr=yerr, label=k)
     plt.legend()
-    # files_dir = f"Vis/{args.env}"
-    # plt.savefig(f'{files_dir}/pretrain_steps_exper_{args.alg}_{args.skills}_skills_{stamp}', dpi=150)
-    # plt.savefig("")
+    files_dir = f"Vis/{args.env}"
+    try:
+        print("plotted and saved")
+        plt.savefig(f'{files_dir}/pretrain_steps_exper_{args.skills}_skills_{stamp}.png', dpi=150)
+    except:
+        print("plotted and saved with exception")
+        plt.savefig(f"./pretrain_exp_{args.env}.png", dpi=150)
 
     plt.show()
     
@@ -135,9 +138,9 @@ if __name__ == "__main__":
     # experiment directory
     for alg in algs:
         results_dict[alg] = []
-        for steps in pretrain_steps:
+        for steps in pretrain_steps[:3]:
             # print("############HERE#############")
-            exp_directory = conf.pretrain_steps_exper_dir + f"{alg}_{args.env}_skills:{params['n_skills']}_pretrain_steps:{steps}_{timestamp}"
+            exp_directory = conf.pretrain_steps_exper_dir + f"{args.env}/" + f"{alg}_{args.env}_skills:{params['n_skills']}_pretrain_steps:{steps}_{timestamp}"
             # create a folder for the expirment
             os.makedirs(exp_directory)
             # change the pretraining timesteps param

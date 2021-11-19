@@ -15,6 +15,7 @@ from stable_baselines3.common.vec_env import VecVideoRecorder, DummyVecEnv
 from stable_baselines3.common.utils import get_schedule_fn
 from stable_baselines3 import PPO, SAC
 
+import os
 # Extract arguments from terminal
 def cmd_args():
     parser = argparse.ArgumentParser()
@@ -29,7 +30,8 @@ def cmd_args():
 def run_pretrained_policy(args):
     # load the model
     env = DummyVecEnv([lambda: SkillWrapper(gym.make(args.env), args.skills, max_steps=1000)])
-    directory =  conf.log_dir_finetune + f"{args.alg}_{args.env}_{args.stamp}" + "/best_model"
+    # directory =  conf.log_dir_finetune + f"{args.alg}_{args.env}_{args.stamp}" + "/best_model"
+    directory = conf.log_dir_finetune + f"{args.alg}_{args.env}_skills:{args.skills}_{args.stamp}" + "/best_model"
     if args.alg == "sac":
         model = SAC.load(directory)
     elif args.alg == "ppo":

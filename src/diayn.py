@@ -67,8 +67,8 @@ class DIAYN():
                         seed=self.seed
                         )
             # Create Callbacks
-            video_loging_callback = VideoRecorderCallback(self.env_name, record_freq=5000, deterministic=self.d,
-                                                          n_z=self.params['n_skills'], videos_dir=self.conf.videos_dir + f"ppo_{self.env_name}_{self.timestamp}")
+            # video_loging_callback = VideoRecorderCallback(self.env_name, record_freq=5000, deterministic=self.d,
+            #                                               n_z=self.params['n_skills'], videos_dir=self.conf.videos_dir + f"ppo_{self.env_name}_{self.timestamp}")
             # evaluation_callback = EvaluationCallBack(env_name, eval_freq=500, n_evals=eval_runs, log_dir=log_dir)
             discriminator_callback = DiscriminatorCallback(self.d, self.buffer, self.discriminator_hyperparams,
                                                            sw=self.sw, n_skills=self.params['n_skills'], min_buffer_size=self.params['min_train_size'], save_dir=self.directory, on_policy=True)
@@ -81,7 +81,7 @@ class DIAYN():
                                          deterministic=True, render=False)
             # train the agent
             model.learn(total_timesteps=self.params['pretrain_steps'], callback=[
-                        discriminator_callback, eval_callback, video_loging_callback], log_interval=1, tb_log_name="PPO Pretrain")
+                        discriminator_callback, eval_callback], log_interval=10, tb_log_name="PPO Pretrain")
         elif self.alg == "sac":
             env = DummyVecEnv([lambda: Monitor(RewardWrapper(SkillWrapper(gym.make(self.env_name), self.params['n_skills'], max_steps=self.conf.max_steps),
                                                              self.d, self.params['n_skills']), self.directory)])
@@ -102,8 +102,8 @@ class DIAYN():
                         )
 
             # Create Callbacks
-            video_loging_callback = VideoRecorderCallback(self.env_name, record_freq=5000, deterministic=self.d,
-                                                          n_z=self.params['n_skills'], videos_dir=self.conf.videos_dir + f"/sac_{self.env_name}_{self.timestamp}")
+            # video_loging_callback = VideoRecorderCallback(self.env_name, record_freq=5000, deterministic=self.d,
+            #                                               n_z=self.params['n_skills'], videos_dir=self.conf.videos_dir + f"/sac_{self.env_name}_{self.timestamp}")
             discriminator_callback = DiscriminatorCallback(self.d, None, self.discriminator_hyperparams, sw=self.sw,
                                                            n_skills=self.params['n_skills'], min_buffer_size=self.params['min_train_size'], save_dir=self.directory, on_policy=False)
 
@@ -116,7 +116,7 @@ class DIAYN():
 
             # train the agent
             model.learn(total_timesteps=self.params['pretrain_steps'], callback=[
-                        discriminator_callback, eval_callback, video_loging_callback], log_interval=1, tb_log_name="SAC Pretrain")
+                        discriminator_callback, eval_callback], log_interval=10, tb_log_name="SAC Pretrain")
 
     # finetune the pretrained policy on a specific task
     def finetune(self):
@@ -135,6 +135,8 @@ class DIAYN():
         del model
 
         if self.alg == "sac":
+            env = DummyVecEnv([lambda: SkillWrapperFinetune(Monitor(gym.make(
+        self.env_name),  f"{self.directory}/finetune_train_results"), self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, skill=best_skill_index)])
             model = SAC('MlpPolicy', env, verbose=1,
                         learning_rate=self.alg_params['learning_rate'],
                         batch_size=self.alg_params['batch_size'],
@@ -148,6 +150,13 @@ class DIAYN():
                         tensorboard_log=self.directory,
                         )
         elif self.alg == "ppo":
+            env = DummyVecEnv([lambda: SkillWrapperFinetune(Monitor(gym.make(
+        self.env_name),  f"{self.directory}/finetune_train_results"), self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, skill=best_skill_index), 
+                              lambda: SkillWrapperFinetune(Monitor(gym.make(
+        self.env_name),  f"{self.directory}/finetune_train_results"), self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, skill=best_skill_index), lambda: SkillWrapperFinetune(Monitor(gym.make(
+        self.env_name),  f"{self.directory}/finetune_train_results"), self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, skill=best_skill_index), lambda: SkillWrapperFinetune(Monitor(gym.make(
+        self.env_name),  f"{self.directory}/finetune_train_results"), self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, skill=best_skill_index)])
+            
             model = PPO('MlpPolicy', env, verbose=1,
                         learning_rate=self.alg_params['learning_rate'],
                         n_steps=self.alg_params['n_steps'],
@@ -161,9 +170,9 @@ class DIAYN():
                         tensorboard_log=self.directory,
 
                         )
-
-        env = DummyVecEnv([lambda: SkillWrapperFinetune(Monitor(gym.make(
-        self.env_name),  f"{self.directory}/finetune_train_results"), self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, skill=best_skill_index)])
+        
+        # env = DummyVecEnv([lambda: SkillWrapperFinetune(Monitor(gym.make(
+        # self.env_name),  f"{self.directory}/finetune_train_results"), self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, skill=best_skill_index)])
 
         eval_env = SkillWrapperFinetune(gym.make(
             self.env_name), self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, skill=best_skill_index)
@@ -184,5 +193,5 @@ class DIAYN():
                         callback=eval_callback, tb_log_name="PPO_FineTune")
 
         # record a video of the agent
-        record_video_finetune(self.env_name, best_skill_index, model,
-                            self.params['n_skills'], video_length=1000, video_folder='videos_finetune/', alg=self.alg)
+        # record_video_finetune(self.env_name, best_skill_index, model,
+        #                     self.params['n_skills'], video_length=1000, video_folder='videos_finetune/', alg=self.alg)

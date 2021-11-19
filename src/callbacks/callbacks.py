@@ -122,12 +122,18 @@ class DiscriminatorCallback(BaseCallback):
               epoch_loss += loss.cpu().detach().item()
             
             grad_norms, weights_norm = self.gradient_norm(self.d)
-            
             epoch_loss /= 1
-            self.sw.add_scalar("discrimiator loss", epoch_loss, self.num_timesteps)
-            self.sw.add_scalar("discrimiator grad norm", grad_norms, self.num_timesteps)
-            self.sw.add_scalar("discrimiator wights norm", weights_norm, self.num_timesteps)
-            torch.save(self.d.state_dict(), self.save_dir + "/disc.pth")
+            if (not self.on_policy) and self.num_timesteps%100 == 0:
+                self.sw.add_scalar("discrimiator loss", epoch_loss, self.num_timesteps)
+                self.sw.add_scalar("discrimiator grad norm", grad_norms, self.num_timesteps)
+                self.sw.add_scalar("discrimiator wights norm", weights_norm, self.num_timesteps)
+                torch.save(self.d.state_dict(), self.save_dir + "/disc.pth")
+            else:
+                self.sw.add_scalar("discrimiator loss", epoch_loss, self.num_timesteps)
+                self.sw.add_scalar("discrimiator grad norm", grad_norms, self.num_timesteps)
+                self.sw.add_scalar("discrimiator wights norm", weights_norm, self.num_timesteps)
+                torch.save(self.d.state_dict(), self.save_dir + "/disc.pth")
+                
 
 
 

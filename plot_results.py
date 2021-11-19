@@ -12,6 +12,7 @@ def cmd_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--env', type=str, default="MountainCarContinuous-v0")
     parser.add_argument("--alg", type=str, default="ppo")
+    parser.add_argument("--skills", type=int, default=4)
     parser.add_argument("--stamp", type=str, required=True)
     args = parser.parse_args()
     return args
@@ -37,7 +38,11 @@ def plot(x, y, xlabel, ylabel, legend, color, filename):
 
 if __name__ == "__main__":
     args = cmd_args()
-    file_dir = conf.log_dir_finetune + f"{args.alg}_{args.env}_{args.stamp}/" + "eval_results/" + "evaluations.npz"
+    # file_dir = conf.log_dir_finetune + f"{args.alg}_{args.env}_{args.stamp}/" + "eval_results/" + "evaluations.npz"
+    # file_dir = conf.log_dir_finetune + f"{args.alg}_{args.env}_{args.stamp}/" + "evaluations.npz"
+    
+    # file_dir = conf.log_dir_finetune +  f"{args.alg}_{args.env}_skills:{args.skills}_{args.stamp}/" + "eval_results/" + "evaluations.npz"
+    file_dir = conf.log_dir_finetune +  f"{args.alg}_{args.env}_skills:{args.skills}_{args.stamp}/" + "finetune_eval_results/" + "evaluations.npz"
     files = np.load(file_dir)
     steps = files['timesteps']
     results = files['results']
