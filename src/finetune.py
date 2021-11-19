@@ -51,7 +51,7 @@ sac_hyperparams = dict(
     buffer_size = int(1e7),
     tau = 0.01,
     gradient_steps = 1,
-    ent_coef=1,
+    ent_coef=0.4,
     learning_starts = 10000,
     algorithm = "sac"
 )
@@ -72,6 +72,8 @@ def cmd_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--env', type=str, default="MountainCarContinuous-v0")
     parser.add_argument("--alg", type=str, default="ppo")
+    parser.add_argument("--skills", type=int, default=6)
+    parser.add_argument("--presteps", type=int, default=int(1e6))
     args = parser.parse_args()
     return args
 
@@ -100,6 +102,8 @@ def save_params(args, directory):
 if __name__ == "__main__":
     print(f"Experiment timestamp: {timestamp}")
     args = cmd_args()
+    params['pretrain_steps'] = args.presteps
+    params['n_skills'] = args.skills
     # experiment directory
     exp_directory = conf.log_dir_finetune + f"{args.alg}_{args.env}_skills:{params['n_skills']}_{timestamp}"
     # create a folder for the expirment
