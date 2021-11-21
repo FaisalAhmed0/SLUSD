@@ -10,7 +10,7 @@ from src.environment_wrappers.env_wrappers import RewardWrapper, SkillWrapper, S
 from src.utils import record_video_finetune, best_skill
 from src.models.models import Discriminator
 from src.replayBuffers import DataBuffer
-from src.callbacks.callbacks import DiscriminatorCallback, VideoRecorderCallback
+from src.callbacks.callbacks import DiscriminatorCallback, VideoRecorderCallback, FineTuneCallback
 
 import torch.nn as nn
 from torch.utils.tensorboard import SummaryWriter
@@ -19,7 +19,7 @@ import time
 
 
 class DIAYN():
-    def __init__(self, params, alg_params, discriminator_hyperparams, env="MountainCarContinuous-v0", alg="ppo", directory="./", seed=10, device="cpu", conf=None, timestamp=None):
+    def __init__(self, params, alg_params, discriminator_hyperparams, env="MountainCarContinuous-v0", alg="ppo", directory="./", seed=10, device="cpu", conf=None, timestamp=None, checkpoints=False, args=None):
         # create the discirminator and the buffer
         self.d = Discriminator(gym.make(env).observation_space.shape[0], [
                                conf.layer_size_discriminator, conf.layer_size_discriminator], params['n_skills']).to(device)
@@ -40,6 +40,8 @@ class DIAYN():
         self.seed = seed
         self.timestamp = timestamp
         self.conf = conf
+        self.checkpoints = checkpoints
+        self.args = args
 
     def pretrain(self):
         if self.alg == "ppo":
@@ -79,9 +81,17 @@ class DIAYN():
             eval_callback = EvalCallback(eval_env, best_model_save_path=self.directory,
                                          log_path=f"{self.directory}/eval_results", eval_freq=1000,
                                          deterministic=True, render=False)
+            # create the callback list
+            if self.checkpoints:
+                # (self, args, params, alg_params, conf, seed, alg, timestamp)
+                # print("will add the finetune callback")
+                # input()
+                fineune_callback = FineTuneCallback(self.args, self.params, self.alg_params, self.conf, self.seed, self.alg, self.timestamp)
+                callbacks = [discriminator_callback, eval_callback, fineune_callback]
+            else:
+                callbacks = [discriminator_callback, eval_callback]
             # train the agent
-            model.learn(total_timesteps=self.params['pretrain_steps'], callback=[
-                        discriminator_callback, eval_callback], log_interval=10, tb_log_name="PPO Pretrain")
+            model.learn(total_timesteps=self.params['pretrain_steps'], callback=callbacks, log_interval=10, tb_log_name="PPO Pretrain")
         elif self.alg == "sac":
             env = DummyVecEnv([lambda: Monitor(RewardWrapper(SkillWrapper(gym.make(self.env_name), self.params['n_skills'], max_steps=self.conf.max_steps),
                                                              self.d, self.params['n_skills']), self.directory)])
@@ -113,10 +123,19 @@ class DIAYN():
 
             eval_callback = EvalCallback(eval_env, best_model_save_path=self.directory,
                                          log_path=f"{self.directory}/eval_results", eval_freq=1000, deterministic=True, render=False)
+            
+            # create the callback list
+            if self.checkpoints:
+                # (self, args, params, alg_params, conf, seed, alg, timestamp)
+                # print("will add the finetune callback")
+                # input()
+                fineune_callback = FineTuneCallback(self.args, self.params, self.alg_params, self.conf, self.seed, self.alg, self.timestamp)
+                callbacks = [discriminator_callback, eval_callback, fineune_callback]
+            else:
+                callbacks = [discriminator_callback, eval_callback]
 
             # train the agent
-            model.learn(total_timesteps=self.params['pretrain_steps'], callback=[
-                        discriminator_callback, eval_callback], log_interval=10, tb_log_name="SAC Pretrain")
+            model.learn(total_timesteps=self.params['pretrain_steps'], callback=callbacks, log_interval=10, tb_log_name="SAC Pretrain")
 
     # finetune the pretrained policy on a specific task
     def finetune(self):

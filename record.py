@@ -170,6 +170,6 @@ def record_learned_agent(best_skill, args):
 if __name__ == "__main__":
     args = cmd_args()
     record_skills(args)
-    best_skill = 3
+    best_skill = 0
     # record_learned_agent(best_skill, args)
 

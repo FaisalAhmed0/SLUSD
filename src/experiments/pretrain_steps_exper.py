@@ -1,3 +1,4 @@
+import gym
 import argparse
 
 from src.config import conf
@@ -21,8 +22,7 @@ torch.random.manual_seed(seed)
 
 
 
-# pretraing steps
-pretrain_steps = [ int(100e3), int(200e3), int(500e3), int(1e6), int(5e6), int(10e6), int(50e6)]
+
 
 # shared parameters
 params = dict( n_skills = 5,
@@ -103,10 +103,10 @@ def final_results(dir):
     # print(f"results: {logs['results']}")
     final_reward = np.mean(logs['results'][-1])
     rewards_std = np.std(logs['results'][-1])
-    print(f"reeard: {final_reward}, std: {rewards_std}")
+    print(f"reward: {final_reward}, std: {rewards_std}")
     return final_reward, rewards_std
 
-def plot_results(results_dict, args, stamp):
+def plot_results(results_dict, args, stamp, reward_threshold):
     plt.figure()
     for k in results_dict:
         results = results_dict[k]
@@ -114,11 +114,12 @@ def plot_results(results_dict, args, stamp):
         # example data
         print(results)
         x = results[:, 0]
-        y = results[:, 1]
-        yerr = results[:, 2]
+        y = results[:, 1] / reward_threshold
+        yerr = results[:, 2] / reward_threshold
         # First illustrate basic pyplot interface, using defaults where possible.
         plt.errorbar(x, y, yerr=yerr, label=k)
     plt.legend()
+    plt.xlabel("Pretrain steps")
     files_dir = f"Vis/{args.env}"
     try:
         print("plotted and saved")
@@ -127,36 +128,45 @@ def plot_results(results_dict, args, stamp):
         print("plotted and saved with exception")
         plt.savefig(f"./pretrain_exp_{args.env}.png", dpi=150)
 
-    plt.show()
+    # plt.show()
     
 
 if __name__ == "__main__":
     print(f"Experiment timestamp: {timestamp}")
     args = cmd_args()
-    results_dict = {}
-    algs = ['ppo', 'sac']
+    pretrain_steps = [int(2e4), int(2e4)]
+    n_samples = 4
+    algs = ['sac', 'ppo']
     # experiment directory
+    for alg, pretrain_step in zip(algs, pretrain_steps):
+        # print("############HERE#############")
+        exp_directory = conf.pretrain_steps_exper_dir + f"{args.env}/" + f"{alg}_{args.env}_skills:{params['n_skills']}_{timestamp}"
+        # create a folder for the expirment
+        os.makedirs(exp_directory)
+        # change the pretraining timesteps param
+        params['pretrain_steps'] = pretrain_step
+        # save the exp parameters
+        save_params(args, alg, exp_directory)
+        # create a diyan object
+        alg_params = ppo_hyperparams if alg == "ppo" else sac_hyperparams
+        diayn = DIAYN(params, alg_params, discriminator_hyperparams, args.env, alg, exp_directory, seed=seed, conf=conf, timestamp=timestamp, checkpoints=True, args=args)
+        # pretraining step
+        diayn.pretrain()
+            
+    # print(f"steps after pretraining: {steps}")
+    # input()
+    results_dict = {}
+    reward_threshold = gym.make(args.env).spec.reward_threshold
+    print(f"reeward threshold is: {reward_threshold}")
+    steps = range(pretrain_steps[0]//n_samples, pretrain_steps[0]+n_samples, pretrain_steps[0]//n_samples)
+    print(f"steps: {list(steps)}")
     for alg in algs:
         results_dict[alg] = []
-        for steps in pretrain_steps[:3]:
-            # print("############HERE#############")
-            exp_directory = conf.pretrain_steps_exper_dir + f"{args.env}/" + f"{alg}_{args.env}_skills:{params['n_skills']}_pretrain_steps:{steps}_{timestamp}"
-            # create a folder for the expirment
-            os.makedirs(exp_directory)
-            # change the pretraining timesteps param
-            params['pretrain_steps'] = steps
-            # save the exp parameters
-            save_params(args, alg, exp_directory)
-            # create a diyan object
-            alg_params = ppo_hyperparams if alg == "ppo" else sac_hyperparams
-            diayn = DIAYN(params, alg_params, discriminator_hyperparams, args.env, alg, exp_directory, seed=seed, conf=conf, timestamp=timestamp)
-            # pretraining step
-            diayn.pretrain()
-            # fine-tuning step 
-            diayn.finetune()
-            # save the results
+        for step in steps:
+            exp_directory = conf.pretrain_steps_exper_dir + f"{args.env}/" + f"{alg}_{args.env}_skills:{params['n_skills']}_pretrain_steps:{step}_{timestamp}"
             reward, std = final_results(exp_directory + "/finetune_eval_results/evaluations.npz")
-            results_dict[alg].append([steps, reward, std])
-    plot_results(results_dict, args, timestamp)
+            results_dict[alg].append([step, reward, std])
+        
+    plot_results(results_dict, args, timestamp, reward_threshold)
 
 
