@@ -57,8 +57,10 @@ class DiscriminatorCallback(BaseCallback):
     # TODO: add smoothing parameter
     # TODO: add gradient penalties gp
     # TODO: add mixup regularization
+    # TODO: add parametrization: 0 -> MLP, 1 -> dot_based
+
     def __init__(self, discriminator, buffer, hyerparams, sw, n_skills, min_buffer_size=2048, verbose=0, save_dir="./",
-                 on_policy=False, weight_decay=None, label_smoothing=None, gp=None, mixup=False):
+                 on_policy=False, weight_decay=None, label_smoothing=None, gp=None, mixup=False, paramerization=0):
         super(DiscriminatorCallback, self).__init__(verbose)
         # classifier
         self.d = discriminator
@@ -76,9 +78,9 @@ class DiscriminatorCallback(BaseCallback):
         # batch size
         self.batch_size = hyerparams['batch_size']
         # use label smoothing if not None, otherwise use cross_entropy
-        if label_smoothing:
+        if paramerization==0  and label_smoothing:
             self.criterion = self.label_smoothedCrossEntropyLoss
-        else:
+        elif paramerization==0:
             self.criterion = F.cross_entropy
         # tensorboard summary writer
         self.sw = sw
@@ -94,6 +96,8 @@ class DiscriminatorCallback(BaseCallback):
         self.gp = gp
         # mixup regularization
         self.mixup = mixup
+        # parametrization 
+        self.paramerization = paramerization
 
     def _on_step(self):
         """
@@ -110,7 +114,6 @@ class DiscriminatorCallback(BaseCallback):
                 obs = torch.clone(env_obs)
                 skill = torch.tensor(skill)
                 self.buffer.add(obs, skill)
-
         return True
 
     def split_obs(self, obs):
@@ -193,57 +196,114 @@ class DiscriminatorCallback(BaseCallback):
         """
         This event is triggered before updating the policy.
         """
-        current_buffer_size = len(
-            self.buffer) if self.on_policy else self.locals['replay_buffer'].buffer_size if self.locals['replay_buffer'].full else self.locals['replay_buffer'].pos
-        if current_buffer_size >= self.min_buffer_size:
-            # initlize the average losses
-            epoch_loss = 0
-            for _ in range(1):
-                if self.on_policy:
-                    inputs, targets = self.buffer.sample(self.batch_size)
-                else:
-                    obs, _, _, _, _ = self.locals['replay_buffer'].sample(
-                        self.batch_size)
-                    inputs, targets = self.split_obs(obs)
-                outputs = self.d(inputs.to(conf.device))
-                loss = self.criterion(outputs, targets.to(
-                    conf.device).to(torch.int64))
-                # TODO: add mixup
-                if self.mixup:
-                    inputs2, targets2 = self.buffer.sample(self.batch_size)
-                    inputs = self.mixup_reg(input, inputs2)
-                    targets = self.mixup_reg(targets, targets2, targets=True)
-                    loss = 0
-                    loss = self.onehot_cross_entropy(outputs, targets)
-                # TODO: Add gradient penalty to the loss
-                if self.gp:
-                    inputs.requires_grad_(True)
-                    gp = self.grad_penalty(loss, inputs)
-                    loss += (self.gp * gp)
-                self.optimizer.zero_grad()
-                loss.backward()
-                # clip_grad_norm_(model.parameters(), 0.1)
-                self.optimizer.step()
-                epoch_loss += loss.cpu().detach().item()
+        # MLP case
+        if self.paramerization == 0:
+            current_buffer_size = len(
+                self.buffer) if self.on_policy else self.locals['replay_buffer'].buffer_size if self.locals['replay_buffer'].full else self.locals['replay_buffer'].pos
+            if current_buffer_size >= self.min_buffer_size:
+                # initlize the average losses
+                epoch_loss = 0
+                for _ in range(1):
+                    if self.on_policy:
+                        inputs, targets = self.buffer.sample(self.batch_size)
+                    else:
+                        obs, _, _, _, _ = self.locals['replay_buffer'].sample(
+                            self.batch_size)
+                        inputs, targets = self.split_obs(obs)
+                    outputs = self.d(inputs.to(conf.device))
+                    loss = self.criterion(outputs, targets.to(
+                        conf.device).to(torch.int64))
+                    # TODO: add mixup
+                    if self.mixup:
+                        inputs2, targets2 = self.buffer.sample(self.batch_size)
+                        inputs = self.mixup_reg(input, inputs2)
+                        targets = self.mixup_reg(targets, targets2, targets=True)
+                        loss = 0
+                        loss = self.onehot_cross_entropy(outputs, targets)
+                    # TODO: Add gradient penalty to the loss
+                    if self.gp:
+                        inputs.requires_grad_(True)
+                        gp = self.grad_penalty(loss, inputs)
+                        loss += (self.gp * gp)
+                    self.optimizer.zero_grad()
+                    loss.backward()
+                    # clip_grad_norm_(model.parameters(), 0.1)
+                    self.optimizer.step()
+                    epoch_loss += loss.cpu().detach().item()
 
-            grad_norms, weights_norm = self.gradient_norm(self.d)
-            epoch_loss /= 1
-            if (not self.on_policy) and self.num_timesteps % 100 == 0:
-                self.sw.add_scalar("discrimiator loss",
-                                   epoch_loss, self.num_timesteps)
-                self.sw.add_scalar("discrimiator grad norm",
-                                   grad_norms, self.num_timesteps)
-                self.sw.add_scalar("discrimiator wights norm",
-                                   weights_norm, self.num_timesteps)
-                torch.save(self.d.state_dict(), self.save_dir + "/disc.pth")
-            else:
-                self.sw.add_scalar("discrimiator loss",
-                                   epoch_loss, self.num_timesteps)
-                self.sw.add_scalar("discrimiator grad norm",
-                                   grad_norms, self.num_timesteps)
-                self.sw.add_scalar("discrimiator wights norm",
-                                   weights_norm, self.num_timesteps)
-                torch.save(self.d.state_dict(), self.save_dir + "/disc.pth")
+                grad_norms, weights_norm = self.gradient_norm(self.d)
+                epoch_loss /= 1
+                if (not self.on_policy) and self.num_timesteps % 100 == 0:
+                    self.sw.add_scalar("discrimiator loss",
+                                    epoch_loss, self.num_timesteps)
+                    self.sw.add_scalar("discrimiator grad norm",
+                                    grad_norms, self.num_timesteps)
+                    self.sw.add_scalar("discrimiator wights norm",
+                                    weights_norm, self.num_timesteps)
+                    torch.save(self.d.state_dict(), self.save_dir + "/disc.pth")
+                else:
+                    self.sw.add_scalar("discrimiator loss",
+                                    epoch_loss, self.num_timesteps)
+                    self.sw.add_scalar("discrimiator grad norm",
+                                    grad_norms, self.num_timesteps)
+                    self.sw.add_scalar("discrimiator wights norm",
+                                    weights_norm, self.num_timesteps)
+                    torch.save(self.d.state_dict(), self.save_dir + "/disc.pth")
+        elif self.paramerization == 1:
+            current_buffer_size = len(
+                self.buffer) if self.on_policy else self.locals['replay_buffer'].buffer_size if self.locals['replay_buffer'].full else self.locals['replay_buffer'].pos
+            if current_buffer_size >= self.min_buffer_size:
+                epoch_loss = 0
+                for _ in range(1):
+                    if self.on_policy:
+                        inputs, targets = self.buffer.sample(self.batch_size)
+                    else:
+                        obs, _, _, _, _ = self.locals['replay_buffer'].sample(
+                            self.batch_size)
+                        states, skills = self.split_obs(obs)
+                    # onehot encoding of the skills 
+                    with torch.no_grad():
+                        onehots_skills = torch.zeros(self.batch_size, self.n_skills)
+                        onehots_skills[torch.arange(self.batch_size), skills] = 1
+                    outputs = self.d(states.to(conf.device), onehots_skills.to(conf.device))
+                    loss = torch.mean(-torch.log(outputs))
+                    # # TODO: add mixup
+                    # if self.mixup:
+                    #     inputs2, targets2 = self.buffer.sample(self.batch_size)
+                    #     inputs = self.mixup_reg(input, inputs2)
+                    #     targets = self.mixup_reg(targets, targets2, targets=True)
+                    #     loss = 0
+                    #     loss = self.onehot_cross_entropy(outputs, targets)
+                    # # TODO: Add gradient penalty to the loss
+                    # if self.gp:
+                    #     inputs.requires_grad_(True)
+                    #     gp = self.grad_penalty(loss, inputs)
+                    #     loss += (self.gp * gp)
+                    # self.optimizer.zero_grad()
+                    loss.backward()
+                    # clip_grad_norm_(model.parameters(), 0.1)
+                    self.optimizer.step()
+                    epoch_loss += loss.cpu().detach().item()
+
+                grad_norms, weights_norm = self.gradient_norm(self.d)
+                epoch_loss /= 1
+                if (not self.on_policy) and self.num_timesteps % 100 == 0:
+                    self.sw.add_scalar("discrimiator loss",
+                                    epoch_loss, self.num_timesteps)
+                    self.sw.add_scalar("discrimiator grad norm",
+                                    grad_norms, self.num_timesteps)
+                    self.sw.add_scalar("discrimiator wights norm",
+                                    weights_norm, self.num_timesteps)
+                    torch.save(self.d.state_dict(), self.save_dir + "/disc.pth")
+                else:
+                    self.sw.add_scalar("discrimiator loss",
+                                    epoch_loss, self.num_timesteps)
+                    self.sw.add_scalar("discrimiator grad norm",
+                                    grad_norms, self.num_timesteps)
+                    self.sw.add_scalar("discrimiator wights norm",
+                                    weights_norm, self.num_timesteps)
+                    torch.save(self.d.state_dict(), self.save_dir + "/disc.pth")
+
 
 
 class FineTuneCallback(BaseCallback):

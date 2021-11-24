@@ -1,3 +1,4 @@
+import torch
 import torch.nn as nn
 
 class Discriminator(nn.Module):
@@ -13,6 +14,8 @@ class Discriminator(nn.Module):
     layers = []
     layers.append(nn.Linear(n_input, n_hiddens[0]))
     layers.append(nn.ReLU())
+    if dropout:
+          layers.append( nn.Dropout(dropout) )
     for i in range(len(n_hiddens)-1):
       layers.append( nn.Linear(n_hiddens[i], n_hiddens[i+1]) )
       layers.append( nn.ReLU() )
@@ -22,9 +25,80 @@ class Discriminator(nn.Module):
     
     self.head = nn.Sequential(*layers)
     self.output = nn.Linear(n_hiddens[-1], n_skills)
-    # TODO: print head to check
-    print(f"Discriminator head {self.head}")
-  
 
   def forward(self, x):
     return self.output(self.head(x))
+
+
+'''
+The classifier parametrization
+	s_enc = Sequential([Dense(64, ‘relu’), Dense(64, ‘relu’), Dense(32, ‘linear’)])
+	z_enc = Sequential([Dense(64, ‘relu’), Dense(64, ‘relu’), Dense(32, ‘linear’)])
+	s_repr = s_enc(s)  // [batch_size x 32]
+	z_repr = z_enc(z)
+	score = sum(s_repr * z_repr, axis=1)  // [batch_size]
+	score_outer = sum(s_repr[:, None, :] * z_repr[None, :, :], axis=2)  // [batch_size x batch_size]
+f(s, z) -> real number
+p(z | s) = f(s, z) / \sum_{z’} f(s, z’)
+'''
+
+#TODO: Added the dot product based classifier
+class Encoder(nn.Module):
+  def __init__(self, state_n_input, skill_n_input, n_hiddens, n_latent, dropout=None):
+      super().__init__()
+      # define the state encoder
+      state_enc_layers = []
+      state_enc_layers.append(nn.Linear(state_n_input, n_hiddens[0]))
+      state_enc_layers.append(nn.ReLU())
+      if dropout:
+          state_n_input.append(nn.Dropout(dropout))
+      for i in range(len(n_hiddens)-1):
+        state_n_input.append( nn.Linear(n_hiddens[i], n_hiddens[i+1]) )
+        state_n_input.append( nn.ReLU() )
+        # TODO: Added dropout
+        if dropout:
+          state_n_input.append( nn.Dropout(dropout) )
+
+      state_enc_layers.append(nn.Linear(n_hiddens[-1], n_latent))
+      self.state_enc = nn.Sequential(*state_enc_layers)
+
+      # define the skills encoder
+      skill_enc_layers = []
+      skill_enc_layers.append(nn.Linear(skill_n_input, n_hiddens[0]))
+      skill_enc_layers.append(nn.ReLU())
+      if dropout:
+          skill_enc_layers.append(nn.Dropout(dropout))
+      for i in range(len(n_hiddens)-1):
+        skill_enc_layers.append( nn.Linear(n_hiddens[i], n_hiddens[i+1]) )
+        skill_enc_layers.append( nn.ReLU() )
+        # TODO: Added dropout
+        if dropout:
+          skill_enc_layers.append( nn.Dropout(dropout) )
+
+      skill_enc_layers.append(nn.Linear(n_hiddens[-1], n_latent))
+      self.skill_enc = nn.Sequential(*skill_enc_layers)
+
+      
+      
+  def forward(self, state, skill):
+    # pass the state to the state encoder
+    state_rep = self.state_enc(state)
+    # pass the skill to the skill encoder
+    skill_rep = self.skill_enc(skill)
+    # compute the dot product score
+    score =  torch.sum(state_rep * skill_rep, dim=1)
+    # compute the outer product score
+    score_outer = torch.sum(state_rep[:, None, :] * skill_rep[None, :, :], dim=2)
+    # compute the final output
+    output = self.softmax(score, score_outer)
+    return output
+
+  def softmax(self, score, score_outer):
+    max_score = torch.max(score_outer)
+    numerator = torch.exp( score - max_score )
+    denominator = torch.sum( torch.exp(score_outer - max_score), dim=1)
+    return numerator / denominator
+    
+
+
+
