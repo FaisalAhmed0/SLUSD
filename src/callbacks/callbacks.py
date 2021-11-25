@@ -60,7 +60,7 @@ class DiscriminatorCallback(BaseCallback):
     # TODO: add parametrization: 0 -> MLP, 1 -> dot_based
 
     def __init__(self, discriminator, buffer, hyerparams, sw, n_skills, min_buffer_size=2048, verbose=0, save_dir="./",
-                 on_policy=False, weight_decay=None, label_smoothing=None, gp=None, mixup=False, paramerization=0):
+                 on_policy=False, paramerization=0):
         super(DiscriminatorCallback, self).__init__(verbose)
         # classifier
         self.d = discriminator
@@ -69,16 +69,16 @@ class DiscriminatorCallback(BaseCallback):
         # optimization hyperparameters
         self.hyerparams = hyerparams
         # TODO: Added Weight decay
-        self.weight_decay = weight_decay if weight_decay else 0
+        self.weight_decay = hyerparams['weight_decay']
         # optimizer
         self.optimizer = opt.Adam(
-            self.d.parameters(), lr=hyerparams['learning_rate'], weight_decay=weight_decay)
+            self.d.parameters(), lr=hyerparams['learning_rate'], weight_decay=self.weight_decay)
         # number of epochs
         self.epochs = hyerparams['n_epochs']
         # batch size
         self.batch_size = hyerparams['batch_size']
         # use label smoothing if not None, otherwise use cross_entropy
-        if paramerization==0  and label_smoothing:
+        if paramerization==0  and hyerparams['label_smoothing']:
             self.criterion = self.label_smoothedCrossEntropyLoss
         elif paramerization==0:
             self.criterion = F.cross_entropy
@@ -93,9 +93,9 @@ class DiscriminatorCallback(BaseCallback):
         # boolean for the algorithm type
         self.on_policy = on_policy
         # gradient penalty
-        self.gp = gp
+        self.gp = hyerparams['gp']
         # mixup regularization
-        self.mixup = mixup
+        self.mixup = hyerparams['mixup']
         # parametrization 
         self.paramerization = paramerization
 
@@ -311,7 +311,7 @@ class FineTuneCallback(BaseCallback):
     A callback to check the peroformance of the downstream task every N steps 
     '''
 
-    def __init__(self, args, params, alg_params, conf, seed, alg, timestamp, n_samples=4):
+    def __init__(self, args, params, alg_params, conf, seed, alg, timestamp, n_samples=100):
         super().__init__()
         self.args = args
         self.env_name = args.env

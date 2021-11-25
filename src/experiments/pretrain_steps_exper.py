@@ -25,7 +25,7 @@ torch.random.manual_seed(seed)
 
 
 # shared parameters
-params = dict( n_skills = 5,
+params = dict( n_skills = 6,
            pretrain_steps = int(1e5),
            finetune_steps = int(1e5),
            buffer_size = int(1e7),
@@ -134,8 +134,8 @@ def plot_results(results_dict, args, stamp, reward_threshold):
 if __name__ == "__main__":
     print(f"Experiment timestamp: {timestamp}")
     args = cmd_args()
-    pretrain_steps = [int(2e4), int(2e4)]
-    n_samples = 4
+    pretrain_steps = [int(5e6), int(5e6)]
+    n_samples = 100
     algs = ['sac', 'ppo']
     # experiment directory
     for alg, pretrain_step in zip(algs, pretrain_steps):
