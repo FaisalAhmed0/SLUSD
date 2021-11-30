@@ -24,18 +24,18 @@ from src.congif import conf
 from src.env_wrappers import SkillWrapper, RewardWrapper
 
 
-class MountainCar(Individual):
+class HalfCheetah(Individual):
     """
-    MountainCar controlled by a feedforward policy network
+    Swimmer controlled by a feedforward policy network
     """
 
     def __init__(self):
-        self.net = MLP_policy(2 + conf.n_Z, [conf.layer_size_policy, conf.layer_size_policy], 1)
+        self.net = MLP_policy(17 + conf.n_Z, [conf.layer_size_policy, conf.layer_size_policy], 6)
         self.d = None
 
     @staticmethod
-    def from_params(params: Dict[str, t.Tensor]) -> 'MountainCar':
-        agent = MountainCar()
+    def from_params(params: Dict[str, t.Tensor]) -> 'HalfCheetah':
+        agent = HalfCheetah()
         agent.net.load_state_dict(params)
         return agent
     
@@ -45,7 +45,7 @@ class MountainCar(Individual):
     def fitness(self, render=False) -> float:
         print(f"Discriminator is {self.d}")
         assert not (self.d is None)
-        env = RewardWrapper(SkillWrapper(gym.make("MountainCarContinuous-v0"), conf.n_Z, max_steps=self.conf.max_steps), self.d, conf.n_z)
+        env = RewardWrapper(SkillWrapper(gym.make("HalfCheetah-v2"), conf.n_Z, max_steps=self.conf.max_steps), self.d, conf.n_z)
         obs = env.reset()
         done = False
         r_tot = 0
