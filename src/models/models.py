@@ -117,6 +117,38 @@ class Encoder(nn.Module):
         return scores
 
         
+class MLP_policy(nn.Module):
+    def __init__(self, n_input, n_hiddens, n_actions):
+        super().__init__()
+        layers = []
+        layers.append(nn.Linear(n_input, n_hiddens[0]))
+        layers.append(nn.ReLU())
+        for i in range(len(n_hiddens)-1):
+            layers.append( nn.Linear(n_hiddens[i], n_hiddens[i+1]) )
+            layers.append( nn.ReLU() )
+
+        self.model = nn.Sequential(*layers)
+        self.mean = nn.Linear(n_hiddens[-1], n_actions)
+        self.log_var = nn.Linear(n_hiddens[-1], n_actions)
+
+    def forward(self, x):
+        x = self.model(x)
+        mean = self.mean(x)
+        log_var = self.log_var(x)
+        return mean, log_var
+  
+    def sample_action(self, x):
+        mean, log_var = self.forward(x)
+        covar = torch.exp(log_var) + 1e-3
+        self.actions_dist = MultivariateNormal(mean.squeeze(dim=0), torch.diag(covar.squeeze(dim=0)))
+        action = self.actions_dist.sample()
+        log = self.actions_dist.log_prob(action)
+        return action
+
+    def entropy(self):
+        return self.actions_dist.entropy()
+
+
     
 
 

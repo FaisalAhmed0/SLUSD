@@ -33,7 +33,7 @@ layer_size_value = 300,
 layer_size_discriminator = 300,
 
 # number of skills
-n_z = 4,
+n_z = 6,
 
 # buffer size for the discriminator 
 buffer_size = int(1e7),
