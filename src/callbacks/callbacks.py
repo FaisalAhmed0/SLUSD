@@ -71,6 +71,7 @@ class DiscriminatorCallback(BaseCallback):
         # TODO: Added Weight decay
         self.weight_decay = hyerparams['weight_decay']
         # optimizer
+        print(f"Weight decay value is {self.weight_decay}")
         self.optimizer = opt.Adam(
             self.d.parameters(), lr=hyerparams['learning_rate'], weight_decay=self.weight_decay)
         # number of epochs

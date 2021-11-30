@@ -26,6 +26,7 @@ def kde_entropy(data, args):
     # developed by Kozachenko and Leonenko (1987):
     kozachenko = continuous.get_h(data, k=30, min_dist=0.00001)
     print(f"kozachenko entropy is {kozachenko}")
+    return kozachenko
 
 # plot a 2D gaussian 
 def plot_multinorm(data, args):

@@ -44,9 +44,10 @@ p(z | s) = f(s, z) / \sum_{z’} f(s, z’)
 
 #TODO: Added the dot product based classifier
 class Encoder(nn.Module):
-  def __init__(self, state_n_input, skill_n_input, n_hiddens, n_latent, dropout=None):
+    def __init__(self, state_n_input, skill_n_input, n_hiddens, n_latent, dropout=None):
       super().__init__()
       # define the state encoder
+      self.num_skills = skill_n_input
       state_enc_layers = []
       state_enc_layers.append(nn.Linear(state_n_input, n_hiddens[0]))
       state_enc_layers.append(nn.ReLU())
@@ -80,24 +81,42 @@ class Encoder(nn.Module):
 
       
       
-  def forward(self, state, skill):
-    # pass the state to the state encoder
-    state_rep = self.state_enc(state)
-    # pass the skill to the skill encoder
-    skill_rep = self.skill_enc(skill)
-    # compute the dot product score
-    score =  torch.sum(state_rep * skill_rep, dim=1)
-    # compute the outer product score
-    score_outer = torch.sum(state_rep[:, None, :] * skill_rep[None, :, :], dim=2)
-    # compute the final output
-    output = self.softmax(score, score_outer)
-    return output
+    def forward(self, state, skill):
+        # pass the state to the state encoder
+        state_rep = self.state_enc(state)
+        # pass the skill to the skill encoder
+        skill_rep = self.skill_enc(skill)
+        # compute the dot product score
+        score =  torch.sum(state_rep * skill_rep, dim=1)
+        score = torch.exp( score - score.max() )
+        # compute the outer product score
+        score_all_skills = self.score_all(state_rep)
+        # compute the final output
+        output = score / score_all_skills
+        print(f"output of the encoder: {output}")
+        return output
 
-  def softmax(self, score, score_outer):
-    max_score = torch.max(score_outer)
-    numerator = torch.exp( score - max_score )
-    denominator = torch.sum( torch.exp(score_outer - max_score), dim=1)
-    return numerator / denominator
+    def softmax(self, score, score_outer):
+        max_score = torch.max(score_outer)
+        numerator = torch.exp( score - max_score )
+        denominator = torch.sum( torch.exp(score_outer - max_score), dim=1)
+        return numerator / denominator
+
+    @torch.no_grad()
+    def score_all(self, state_rep):
+        batch_size = state_rep.shape[0]
+        scores = torch.zeros(batch_size)
+        for skill in range(self.num_skills):
+            skill_onehot = torch.zeros(batch_size, self.num_skills)
+            skill_onehot[torch.arange(batch_size), skill] = 1
+            skill_rep = self.skill_enc(skill_onehot)
+            score = torch.sum(state_rep * skill_rep, dim=1)
+            score = torch.exp(score - score.max())
+            print(f"Score in score all shape: {score.shape}")
+            scores += score
+        return scores
+
+        
     
 
 

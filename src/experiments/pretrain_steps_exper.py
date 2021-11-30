@@ -59,11 +59,15 @@ sac_hyperparams = dict(
     algorithm = "sac"
 )
 
-# Discriminator Hyperparameters
 discriminator_hyperparams = dict(
     learning_rate = 3e-4,
     batch_size = 64,
-    n_epochs = 1
+    n_epochs = 1,
+    weight_decay = 1e-1,
+    dropout = 0,
+    label_smoothing = None,
+    gp = None,
+    mixup = False
 )
 
 # save a timestamp

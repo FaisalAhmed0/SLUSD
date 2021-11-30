@@ -73,6 +73,7 @@ def cmd_args():
     parser.add_argument("--alg", type=str, default="ppo")
     parser.add_argument("--skills", type=int, default=4)
     parser.add_argument("--stamp", type=str, required=True)
+    parser.add_argument("--bestskill", type=int, default=-1)
     args = parser.parse_args()
     return args
 
@@ -170,6 +171,7 @@ def record_learned_agent(best_skill, args):
 if __name__ == "__main__":
     args = cmd_args()
     record_skills(args)
-    best_skill = 0
-    # record_learned_agent(best_skill, args)
+    if args.bestskill != -1:    
+        best_skill = args.bestskill
+        record_learned_agent(best_skill, args)
 

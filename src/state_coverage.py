@@ -36,29 +36,34 @@ def run_pretrained_policy(args):
         model = SAC.load(directory)
     elif args.alg == "ppo":
         model = PPO.load(directory, clip_range= get_schedule_fn(0.1))
-    data = []
     # run the model to collect the data
-    with torch.no_grad():
-        for i in range(5):
-            for skill in range(args.skills):
+    seeds = [0, 10, 1234, 5, 42]
+    entropy_list = []
+    for seed in seeds:
+        data = []
+        with torch.no_grad():
+            for i in range(5):
                 env = DummyVecEnv([lambda: gym.make(args.env) ])
-                obs = env.reset()
-                obs = obs[0]
-                data.append(obs.copy())
-                aug_obs = augment_obs(obs, skill, args.skills)
-                total_reward = 0
-                done = False
-                while not done:
-                    action, _ = model.predict(aug_obs, deterministic=False)
-                    obs, _, done, _ = env.step(action)
+                env.seed(seed)
+                for skill in range(args.skills):
+                    obs = env.reset()
                     obs = obs[0]
-                    # print(obs)
                     data.append(obs.copy())
                     aug_obs = augment_obs(obs, skill, args.skills)
-    data = np.array(data)
-    np.random.shuffle(data)
-    print(f"length of the data: {len(data)}")
-    kde_entropy(data, args)
+                    total_reward = 0
+                    done = False
+                    while not done:
+                        action, _ = model.predict(aug_obs, deterministic=False)
+                        obs, _, done, _ = env.step(action)
+                        obs = obs[0]
+                        # print(obs)
+                        data.append(obs.copy())
+                        aug_obs = augment_obs(obs, skill, args.skills)
+        data = np.array(data)
+        np.random.shuffle(data)
+        print(f"length of the data: {len(data)}")
+        entropy_list.append(kde_entropy(data, args))
+    print(f"Average entropy over all the random seeds: { np.mean(entropy_list) } with std of { np.std(entropy_list) }")
     # print(f"Size of the data is: {len(data)}")
     # plot_multinorm(data, args)
     
