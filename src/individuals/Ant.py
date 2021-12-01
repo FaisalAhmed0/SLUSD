@@ -32,6 +32,8 @@ class Ant(Individual):
     def __init__(self):
         self.net = MLP_policy(111 + conf.n_Z, [conf.layer_size_policy, conf.layer_size_policy], 8)
         self.d = None
+        self.n_skills = None
+        self.buffer = None
 
     @staticmethod
     def from_params(params: Dict[str, t.Tensor]) -> 'Ant':
@@ -41,10 +43,18 @@ class Ant(Individual):
     
     def set_discriminator(self, d):
         self.d = d
+        
+    def set_n_skills(self, n_skills):
+        self.n_skills = n_skills
+        
+    def set_dataBuffer(self, buffer):
+        self.buffer = buffer
 
     def fitness(self, render=False) -> float:
         print(f"Discriminator is {self.d}")
-        assert not (self.d is None)
+        assert not (self.d == None)
+        assert not (self.n_skills == None)
+        assert not (self.buffer == None)
         env = RewardWrapper(SkillWrapper(gym.make("Ant-v2"), conf.n_Z, max_steps=self.conf.max_steps), self.d, conf.n_z)
         obs = env.reset()
         done = False
@@ -61,6 +71,9 @@ class Ant(Individual):
 
     def get_params(self) -> Dict[str, t.Tensor]:
         return self.net.state_dict()
+    
+    def load_model_params(self, path):
+        self.net.load_state_dict(torch.load(path))
 
     def action(self, obs):
         # print(f"obs {obs}")
