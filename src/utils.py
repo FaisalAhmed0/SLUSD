@@ -166,7 +166,7 @@ def augment_obs(obs, skill, n_skills):
 
 
 # A method to return the best performing skill
-def best_skill(model, env_name, n_skills):
+def best_skill(model, env_name, n_skills, alg_type="rl"):
     env = gym.make(env_name)
     total_rewards = []
     for skill in range(n_skills):
@@ -175,7 +175,10 @@ def best_skill(model, env_name, n_skills):
         total_reward = 0
         done = False
         while not done:
-            action, _ = model.predict(aug_obs, deterministic=True)
+            if alg_type == "rl":
+                action, _ = model.predict(aug_obs, deterministic=True)
+            elif alg_type == "es":
+                action = model.action(aug_obs)
             obs, reward, done, _ = env.step(action)
             aug_obs = augment_obs(obs, skill, n_skills)
             total_reward += reward

@@ -24,6 +24,7 @@ class Discriminator(nn.Module):
         layers.append( nn.Dropout(dropout) )
     
     self.head = nn.Sequential(*layers)
+    print(self.head)
     self.output = nn.Linear(n_hiddens[-1], n_skills)
 
   def forward(self, x):

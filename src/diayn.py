@@ -22,7 +22,7 @@ class DIAYN():
     def __init__(self, params, alg_params, discriminator_hyperparams, env="MountainCarContinuous-v0", alg="ppo", directory="./", seed=10, device="cpu", conf=None, timestamp=None, checkpoints=False, args=None):
         # create the discirminator and the buffer
         self.d = Discriminator(gym.make(env).observation_space.shape[0], [
-                               conf.layer_size_discriminator, conf.layer_size_discriminator], params['n_skills']).to(device)
+                               conf.layer_size_discriminator, conf.layer_size_discriminator], params['n_skills'], dropout=discriminator_hyperparams['dropout']).to(device)
         self.buffer = DataBuffer(params['buffer_size'], obs_shape=gym.make(
             env).observation_space.shape[0])
 

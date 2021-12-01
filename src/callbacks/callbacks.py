@@ -204,6 +204,7 @@ class DiscriminatorCallback(BaseCallback):
             if current_buffer_size >= self.min_buffer_size:
                 # initlize the average losses
                 epoch_loss = 0
+                self.d.train()
                 for _ in range(1):
                     if self.on_policy:
                         inputs, targets = self.buffer.sample(self.batch_size)

@@ -21,7 +21,7 @@ from evostrat import Individual
 
 from src.models import MLP_policy
 from src.congif import conf
-from src.env_wrappers import SkillWrapper, RewardWrapper
+from src.env_wrappers import SkillWrapper, RewardWrapper, SkillWrapperFinetune
 
 
 class MountainCar(Individual):
@@ -34,6 +34,7 @@ class MountainCar(Individual):
         self.d = None
         self.n_skills = None
         self.buffer = None
+        self.skill = None
 
     @staticmethod
     def from_params(params: Dict[str, t.Tensor]) -> 'MountainCar':
@@ -50,17 +51,27 @@ class MountainCar(Individual):
     def set_dataBuffer(self, buffer):
         self.buffer = buffer
         
+    def set_skill(self, skill):
+        self.skill = skill
+        
 
     def fitness(self, render=False) -> float:
         print(f"Discriminator is {self.d}")
         assert not (self.d == None)
         assert not (self.n_skills == None)
         assert not (self.buffer == None)
-        env = RewardWrapper(SkillWrapper(gym.make("MountainCarContinuous-v0"), self.n_skills, max_steps=self.conf.max_steps), self.d, self.n_skills)
+        if self.skill:
+            env = SkillWrapperFinetune(gym.make("MountainCarContinuous-v0"), conf.n_Z, max_steps=self.conf.max_steps, skill=self.skill)
+        else:
+            env = RewardWrapper(SkillWrapper(gym.make("MountainCarContinuous-v0"), conf.n_Z, max_steps=self.conf.max_steps), self.d, conf.n_z)
         obs = env.reset()
         done = False
         r_tot = 0
         while not done:
+            env_obs, skill = self.split_obs(obs)
+            env_obs = torch.clone(env_obs)
+            skill = torch.tensor(skill)
+            self.buffer.add(env_obs, skill)
             action = self.action(obs)
             obs, r, done, _ = env.step(action)
             r_tot += r
@@ -80,3 +91,8 @@ class MountainCar(Individual):
         # print(f"obs {obs}")
         with t.no_grad():
             return self.net.sample_action(torch.tensor(obs).unsqueeze(dim=0)).numpy()
+        
+    def split_obs(self, obs):
+        env_obs = torch.clone(obs[:, : -self.n_skills])
+        skills = torch.argmax(obs[:, -self.n_skills:], dim=1)
+        return env_obs, skills
