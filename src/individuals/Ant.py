@@ -55,7 +55,6 @@ class Ant(Individual):
         self.skill = skill
 
     def fitness(self, render=False) -> float:
-        print(f"Discriminator is {self.d}")
         assert not (self.d == None)
         assert not (self.n_skills == None)
         assert not (self.buffer == None)

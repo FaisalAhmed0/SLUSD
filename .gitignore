@@ -13,8 +13,10 @@ src/callbacks/__pycache__/
 src/diayn/__pycache__/
 src/environment_wrappers/__pycache__/
 src/models/__pycache__/
+src/individuals/__pycache__/
 slusd.egg-info/
 Untitled.ipynb
+Untitled1.ipynb
 Vis/
 recorded_agents/
 r.zip
