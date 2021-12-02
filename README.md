@@ -1,5 +1,5 @@
 # The Scaling Limits of Unsupervised Skill Discovery
-## write an introduction here
+An emprical study of mutual information based skill discovery.
 
 # Getting Started
 ### Clone the repository
@@ -8,29 +8,44 @@
 git clone https://github.com/FaisalAhmed0/SLUSD
 ```
 
-### you can setup a new environment and install requirements.txt
+### Create a new environment, install requirements.txt, run the setup, and activate the environment
 
 ```bash
+cd SLUSD
 conda create -n slusd
 pip3 install -r requirements.txt 
+pip3 install -e .
+conda activate slusd
 ```
 
-### activate the new environment and run train.py
-
+### An Example for running a finetuning expeirment with a deep RL algorithm
 ```bash
-conda activate vae_env
+python src/diyan_ppo.py --env "MountainCarContinuous-v0"  --alg "sac" --skills 6 --presteps 500000
 ```
-### Run an expirment with ppo
+The cmd arguemnts are
+|Arg|Description|Supported values|Default Value
+|--|-----|------|----|
+|env|Environment name|All OpenAI gym environment with continuous actions and state vectros|"MountainCarContinuous-v0"|
+alg|Deep RL algorithm|"sac" for soft-Actor critic, "ppo" for Proximal Policy Optimization|"ppo"|
+skills| Number of skills to  learn|  Any positive integer|6|
+presteps| Number of pretraining timesteps | Any positive integer|1000000
+
+### To observe the training dynamics run tensorboard inside the SLUSD folder
 ```bash
-python diyan_ppo.py --env "MountainCarContinuous-v0"
+tensorboard --logdir ./logs_finetune
 ```
 
-### Run an expirment with sac
+### To record a video for all skills
 ```bash
-python diyan_sac.py --env "MountainCarContinuous-v0"
+python record.py --stamp "<timestamp>" --alg ppo --skills 6
 ```
+where stamp is the timestamp for the experiment
 
-### fine tune for a specfic environment task
+### To calculate the state coverage (Entropy) 
 ```bash
-python finetune.py --env "MountainCarContinuous-v0" --alg ppo
+python src/state_coverage.py --stamp "<timestamp>" --alg ppo --skills 6
+```
+### To plot the results of a finetuning experiment
+```bash
+python plot_results.py --stamp "<timestamp>" --alg ppo --skills 6
 ```
