@@ -59,9 +59,9 @@ class Ant(Individual):
         assert not (self.n_skills == None)
         assert not (self.buffer == None)
         if self.skill:
-            env = SkillWrapperFinetune(gym.make("Ant-v2"), conf.n_Z, max_steps=self.conf.max_steps, skill=self.skill)
+            env = SkillWrapperFinetune(gym.make("Ant-v2"), self.n_skills, max_steps=self.conf.max_steps, skill=self.skill)
         else:
-            env = RewardWrapper(SkillWrapper(gym.make("Ant-v2"), conf.n_Z, max_steps=self.conf.max_steps), self.d, conf.n_z)
+            env = RewardWrapper(SkillWrapper(gym.make("Ant-v2"), self.n_skills, max_steps=self.conf.max_steps), self.d, self.n_skills)
         obs = env.reset()
         done = False
         r_tot = 0

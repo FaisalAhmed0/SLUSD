@@ -3,6 +3,14 @@ Skills discovery with Evolution Straigies.
 '''
 import gym
 
+import numpy as np
+
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import torch.optim as opt
+from torch.utils.tensorboard import SummaryWriter
+
 from src.environment_wrappers.env_wrappers import RewardWrapper, SkillWrapper, SkillWrapperFinetune
 from src.utils import record_video_finetune, best_skill
 from src.models.models import Discriminator
@@ -10,15 +18,13 @@ from src.replayBuffers import DataBuffer
 from src.callbacks.callbacks import DiscriminatorCallback, VideoRecorderCallback, FineTuneCallback
 from src.individuals import MountainCar, Swimmer, Hopper, HalfCheetah, Ant
 
-import torch.nn as nn
-from torch.utils.tensorboard import SummaryWriter
-
 import time
 
 
 class DIAYN_ES():
     
     def __init__(self, params, es_params, discriminator_hyperparams, env="MountainCarContinuous-v0", directory="./", seed=10, device="cpu", conf=None, timestamp=None, checkpoints=False, args=None, paramerization=0):
+        ### Discriminator ###
         # check the parametrization
         if paramerization == 0:
             self.d = Discriminator(gym.make(env).observation_space.shape[0], [
@@ -28,6 +34,8 @@ class DIAYN_ES():
         # replay buffer
         self.buffer = DataBuffer(params['buffer_size'], obs_shape=gym.make(
             env).observation_space.shape[0])
+        self.optimizer = opt.Adam(self.d.parameters(), lr=discriminator_hyperparams['learning_rate'])
+        self.criterion =  F.cross_entropy
 
         # tensorboard summary writer for the discriminator
         # print(f"Sumary writer comment is: {alg} Discriminator, env_name:{env}, weight_decay:{discriminator_hyperparams['weight_decay']}, dropout:{discriminator_hyperparams['dropout']}, label_smoothing:{discriminator_hyperparams['label_smoothing']}, gradient_penalty:{discriminator_hyperparams['gp']}, mixup:{discriminator_hyperparams['mixup']} ")
@@ -112,6 +120,7 @@ class DIAYN_ES():
             pbar.set_description("fit avg (training): %0.3f, std: %0.3f" % (raw_fit.mean().item(), raw_fit.std().item()))
             if (i+1) % evaluate_freq == 0:
                 eval_fit = self.evaluate_policy()
+                # Save the model if there is an improvement.
                 if eval_fit.mean().item() > best_fit:
                     best_fit = eval_fit.mean().item()
                     print(f"New best fit: {best_fit}")
@@ -123,9 +132,21 @@ class DIAYN_ES():
                 self.sw.add_scalar("discriminator_loss", d_loss, i)
                 self.sw.add_scalar("discriminator_grad_norm", d_grad_norm, i)
                 self.sw.add_scalar("discriminator_grad_norm", d_weight_norm, i)
+                # print the logs
+                printed_logs = f'''
+                Iteration: {i}
+                Training reward: {raw_fit.mean().item()}
+                Evaluation reward: {eval_fit.mean()}
+                Discriminator loss: {d_loss}
+                Discriminator grad norm: {d_grad_norm}
+                Discriminator weights norm: {d_weight_norm}
+                '''
+                print(printed_logs)
         pool.close()
         
+    # Finetune on a pretrained policy
     def finetine(self):
+        # create the indiviual object according to the environment
         if self.env_name == "MountainCarContinuous-v0":
             env_indv = MountainCar()
             # set up the population
@@ -153,14 +174,14 @@ class DIAYN_ES():
             population = NormalPopulation(param_shapes, env_indv.from_params, std=0.1)
         else:
             raise ValueError(f'Environment {self.env_name} is not implemented')
-            
+        # define the model directory and load it.
         model_dir = f"{self.directory}/""best_model.ckpt"
         env_indv.net.load_state_dict(torch.load(model_dir))
         
         # extraact the best skill
         bestskill = best_skill(env_indv, self.env_name,  self.params['n_skills'], alg_type="es")
         # set the best skill
-        env_indv
+        env_indv.set_skill(bestskill)
         
         # training loop
         # TODO: extract the hyperparameters
@@ -173,7 +194,6 @@ class DIAYN_ES():
         pbar = tqdm.tqdm(range(iterations))
         pool = Pool()
         log_freq = 10
-        
         best_fit = -np.inf
         for i in pbar:
             optim.zero_grad()
@@ -187,20 +207,75 @@ class DIAYN_ES():
                     best_fit = eval_fit.mean().item()
                     print(f"New best fit: {best_fit}")
                     torch.save(env_indv.net.state_dict(), "best_model.ckpt") 
-                    pbar.set_description("fit avg (evaluation): %0.3f, std: %0.3f" % (eval_fit.mean().item(), eval_fit.std().item()))
+                    pbar.set_description("fit avg (evaluation): %0.3f, std: %0.3f" % (eval_fit.mean(), eval_fit.std()))
                 # log all values
-                self.sw_policy.add_scalar("train_reward", raw_fit.mean().item(), i)
-                self.sw_policy.add_scalar("eval_reward", eval_fit.mean(), i)
-                self.sw.add_scalar("discriminator_loss", d_loss, i)
-                self.sw.add_scalar("discriminator_grad_norm", d_grad_norm, i)
-                self.sw.add_scalar("discriminator_grad_norm", d_weight_norm, i)
+                self.sw_policy_finetune.add_scalar("train_reward", raw_fit.mean().item(), i)
+                self.sw_policy_finetune.add_scalar("eval_reward", eval_fit.mean(), i)
+                printed_logs = f'''
+                Iteration: {i}
+                Training reward: {raw_fit.mean().item()}
+                Evaluation reward: {eval_fit.mean()}
+                Discriminator loss: {d_loss}
+                Discriminator grad norm: {d_grad_norm}
+                Discriminator weights norm: {d_weight_norm}
+                '''
+                print(printed_logs)
         pool.close()        
     
+    # perform a gradient step to train the discriminator
     def update_d(self):
-        
+        # sample data from the replay buffer
+        inputs, targets = self.buffer.sample(self.discriminator_hyperparams['batch_size'])
+        # forward pass
+        outputs = self.d(inputs)
+        # compute the loss
+        loss = self.criterion(outputs, targets.to(conf.device).to(torch.int64))
+        # optimize
+        self.optimizer.zero_grad()
+        loss.backward()
+        self.optimizer.step()
+        # compute the weights and gradient norms
+        grad_norm, weight_norm = self.norms(self.d)
+        return loss.item(), grad_norm, weight_norm 
     
-    def evaluate_policy(self):
-        pass
+    
+    def evaluate_policy(self, model, finetune=False, skill=None):
+        # set the seeds
+        seeds = [0, 10, 1234, 5, 42]
+        # create the environments
+        if finetune:
+            env = SkillWrapperFinetune(gym.make(self.env_name), self.params['n_skills'], max_steps=self.conf.max_steps, skill=self.skill)
+        else:
+            env = RewardWrapper(SkillWrapper(gym.make(self.env_name), self.params['n_skills'],, max_steps=self.conf.max_steps), self.d, self.params['n_skills'])
+        # run the evaluation loop
+        final_returns = []
+        for seed in seeds:
+            env.seed(seed)
+            obs = env.reset()
+            done = False
+            total_reward = 0
+            while not done:
+                action = Env.action(obs)
+                obs, reward, done, _ = env.step(action) 
+                total_reward += reward
+            final_returns.append(total_reward)
+        return np.array(final_returns)
+        
+
+    
+    def norms(self, net):
+        '''
+        norms(net)
+        This function calulate the gradient and weight norms of a neural network model.
+        net: network model
+        '''
+        total_norm = 0
+        total_weights_norm = 0
+        for param in net.parameters():
+            param_norm = param.grad.detach().data.norm(2)
+            total_weights_norm += param.detach().data.norm(2) ** 2
+            total_norm += param_norm.item() ** 2
+        return total_norm**0.5, total_weights_norm**0.5
         
         
         
