@@ -63,9 +63,9 @@ discriminator_hyperparams = dict(
     batch_size = 64,
     n_epochs = 1,
     weight_decay = 0, 
-    dropout = 0.5,
-    label_smoothing = None,
-    gp = None,
+    dropout = None, # The dropout probability
+    label_smoothing = False,
+    gp = 1, # the weight of the gradient penalty term
     mixup = False
 )
 
@@ -102,6 +102,10 @@ def save_params(args, directory):
     config_d = vars(conf)
     config_df = pd.DataFrame(config_d, index=[0])
     config_df.to_csv(f"{directory}/configs.csv")
+    print(f"{args.alg} hyperparameters: {alg_hyperparams}" )
+    print(f"discriminator hyperparameters: {discriminator_hyperparams}" )
+    print(f"shared experiment parameters: {params}" )
+    print(f"configurations: {config_d }" )
 
 
 

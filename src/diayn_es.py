@@ -18,23 +18,18 @@ import time
 
 class DIAYN_ES():
     
-    def __init__(self, params, es_params, discriminator_hyperparams, env="MountainCarContinuous-v0", directory="./", seed=10, device="cpu", conf=None, timestamp=None, checkpoints=False, args=None):
-        self.d = Discriminator(gym.make(env).observation_space.shape[0], [
-                               conf.layer_size_discriminator, conf.layer_size_discriminator], params['n_skills']).to(device)
+    def __init__(self, params, es_params, discriminator_hyperparams, env="MountainCarContinuous-v0", directory="./", seed=10, device="cpu", conf=None, timestamp=None, checkpoints=False, args=None, paramerization=0):
+        # check the parametrization
+        if paramerization == 0:
+            self.d = Discriminator(gym.make(env).observation_space.shape[0], [
+                                   conf.layer_size_discriminator, conf.layer_size_discriminator], params['n_skills']).to(device)
+        elif paramerization == 1:
+            pass # TODO: add the CPC style discriminator
+        # replay buffer
         self.buffer = DataBuffer(params['buffer_size'], obs_shape=gym.make(
             env).observation_space.shape[0])
 
-        # tensorboard summary writer
-        '''
-        learning_rate = 3e-4,
-        batch_size = 64,
-        n_epochs = 1,
-        weight_decay = 1e-1,
-        dropout = 0,
-        label_smoothing = None,
-        gp = None,
-        mixup = False
-        '''
+        # tensorboard summary writer for the discriminator
         # print(f"Sumary writer comment is: {alg} Discriminator, env_name:{env}, weight_decay:{discriminator_hyperparams['weight_decay']}, dropout:{discriminator_hyperparams['dropout']}, label_smoothing:{discriminator_hyperparams['label_smoothing']}, gradient_penalty:{discriminator_hyperparams['gp']}, mixup:{discriminator_hyperparams['mixup']} ")
         self.sw = SummaryWriter(
             log_dir=directory, filename_suffix=f"{alg} Discriminator, env_name:{env}, weight_decay:{discriminator_hyperparams['weight_decay']}, dropout:{discriminator_hyperparams['dropout']}, label_smoothing:{discriminator_hyperparams['label_smoothing']}, gradient_penalty:{discriminator_hyperparams['gp']}, mixup:{discriminator_hyperparams['mixup']}")
@@ -46,18 +41,21 @@ class DIAYN_ES():
         self.sw_policy_finetune = SummaryWriter( log_dir=f"{directory}/ES", comment=f"ES_finetune, env_name:{env}" )
 
         # save some attributes
-        self.params = params
-        self.es_params = es_params
-        self.discriminator_hyperparams = discriminator_hyperparams
-        self.env_name = env
-        self.directory = directory
-        self.seed = seed
-        self.timestamp = timestamp
-        self.conf = conf
-        self.checkpoints = checkpoints
-        self.args = args
+        self.params = params # general shared parameters
+        self.es_params = es_params # Evolution Stratigies hyperparameters
+        self.discriminator_hyperparams = discriminator_hyperparams # Discriminator hyperparameters
+        self.env_name = env # gym environment name
+        self.directory = directory # experiment directory
+        self.seed = seed # random seed
+        self.timestamp = timestamp # unique timesamp
+        self.conf = conf # configuration
+        self.checkpoints = checkpoints # if not none finetune with a fixed freq. and save the result, this for the scaling experiment
+        self.args = args # cmd args
+        self.paramerization = paramerization # discriminator parametrization if 0 use MLP, else if 1 use CPC style discriminator
         
+    # pretraining step with intrinsic reward    
     def pretrain(self):
+        # create the indiviual object according to the environment
         if self.env_name == "MountainCarContinuous-v0":
             env_indv = MountainCar()
             # set up the population
@@ -196,19 +194,10 @@ class DIAYN_ES():
                 self.sw.add_scalar("discriminator_loss", d_loss, i)
                 self.sw.add_scalar("discriminator_grad_norm", d_grad_norm, i)
                 self.sw.add_scalar("discriminator_grad_norm", d_weight_norm, i)
-        pool.close()
-        
-        
-        
-        
-        
-        
-        
-        
-        
+        pool.close()        
     
     def update_d(self):
-        pass
+        
     
     def evaluate_policy(self):
         pass

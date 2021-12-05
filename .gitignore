@@ -21,3 +21,7 @@ Vis/
 recorded_agents/
 r.zip
 pretrain_steps_exper/
+logs.zip
+pretrain_exp_MountainCarContinuous-v0.png
+pretrain_exp_MountainCarContinuous-v0_ppo.png
+pretrain_exp_MountainCarContinuous-v0_sac.png

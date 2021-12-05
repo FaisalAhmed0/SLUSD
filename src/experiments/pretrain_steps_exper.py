@@ -1,5 +1,6 @@
 import gym
 import argparse
+import os
 
 from src.config import conf
 from src.diayn import DIAYN
@@ -63,8 +64,8 @@ discriminator_hyperparams = dict(
     learning_rate = 3e-4,
     batch_size = 64,
     n_epochs = 1,
-    weight_decay = 1e-1,
-    dropout = 0,
+    weight_decay = 0,
+    dropout = None,
     label_smoothing = None,
     gp = None,
     mixup = False
@@ -78,6 +79,7 @@ timestamp = time.time()
 def cmd_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--env', type=str, default="MountainCarContinuous-v0")
+    parser.add_argument('--skills', type=int, default=6)
     args = parser.parse_args()
     return args
 
@@ -118,44 +120,49 @@ def plot_results(results_dict, args, stamp, reward_threshold):
         # example data
         print(results)
         x = results[:, 0]
-        y = results[:, 1] / reward_threshold
-        yerr = results[:, 2] / reward_threshold
+        y = results[:, 1] / reward_threshold * 100
+        yerr = results[:, 2] / reward_threshold * 100
         # First illustrate basic pyplot interface, using defaults where possible.
         plt.errorbar(x, y, yerr=yerr, label=k)
     plt.legend()
     plt.xlabel("Pretrain steps")
+    plt.ylabel("Normalized Return")
+    plt.title("MountainCar")
     files_dir = f"Vis/{args.env}"
+    os.makedirs(files_dir, exist_ok=True)
     try:
+        plt.savefig(f'./{files_dir}/pretrain_steps_exper_{args.skills}_skills_{stamp}.png', dpi=150)
         print("plotted and saved")
-        plt.savefig(f'{files_dir}/pretrain_steps_exper_{args.skills}_skills_{stamp}.png', dpi=150)
     except:
         print("plotted and saved with exception")
-        plt.savefig(f"./pretrain_exp_{args.env}.png", dpi=150)
+        plt.savefig(f"./pretrain_exp_{args.env}_ppo.png", dpi=150)
 
     # plt.show()
     
 
 if __name__ == "__main__":
+    timestamp = 1637839098.20234
     print(f"Experiment timestamp: {timestamp}")
     args = cmd_args()
     pretrain_steps = [int(5e6), int(5e6)]
     n_samples = 100
     algs = ['sac', 'ppo']
+    # algs = ['sac', 'ppo']
     # experiment directory
-    for alg, pretrain_step in zip(algs, pretrain_steps):
-        # print("############HERE#############")
-        exp_directory = conf.pretrain_steps_exper_dir + f"{args.env}/" + f"{alg}_{args.env}_skills:{params['n_skills']}_{timestamp}"
-        # create a folder for the expirment
-        os.makedirs(exp_directory)
-        # change the pretraining timesteps param
-        params['pretrain_steps'] = pretrain_step
-        # save the exp parameters
-        save_params(args, alg, exp_directory)
-        # create a diyan object
-        alg_params = ppo_hyperparams if alg == "ppo" else sac_hyperparams
-        diayn = DIAYN(params, alg_params, discriminator_hyperparams, args.env, alg, exp_directory, seed=seed, conf=conf, timestamp=timestamp, checkpoints=True, args=args)
-        # pretraining step
-        diayn.pretrain()
+    # for alg, pretrain_step in zip(algs, pretrain_steps):
+    #     # print("############HERE#############")
+    #     exp_directory = conf.pretrain_steps_exper_dir + f"{args.env}/" + f"{alg}_{args.env}_skills:{params['n_skills']}_{timestamp}"
+    #     # create a folder for the expirment
+    #     os.makedirs(exp_directory)
+    #     # change the pretraining timesteps param
+    #     params['pretrain_steps'] = pretrain_step
+    #     # save the exp parameters
+    #     save_params(args, alg, exp_directory)
+    #     # create a diyan object
+    #     alg_params = ppo_hyperparams if alg == "ppo" else sac_hyperparams
+    #     diayn = DIAYN(params, alg_params, discriminator_hyperparams, args.env, alg, exp_directory, seed=seed, conf=conf, timestamp=timestamp, checkpoints=True, args=args)
+    #     # pretraining step
+    #     diayn.pretrain()
             
     # print(f"steps after pretraining: {steps}")
     # input()

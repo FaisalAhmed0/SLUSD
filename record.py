@@ -31,6 +31,7 @@ from gym.wrappers import Monitor
 import pyglet
 from pyglet import *
 
+
 # make sure the same seed
 # set the seed
 seed = 10
@@ -89,30 +90,40 @@ def augment_obs(obs, skill, n_skills):
 # A method to return the best performing skill
 @torch.no_grad()
 def record_skill(model, env_name, args):
-    total_rewards = []
     n_skills = args.skills
     display = pyglet.canvas.get_display()
     screen = display.get_screens()
     config = screen[0].get_best_config()
     pyglet.window.Window(width=1024, height=1024, display=display, config=config)
-    for skill in range(n_skills):
-        print(f"Running Skill: {skill}")
-        env = gym.make(env_name)
-        video_folder = f"recorded_agents/env:{args.env},alg: {args.alg}_skills_videos"
-        env = Monitor(env, video_folder, resume=True,force=False, uid=f"env: {env_name}, skill: {skill}")
-        obs = env.reset()
-        aug_obs = augment_obs(obs, skill, n_skills)
-        total_reward = 0
-        done = False
-        while not done:
-            action, _ = model.predict(aug_obs, deterministic=False)
-            obs, reward, done, info = env.step(action)
+    seeds = [0, 10, 1234, 5, 42]
+    # seeds = [0]
+    total = []
+    for seed in seeds:
+        total_rewards = []
+        for skill in range(n_skills):
+            print(f"Running Skill: {skill}")
+            env = gym.make(env_name)
+            env.seed(seed)
+            video_folder = f"recorded_agents/env:{args.env},alg: {args.alg}_skills_videos"
+            env = Monitor(env, video_folder, resume=True,force=False, uid=f"env: {env_name}, skill: {skill}")
+            obs = env.reset()
             aug_obs = augment_obs(obs, skill, n_skills)
-            total_reward += reward
-        total_rewards.append(total_reward)
-        env.close()
-    print(f"Total rewards: {total_rewards}")
-    return np.argmax(total_rewards)
+            total_reward = 0
+            done = False
+            while not done:
+                action, _ = model.predict(aug_obs, deterministic=False)
+                obs, reward, done, info = env.step(action)
+                aug_obs = augment_obs(obs, skill, n_skills)
+                total_reward += reward
+            total_rewards.append(total_reward)
+            env.close()
+        total.append(total_rewards)
+    total_mean  = np.mean(total, axis=0)
+    total_std = np.std(total, axis=0)
+    print(f"Total: {total}")
+    print(f"Total rewards mean: {total_mean}")
+    print(f"Best skill: {np.argmax(total_mean)} and best reward is: {np.max(total_mean)} with std: {total_std[np.argmax(total_mean)]}")
+    return np.argmax(total_mean)
 
 
 

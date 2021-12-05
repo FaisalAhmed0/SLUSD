@@ -146,13 +146,16 @@ class DiscriminatorCallback(BaseCallback):
     # most of the function is from https://github.com/pytorch/pytorch/issues/7455#issuecomment-513062631
     def label_smoothedCrossEntropyLoss(self, preds, targets, smoothing=0.2):
         num_classes = preds.shape[1]
-        print(
-            f"Number of classes in the label_smoothedCrossEntropyLoss: {num_classes}")
-        print(f"targets: {targets}")
+        # print(f"Number of classes in the label_smoothedCrossEntropyLoss: {num_classes}")
+        # print(f"targets: {targets}")
         with torch.no_grad():
             smooth_target = torch.zeros_like(preds)
             smooth_target.fill_(smoothing/(num_classes-1))
             smooth_target.scatter_(1, targets.unsqueeze(1), 1 - smoothing)
+        # print(f"targets shape : {targets.shape}")
+        # print(f"Actual labels: {targets[:3]}")
+        # print(f"smoothed labels: {smooth_target[:3]}")
+        # input()
         return torch.mean(torch.sum(- smooth_target * torch.log_softmax(preds, dim=-1), dim=-1))
 
     # TODO: added onehot cross entropy
@@ -171,7 +174,7 @@ class DiscriminatorCallback(BaseCallback):
         loss: the loss value
         input: the inputs used in the loss computation
         '''
-        grads = torch.autograd.grad(loss, inputs, retain_graph=True)
+        grads = torch.autograd.grad(loss, inputs, retain_graph=True, allow_unused=True)
         # print(grad)
         grad_norm = 0
         for grad in grads:
@@ -212,6 +215,8 @@ class DiscriminatorCallback(BaseCallback):
                         obs, _, _, _, _ = self.locals['replay_buffer'].sample(
                             self.batch_size)
                         inputs, targets = self.split_obs(obs)
+                    if self.gp:
+                        inputs.requires_grad_(True)
                     outputs = self.d(inputs.to(conf.device))
                     loss = self.criterion(outputs, targets.to(
                         conf.device).to(torch.int64))
@@ -224,7 +229,7 @@ class DiscriminatorCallback(BaseCallback):
                         loss = self.onehot_cross_entropy(outputs, targets)
                     # TODO: Add gradient penalty to the loss
                     if self.gp:
-                        inputs.requires_grad_(True)
+                        # inputs.requires_grad_(True)
                         gp = self.grad_penalty(loss, inputs)
                         loss += (self.gp * gp)
                     self.optimizer.zero_grad()
