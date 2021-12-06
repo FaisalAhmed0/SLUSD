@@ -87,7 +87,7 @@ class DIAYN():
                                                            sw=self.sw, n_skills=self.params['n_skills'], min_buffer_size=self.params['min_train_size'], save_dir=self.directory, on_policy=True)
 
             eval_env = RewardWrapper(SkillWrapper(gym.make(
-                self.env_name), self.params['n_skills']), self.d, self.params['n_skills'])
+                self.env_name), self.params['n_skills'], ev=True), self.d, self.params['n_skills'])
             eval_env = Monitor(eval_env, f"{self.directory}/eval_results")
             eval_callback = EvalCallback(eval_env, best_model_save_path=self.directory,
                                          log_path=f"{self.directory}/eval_results", eval_freq=1000,
@@ -129,7 +129,7 @@ class DIAYN():
                                                            n_skills=self.params['n_skills'], min_buffer_size=self.params['min_train_size'], save_dir=self.directory, on_policy=False)
 
             eval_env = RewardWrapper(SkillWrapper(gym.make(
-                self.env_name), self.params['n_skills']), self.d, self.params['n_skills'])
+                self.env_name), self.params['n_skills'], ev=True), self.d, self.params['n_skills'])
             eval_env = Monitor(eval_env,  f"{self.directory}/eval_results")
 
             eval_callback = EvalCallback(eval_env, best_model_save_path=self.directory,

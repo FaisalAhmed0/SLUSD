@@ -65,7 +65,7 @@ discriminator_hyperparams = dict(
     weight_decay = 0, 
     dropout = None, # The dropout probability
     label_smoothing = False,
-    gp = 1, # the weight of the gradient penalty term
+    gp = 10, # the weight of the gradient penalty term
     mixup = False
 )
 
@@ -106,6 +106,7 @@ def save_params(args, directory):
     print(f"discriminator hyperparameters: {discriminator_hyperparams}" )
     print(f"shared experiment parameters: {params}" )
     print(f"configurations: {config_d }" )
+    input()
 
 
 

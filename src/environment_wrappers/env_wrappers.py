@@ -9,7 +9,7 @@ class SkillWrapper(gym.Wrapper):
   """
   gym wrapper that augment the state with random chosen skill index
   """
-  def __init__(self, env, n_skills, max_steps=1000):
+  def __init__(self, env, n_skills, max_steps=1000, ev=False):
     # Call the parent constructor, so we can access self.env later
     super(SkillWrapper, self).__init__(env)
 
@@ -21,12 +21,19 @@ class SkillWrapper(gym.Wrapper):
     shape = env.observation_space.shape[0]
     self.observation_space = gym.spaces.Box(low=low, high=high, dtype=np.float32, shape=[shape+n_skills,])
     self.env._max_episode_steps = max_steps
+    self.ev = ev
+    if ev:
+        self.seeds = [0, 10, 1234, 5, 42]
+        self.i = 0
 
   
   def reset(self):
     """
     Reset the environment 
     """
+    if self.ev:
+        self.i = (self.i+1) % 5
+        self.env.seed(self.seeds[self.i])
     # pick a random skill uniformly
     self.skill = self.skills_dist(low=0, high=self.n_skills, size=(1,)).item()
     
@@ -73,6 +80,7 @@ class SkillWrapperVideo(gym.Wrapper):
     shape = env.observation_space.shape[0]
     self.observation_space = gym.spaces.Box(low=low, high=high, dtype=np.float32, shape=[shape+n_skills,])
     self.env._max_episode_steps = max_steps
+    
 
   
   def reset(self):
