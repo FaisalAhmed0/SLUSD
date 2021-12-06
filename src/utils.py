@@ -167,20 +167,27 @@ def augment_obs(obs, skill, n_skills):
 
 # A method to return the best performing skill
 def best_skill(model, env_name, n_skills, alg_type="rl"):
+    seeds = [0, 10, 1234, 5, 42]
     env = gym.make(env_name)
-    total_rewards = []
-    for skill in range(n_skills):
-        obs = env.reset()
-        aug_obs = augment_obs(obs, skill, n_skills)
-        total_reward = 0
-        done = False
-        while not done:
-            if alg_type == "rl":
-                action, _ = model.predict(aug_obs, deterministic=True)
-            elif alg_type == "es":
-                action = model.action(aug_obs)
-            obs, reward, done, _ = env.step(action)
+    total = []
+    for seed in seeds:
+        rewards = []
+        env.seed(seed)
+        for skill in range(n_skills):
+            obs = env.reset()
             aug_obs = augment_obs(obs, skill, n_skills)
-            total_reward += reward
-        total_rewards.append(total_reward)
-    return np.argmax(total_rewards)
+            total_reward = 0
+            done = False
+            while not done:
+                if alg_type == "rl":
+                    action, _ = model.predict(aug_obs, deterministic=True)
+                elif alg_type == "es":
+                    action = model.action(aug_obs)
+                obs, reward, done, _ = env.step(action)
+                aug_obs = augment_obs(obs, skill, n_skills)
+                total_reward += reward
+            rewards.append(total_reward)
+        total.append(rewards)
+    print(f"All seeds rewards: {total}")
+    print(f"mean across seeds: {np.mean(total, axis=0)}")
+    return np.argmax(np.mean(total, axis=0))
