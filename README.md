@@ -13,9 +13,9 @@ git clone https://github.com/FaisalAhmed0/SLUSD
 ```bash
 cd SLUSD
 conda create -n slusd
+conda activate slusd
 pip3 install -r requirements.txt 
 pip3 install -e .
-conda activate slusd
 ```
 
 ### An Example for running a finetuning expeirment with a deep RL algorithm
