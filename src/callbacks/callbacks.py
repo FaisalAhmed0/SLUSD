@@ -163,7 +163,9 @@ class DiscriminatorCallback(BaseCallback):
         preds_logs = torch.log_softmax(preds, dim=-1)
         with torch.no_grad():
             onehots = torch.zeros(self.batch_size, preds.shape[1])
-            onehots[torch.arange(self.batch_size), targets] = 1
+            print(f"onehot shape: {onehots.shape}")
+            print(f"targets: {targets}")
+            onehots[torch.arange(self.batch_size), targets.squeeze().to(torch.int64)] = 1
         return torch.mean(torch.sum(- onehots * preds_logs, dim=1))
 
 
@@ -189,9 +191,9 @@ class DiscriminatorCallback(BaseCallback):
         m = np.random.beta(a=0.4, b=0.4)
         batch_size = self.batch_size
         if targets:
-            y1 = torch.zeros_like(x2)
+            y1 = torch.zeros((batch_size,self.n_skills))
             y1[torch.arange(batch_size), x1] = 1
-            y2 = torch.zeros_like(x2)
+            y2 = torch.zeros((batch_size,self.n_skills))
             y2[torch.arange(batch_size), x2] = 1
             return m*y1 + (1-m) * y2
         return m*x1 + (1-m) * x2
@@ -222,11 +224,16 @@ class DiscriminatorCallback(BaseCallback):
                         conf.device).to(torch.int64))
                     # TODO: add mixup
                     if self.mixup:
-                        inputs2, targets2 = self.buffer.sample(self.batch_size)
-                        inputs = self.mixup_reg(input, inputs2)
+                        if self.on_policy:
+                            inputs2, targets2 = self.buffer.sample(self.batch_size)
+                        else:
+                            obs, _, _, _, _ = self.locals['replay_buffer'].sample(
+                            self.batch_size)
+                            inputs2, targets2 = self.split_obs(obs)
+                        inputs = self.mixup_reg(inputs, inputs2)
                         targets = self.mixup_reg(targets, targets2, targets=True)
                         loss = 0
-                        loss = self.onehot_cross_entropy(outputs, targets)
+                        loss = torch.mean(torch.sum(- targets * torch.log_softmax(outputs, dim=-1), dim=-1))
                     # TODO: Add gradient penalty to the loss
                     if self.gp:
                         # inputs.requires_grad_(True)

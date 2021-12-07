@@ -90,7 +90,7 @@ class DIAYN():
                 self.env_name), self.params['n_skills'], ev=True), self.d, self.params['n_skills'])
             eval_env = Monitor(eval_env, f"{self.directory}/eval_results")
             eval_callback = EvalCallback(eval_env, best_model_save_path=self.directory,
-                                         log_path=f"{self.directory}/eval_results", eval_freq=1000,
+                                         log_path=f"{self.directory}/eval_results", eval_freq=5000,
                                          deterministic=True, render=False)
             # create the callback list
             if self.checkpoints:
@@ -133,7 +133,7 @@ class DIAYN():
             eval_env = Monitor(eval_env,  f"{self.directory}/eval_results")
 
             eval_callback = EvalCallback(eval_env, best_model_save_path=self.directory,
-                                         log_path=f"{self.directory}/eval_results", eval_freq=1000, deterministic=True, render=False)
+                                         log_path=f"{self.directory}/eval_results", eval_freq=5000, deterministic=True, render=False)
             
             # create the callback list
             if self.checkpoints:

@@ -62,11 +62,11 @@ discriminator_hyperparams = dict(
     learning_rate = 3e-4,
     batch_size = 64,
     n_epochs = 1,
-    weight_decay = 0, 
+    weight_decay = 1e-1, 
     dropout = None, # The dropout probability
     label_smoothing = False,
-    gp = 10, # the weight of the gradient penalty term
-    mixup = False
+    gp = None, # the weight of the gradient penalty term
+    mixup = True
 )
 
 # save a timestamp

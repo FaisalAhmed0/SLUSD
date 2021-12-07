@@ -95,8 +95,8 @@ def record_skill(model, env_name, args):
     screen = display.get_screens()
     config = screen[0].get_best_config()
     pyglet.window.Window(width=1024, height=1024, display=display, config=config)
-    seeds = [0, 10, 1234, 5, 42]
-    # seeds = [0]
+    # seeds = [0, 10, 1234, 5, 42]
+    seeds = [0]
     total = []
     for seed in seeds:
         total_rewards = []
@@ -105,7 +105,7 @@ def record_skill(model, env_name, args):
             env = gym.make(env_name)
             env.seed(seed)
             video_folder = f"recorded_agents/env:{args.env},alg: {args.alg}_skills_videos"
-            # env = Monitor(env, video_folder, resume=True,force=False, uid=f"env: {env_name}, skill: {skill}")
+            env = Monitor(env, video_folder, resume=True,force=False, uid=f"env: {env_name}, skill: {skill}")
             obs = env.reset()
             aug_obs = augment_obs(obs, skill, n_skills)
             total_reward = 0
