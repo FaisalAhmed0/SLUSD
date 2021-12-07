@@ -12,7 +12,7 @@ git clone https://github.com/FaisalAhmed0/SLUSD
 
 ```bash
 cd SLUSD
-conda create -n slusd
+conda create -n slusd python=3.8
 conda activate slusd
 pip3 install -r requirements.txt 
 pip3 install -e .
