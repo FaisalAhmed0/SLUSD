@@ -41,14 +41,14 @@ class Hopper(Individual):
         return agent
 
     def fitness(self, render=False) -> float:
-        assert not (MountainCar.d == None)
-        assert not (MountainCar.n_skills == None)
+        assert not (Hopper.d == None)
+        assert not (Hopper.n_skills == None)
         # save the data for the discriminator replay buffer
         data = []
-        if MountainCar.skill:
-            env = SkillWrapperFinetune(gym.make("Hopper-v2"), MountainCar.n_skills, max_steps=self.conf.max_steps, skill=MountainCar.skill)
+        if Hopper.skill:
+            env = SkillWrapperFinetune(gym.make("Hopper-v2"), Hopper.n_skills, max_steps=self.conf.max_steps, skill=Hopper.skill)
         else:
-            env = RewardWrapper(SkillWrapper(gym.make("Hopper-v2"), MountainCar.n_skills, max_steps=self.conf.max_steps), MountainCar.d, MountainCar.n_skills)
+            env = RewardWrapper(SkillWrapper(gym.make("Hopper-v2"), Hopper.n_skills, max_steps=self.conf.max_steps), Hopper.d, Hopper.n_skills)
         obs = env.reset()
         done = False
         r_tot = 0
@@ -77,7 +77,7 @@ class Hopper(Individual):
             return self.net.sample_action(torch.tensor(obs).unsqueeze(dim=0)).numpy()
         
     def split_obs(self, obs):
-        env_obs = torch.clone(torch.tensor(obs[: -MountainCar.n_skills]))
-        skills = torch.argmax(torch.tensor(obs[-MountainCar.n_skills:]), dim=-1)
+        env_obs = torch.clone(torch.tensor(obs[: -Hopper.n_skills]))
+        skills = torch.argmax(torch.tensor(obs[-Hopper.n_skills:]), dim=-1)
         return env_obs, skills
 
