@@ -30,7 +30,7 @@ class HalfCheetahTaskWrapper(gym.Wrapper):
         z_pos = self.sim.data.qpos[1]
         v_x = (x_pos_after - x_pos_before) / self.dt # velocity in the x direction
         if self.task == "run_forward":
-            reward = -np.abs(v_x - 3) - 0.1 * np.power(action, 2).sum()
+            reward = - (np.abs(v_x - 3) - 0.1 * np.power(action, 2).sum())
         elif self.task == "run_backward":
             reward = np.abs(v_x - 3) - 0.1 * np.power(action, 2).sum()
         elif self.task == "jump":
