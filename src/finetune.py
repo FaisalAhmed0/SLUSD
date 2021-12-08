@@ -2,7 +2,8 @@
 import argparse
 
 from src.config import conf
-from src.diayn import DIAYN
+from src.diayn import DIAYN # diayn with model-free RL
+from src.diayn_es import DIAYN_ES # diayn with evolution star
 
 import torch
 
@@ -30,6 +31,7 @@ params = dict( n_skills = 6,
              )
 
 
+
 # ppo hyperparams
 ppo_hyperparams = dict(
     learning_rate = 3e-4,
@@ -55,6 +57,20 @@ sac_hyperparams = dict(
     learning_starts = 10000,
     algorithm = "sac"
 )
+
+# Evolution Stratigies Hyperparameters 
+es_hyperparams = dict(
+    lr = 1e-3, # learning rate 
+    iterations = 2500, # iterations 
+    pop_size = 80, # population size
+    algorithm = "es"
+)
+
+hyperparams = {
+    'ppo': ppo_hyperparams,
+    'sac': sac_hyperparams,
+    'es' : es_hyperparams
+}
 
 # Discriminator Hyperparameters
 # weight_decay=0.0, label_smoothing=None, gp=None, mixup=False
@@ -86,7 +102,7 @@ def cmd_args():
 # save the hyperparameters
 def save_params(args, directory):
     # save the hyperparams in a csv files
-    alg_hyperparams = ppo_hyperparams if args.alg == "ppo" else sac_hyperparams
+    alg_hyperparams = hyperparams[args.alg]
     
     alg_hyperparams_df = pd.DataFrame(alg_hyperparams, index=[0])
     alg_hyperparams_df.to_csv(f"{directory}/{args.alg}_hyperparams.csv")
@@ -108,7 +124,23 @@ def save_params(args, directory):
     print(f"configurations: {config_d }" )
     input()
 
+def run_diyan(args):
+    if args.alg != 'es':
+        alg_params = ppo_hyperparams if args.alg == "ppo" else sac_hyperparams
+        diayn = DIAYN(params, alg_params, discriminator_hyperparams, args.env, args.alg, exp_directory, seed=seed, conf=conf, timestamp=timestamp)
+        # pretraining step
+        diayn.pretrain()
+        # fine-tuning step 
+        diayn.finetune()
+    elif args.alg == "es":
+        diayn_es = DIAYN_ES(params, alg_params, discriminator_hyperparams, args.env, exp_directory, seed=seed, conf=conf, timestamp=timestamp, args=args)
+        # pretraining step
+        diayn_es.pretrain()
+        # fine-tuning step 
+        diayn_es.finetune()
+        
 
+        
 
 if __name__ == "__main__":
     print(f"Experiment timestamp: {timestamp}")
