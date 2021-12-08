@@ -30,7 +30,7 @@ class Ant(Individual):
     n_skills = None # the number of skills
     skill = None # skill for the case of finetuning
     def __init__(self):
-        self.net = MLP_policy(111 + conf.n_Z, [conf.layer_size_policy, conf.layer_size_policy], 8)
+        self.net = MLP_policy(111 + conf.n_z, [conf.layer_size_policy, conf.layer_size_policy], 8)
         self.conf = conf
         self.t = 0
 
@@ -46,9 +46,9 @@ class Ant(Individual):
         # save the data for the discriminator replay buffer
         data = []
         if Ant.skill:
-            env = SkillWrapperFinetune(gym.make("Hopper-v2"), Ant.n_skills, max_steps=self.conf.max_steps, skill=Ant.skill)
+            env = SkillWrapperFinetune(gym.make("Ant-v2"), Ant.n_skills, max_steps=self.conf.max_steps, skill=Ant.skill)
         else:
-            env = RewardWrapper(SkillWrapper(gym.make("Hopper-v2"), Ant.n_skills, max_steps=self.conf.max_steps), Ant.d, Ant.n_skills)
+            env = RewardWrapper(SkillWrapper(gym.make("Ant-v2"), Ant.n_skills, max_steps=self.conf.max_steps), Ant.d, Ant.n_skills)
         obs = env.reset()
         done = False
         r_tot = 0
