@@ -7,6 +7,7 @@ from stable_baselines3.common.utils import get_schedule_fn
 from stable_baselines3.common.monitor import Monitor
 
 from src.environment_wrappers.env_wrappers import RewardWrapper, SkillWrapper, SkillWrapperFinetune
+from src.environment_wrappers.tasks_wrappers import HalfCheetahTaskWrapper
 from src.utils import record_video_finetune, best_skill
 from src.models.models import Discriminator
 from src.replayBuffers import DataBuffer
@@ -19,7 +20,7 @@ import time
 
 
 class DIAYN():
-    def __init__(self, params, alg_params, discriminator_hyperparams, env="MountainCarContinuous-v0", alg="ppo", directory="./", seed=10, device="cpu", conf=None, timestamp=None, checkpoints=False, args=None):
+    def __init__(self, params, alg_params, discriminator_hyperparams, env="MountainCarContinuous-v0", alg="ppo", directory="./", seed=10, device="cpu", conf=None, timestamp=None, checkpoints=False, args=None, task=None):
         # create the discirminator and the buffer
         self.d = Discriminator(gym.make(env).observation_space.shape[0], [
                                conf.layer_size_discriminator, conf.layer_size_discriminator], params['n_skills'], dropout=discriminator_hyperparams['dropout']).to(device)
@@ -53,6 +54,7 @@ class DIAYN():
         self.conf = conf
         self.checkpoints = checkpoints
         self.args = args
+        self.task = task
 
     def pretrain(self):
         if self.alg == "ppo":
@@ -102,7 +104,7 @@ class DIAYN():
             else:
                 callbacks = [discriminator_callback, eval_callback]
             # train the agent
-            model.learn(total_timesteps=self.params['pretrain_steps'], callback=callbacks, log_interval=10, tb_log_name="PPO Pretrain")
+            model.learn(total_timesteps=self.params['pretrain_steps'], callback=callbacks, log_interval=1, tb_log_name="PPO Pretrain")
         elif self.alg == "sac":
             env = DummyVecEnv([lambda: Monitor(RewardWrapper(SkillWrapper(gym.make(self.env_name), self.params['n_skills'], max_steps=self.conf.max_steps),
                                                              self.d, self.params['n_skills']), self.directory)])
@@ -146,12 +148,19 @@ class DIAYN():
                 callbacks = [discriminator_callback, eval_callback]
 
             # train the agent
-            model.learn(total_timesteps=self.params['pretrain_steps'], callback=callbacks, log_interval=10, tb_log_name="SAC Pretrain")
+            model.learn(total_timesteps=self.params['pretrain_steps'], callback=callbacks, log_interval=1, tb_log_name="SAC Pretrain")
 
     # finetune the pretrained policy on a specific task
     def finetune(self):
-        env = DummyVecEnv([lambda: SkillWrapper(gym.make(
-            self.env_name), self.params['n_skills'], max_steps=self.conf.max_steps)])
+        if self.task:
+            # TODO: add other environments
+            if self.env_name == "HalfCheetah-v2":
+                env = HalfCheetahTaskWrapper(gym.make("HalfCheetah-v2"), task=self.task)
+                env = DummyVecEnv([lambda: SkillWrapper(env, self.params['n_skills'], max_steps=self.conf.max_steps)])
+        else:
+            env = DummyVecEnv([lambda: SkillWrapper(gym.make(
+                self.env_name), self.params['n_skills'], max_steps=self.conf.max_steps)])
+            
         model_dir = self.directory + "/best_model"
         if self.alg == "sac":
             model = SAC.load(model_dir, env=env, seed=self.seed)
@@ -165,8 +174,14 @@ class DIAYN():
         del model
 
         if self.alg == "sac":
-            env = DummyVecEnv([lambda: SkillWrapperFinetune(Monitor(gym.make(
+            if self.task:
+                if self.env_name == "HalfCheetah-v2":
+                    env = HalfCheetahTaskWrapper(gym.make("HalfCheetah-v2"), task=self.task)
+                    env = DummyVecEnv([lambda: SkillWrapperFinetune(Monitor(env,  f"{self.directory}/finetune_train_results"), self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, skill=best_skill_index)])
+            else:
+                env = DummyVecEnv([lambda: SkillWrapperFinetune(Monitor(gym.make(
         self.env_name),  f"{self.directory}/finetune_train_results"), self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, skill=best_skill_index)])
+                
             model = SAC('MlpPolicy', env, verbose=1,
                         learning_rate=self.alg_params['learning_rate'],
                         batch_size=self.alg_params['batch_size'],
@@ -180,7 +195,15 @@ class DIAYN():
                         tensorboard_log=self.directory,
                         )
         elif self.alg == "ppo":
-            env = DummyVecEnv([lambda: SkillWrapperFinetune(Monitor(gym.make(
+            if self.task:
+                if self.env_name == "HalfCheetah-v2":
+                    env = HalfCheetahTaskWrapper(gym.make("HalfCheetah-v2"), task=self.task)
+                    env = DummyVecEnv([lambda: SkillWrapperFinetune(Monitor(env,  f"{self.directory}/finetune_train_results"), self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, skill=best_skill_index), 
+                                      lambda: SkillWrapperFinetune(Monitor(env,  f"{self.directory}/finetune_train_results"), self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, skill=best_skill_index), 
+                                      lambda: SkillWrapperFinetune(Monitor(env,  f"{self.directory}/finetune_train_results"), self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, skill=best_skill_index), 
+                                       lambda: SkillWrapperFinetune(Monitor(env,  f"{self.directory}/finetune_train_results"), self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, skill=best_skill_index)])
+            else:        
+                env = DummyVecEnv([lambda: SkillWrapperFinetune(Monitor(gym.make(
         self.env_name),  f"{self.directory}/finetune_train_results"), self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, skill=best_skill_index), 
                               lambda: SkillWrapperFinetune(Monitor(gym.make(
         self.env_name),  f"{self.directory}/finetune_train_results"), self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, skill=best_skill_index), lambda: SkillWrapperFinetune(Monitor(gym.make(

@@ -35,7 +35,7 @@ class Hopper(Individual):
         self.t = 0
 
     @staticmethod
-    def from_params(params: Dict[str, t.Tensor]) -> 'Hopper':
+    def from_params(params: Dict[str, torch.Tensor]) -> 'Hopper':
         agent = Hopper()
         agent.net.load_state_dict(params)
         return agent
@@ -65,7 +65,7 @@ class Hopper(Individual):
         env.close()
         return r_tot, data, self.t
 
-    def get_params(self) -> Dict[str, t.Tensor]:
+    def get_params(self) -> Dict[str, torch.Tensor]:
         return self.net.state_dict()
     
     def load_model_params(self, path):
@@ -73,7 +73,7 @@ class Hopper(Individual):
 
     def action(self, obs):
         # print(f"obs {obs}")
-        with t.no_grad():
+        with torch.no_grad():
             return self.net.sample_action(torch.tensor(obs).unsqueeze(dim=0)).numpy()
         
     def split_obs(self, obs):
