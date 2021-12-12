@@ -4,6 +4,7 @@ import argparse
 from src.config import conf
 from src.diayn import DIAYN # diayn with model-free RL
 from src.diayn_es import DIAYN_ES # diayn with evolution star
+from src.utils import report_resuts
 
 import torch
 
@@ -78,11 +79,12 @@ discriminator_hyperparams = dict(
     learning_rate = 3e-4,
     batch_size = 64,
     n_epochs = 1,
-    weight_decay = 1e-1, 
+    weight_decay = 0, 
     dropout = None, # The dropout probability
     label_smoothing = False,
     gp = None, # the weight of the gradient penalty term
-    mixup = True
+    mixup = False,
+    parametrization = "Linear"
 )
 
 # save a timestamp
@@ -157,9 +159,19 @@ if __name__ == "__main__":
     alg_params = ppo_hyperparams if args.alg == "ppo" else sac_hyperparams
     diayn = DIAYN(params, alg_params, discriminator_hyperparams, args.env, args.alg, exp_directory, seed=seed, conf=conf, timestamp=timestamp)
     # pretraining step
-    diayn.pretrain()
+    model = diayn.pretrain()
     # fine-tuning step 
     diayn.finetune()
+    # save the final results
+    # extract data_r for finetuning results and data_i for the pretrained policy
+    file_dir_finetune = conf.log_dir_finetune +  f"{args.alg}_{args.env}_skills:{args.skills}_{timestamp}/" + "finetune_eval_results/" + "evaluations.npz"
+    files = np.load(file_dir_finetune)
+    data_r = files['results']
+    file_dir_skills = conf.log_dir_finetune +  f"{args.alg}_{args.env}_skills:{args.skills}_{timestamp}/" + "eval_results/" + "evaluations.npz"
+    files = np.load(file_dir_skills)
+    data_i = files['results']
+    df = report_resuts(args.env, args.alg, params['n_skills'], model, data_r, data_i, timestamp, exp_directory)
+    print(df)
 
 
 

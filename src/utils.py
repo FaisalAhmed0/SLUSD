@@ -1,7 +1,10 @@
 from stable_baselines3.common.vec_env import VecVideoRecorder, DummyVecEnv
+from stable_baselines3.common.utils import get_schedule_fn
+from stable_baselines3 import PPO, SAC
 
 import gym
 import numpy as np
+import pandas as pd
 
 from src.environment_wrappers.env_wrappers import RewardWrapper, SkillWrapperVideo, SkillWrapper
 from src.config import conf
@@ -20,59 +23,13 @@ import pyglet
 from pyglet import *
 
 
-def kde_entropy(data, args):
+def kde_entropy(data):
     # from https://github.com/paulbrodersen/entropy_estimators
     # compute the entropy using the k-nearest neighbour approach
     # developed by Kozachenko and Leonenko (1987):
     kozachenko = continuous.get_h(data, k=30, min_dist=0.00001)
     print(f"kozachenko entropy is {kozachenko}")
     return kozachenko
-
-# plot a 2D gaussian 
-def plot_multinorm(data, args):
-    assert data.shape[1] == 2
-    # calculate the mean and the covariance
-    n_points = 50j
-    mean = np.mean(data, axis=0)
-    cov = np.cov(data, rowvar=0)
-    print(f"The mean is: {mean}")
-    print(f"Covariance is: {cov}")
-    # create the mesh
-    x, y = np.mgrid[-1.2:0.6:n_points, -0.07:0.07:n_points]
-    xy = np.column_stack([x.flat, y.flat])
-    # create the gaussian object
-    multinorm = multivariate_normal.pdf(xy, mean, cov)
-    multinorm = multinorm.reshape(x.shape)
-    # create a figure
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
-    ax.set_xlabel("Position")
-    ax.set_ylabel("Velocity")
-    ax.set_xlim(-1.5, 0.7)
-    ax.set_ylim(-0.09, 0.09)
-    ax.plot_surface(x, y, multinorm)
-    entropy = multivariate_normal.entropy(mean, cov)
-    print(f"Entropy is: {entropy}")
-    files_dir = "Vis/MountainCar"
-    os.makedirs(files_dir, exist_ok=True)
-    fig.savefig(f'{files_dir}/State Distrbution for DIAYN with {args.alg} and {args.skills} skills', dpi=150)
-    N = 60  
-    X = np.linspace(-1.2, 0.6, N)
-    Y = np.linspace(-0.07, 0.07, N)
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection=None)
-    ax.set_xlabel("Position")
-    ax.set_ylabel("Velocity")
-    ax.set_xlim(-1.5, 0.7)
-    ax.set_ylim(-0.09, 0.09)
-    X, Y = np.meshgrid(X, Y)
-    # Pack X and Y into a single 3-dimensional array
-    pos = np.empty(X.shape + (2,))
-    pos[:, :, 0] = X
-    pos[:, :, 1] = Y
-    Z = multivariate_normal.pdf(pos, mean, cov)
-    ax.contourf(X, Y, Z, zdir='z')
-    fig.savefig(f'{files_dir}/State Distrbution Contours for DIAYN with {args.alg} and {args.skills} skills', dpi=150)
 
 # run a random agent
 def random_agent(env):
@@ -189,5 +146,108 @@ def best_skill(model, env_name, n_skills, alg_type="rl"):
             rewards.append(total_reward)
         total.append(rewards)
     print(f"All seeds rewards: {total}")
-    print(f"mean across seeds: {np.mean(total, axis=0)}")
+    print(f"mean across seeds: {np.mean(total, axis=0)}")    
     return np.argmax(np.mean(total, axis=0))
+
+
+# State coverage
+def run_pretrained_policy(env_name, n_skills, alg, timestamp):
+    # load the model
+    env = DummyVecEnv([lambda: SkillWrapper(gym.make(env_name), n_skills, max_steps=1000)])
+    # directory =  conf.log_dir_finetune + f"{alg}_{env_name}_{timestamp}" + "/best_model"
+    directory = conf.log_dir_finetune + f"{alg}_{env_name}_skills:{n_skills}_{timestamp}" + "/best_model"
+    if alg == "sac":
+        model = SAC.load(directory)
+    elif alg == "ppo":
+        model = PPO.load(directory, clip_range= get_schedule_fn(0.1))
+    # run the model to collect the data
+    # print(model)
+    seeds = [0, 10, 1234, 5, 42]
+    entropy_list = []
+    for seed in seeds:
+        data = []
+        with torch.no_grad():
+            for i in range(5):
+                env = DummyVecEnv([lambda: gym.make(env_name) ])
+                env.seed(seed)
+                for skill in range(n_skills):
+                    obs = env.reset()
+                    obs = obs[0]
+                    data.append(obs.copy())
+                    aug_obs = augment_obs(obs, skill, n_skills)
+                    total_reward = 0
+                    done = False
+                    while not done:
+                        action, _ = model.predict(aug_obs, deterministic=False)
+                        obs, _, done, _ = env.step(action)
+                        obs = obs[0]
+                        data.append(obs.copy())
+                        aug_obs = augment_obs(obs, skill, n_skills)
+        data = np.array(data)
+        np.random.shuffle(data)
+        print(f"length of the data: {len(data)}")
+        entropy_list.append(kde_entropy(data))
+    print(f"Average entropy over all the random seeds: { np.mean(entropy_list) } with std of { np.std(entropy_list) }")
+    return np.mean(entropy_list), np.std(entropy_list)
+
+
+# extract the final mean and std results of an experment
+def extract_results(data):
+    data_mean = data.mean(axis=1)
+    data_mean = np.convolve(data_mean, np.ones(10)/10, mode='valid') 
+    data_std = data.std(axis=1)
+    data_std = np.convolve(data_std, np.ones(10)/10, mode='valid') 
+    print(f"mean: {data_mean[-1]}")
+    print(f"std: {data_std[-1]}")
+    return data_mean[-1], data_std[-1]
+
+# extract the result of the finetuning
+def extract_resultes_intrinsic(env_name, n_skills, model):
+    seeds = [0, 10, 1234, 5, 42]
+    total = []
+    for seed in seeds:
+        total_rewards = []
+        for skill in range(n_skills):
+            print(f"Running Skill: {skill}")
+            env = gym.make(env_name)
+            env.seed(seed)
+            obs = env.reset()
+            aug_obs = augment_obs(obs, skill, n_skills)
+            total_reward = 0
+            done = False
+            while not done:
+                action, _ = model.predict(aug_obs, deterministic=True)
+                obs, reward, done, info = env.step(action)
+                aug_obs = augment_obs(obs, skill, n_skills)
+                total_reward += reward
+            total_rewards.append(total_reward)
+            env.close()
+        total.append(total_rewards)
+    total_mean  = np.mean(total, axis=0)
+    total_std = np.std(total, axis=0)
+    print(f"Total: {total}")
+    print(f"Total rewards mean: {total_mean}")
+    print(f"Best skill: {np.argmax(total_mean)} and best reward is: {np.max(total_mean)} with std: {total_std[np.argmax(total_mean)]}")
+    return np.max(total_mean), total_std[np.argmax(total_mean)]
+
+
+# report the experiment results and save it in data frame
+def report_resuts(env_name, alg, n_skills, model, data_r, data_i, timestamp, exper_directory):
+    r = {}
+    reward_beforeFinetune_mean, reward_beforeFinetune_std = extract_resultes_intrinsic(env_name, n_skills, model)
+    r['reward_beforeFinetune_mean'] = reward_beforeFinetune_mean
+    r['reward_beforeFinetune_std'] = reward_beforeFinetune_std
+    reward_mean, reward_std = extract_results(data_r)
+    r['reward_mean'] = reward_mean
+    r['reward_std'] = reward_std
+    entropy_mean, entropy_std = run_pretrained_policy(env_name, n_skills, alg, timestamp)
+    r['entropy_mean'] = entropy_mean
+    r['entropy_std'] = entropy_std
+    intrinsic_reward_mean, intrinsic_reward_std = extract_results(data_i)
+    r['intrinsic_reward_mean'] = intrinsic_reward_mean
+    r['intrinsic_reward_std'] = intrinsic_reward_std
+    results_df = pd.DataFrame(r, index=[0])
+    results_df.to_csv(f"{exper_directory}/results.csv")
+    return results_df
+    
+    

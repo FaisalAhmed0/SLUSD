@@ -12,23 +12,25 @@ class Discriminator(nn.Module):
   def __init__(self, n_input, n_hiddens, n_skills, dropout=None):
     super().__init__()
     layers = []
-    layers.append(nn.Linear(n_input, n_hiddens[0]))
-    layers.append(nn.ReLU())
-    if dropout:
-          layers.append( nn.Dropout(dropout) )
-    for i in range(len(n_hiddens)-1):
-      layers.append( nn.Linear(n_hiddens[i], n_hiddens[i+1]) )
-      layers.append( nn.ReLU() )
-      # TODO: Added dropout
-      if dropout:
-        layers.append( nn.Dropout(dropout) )
+    layers.append(nn.Linear(n_input, n_skills))
+#     layers.append(nn.Linear(n_input, n_hiddens[0]))
+#     layers.append(nn.ReLU())
+#     if dropout:
+#           layers.append( nn.Dropout(dropout) )
+#     for i in range(len(n_hiddens)-1):
+#       layers.append( nn.Linear(n_hiddens[i], n_hiddens[i+1]) )
+#       layers.append( nn.ReLU() )
+#       # TODO: Added dropout
+#       if dropout:
+#         layers.append( nn.Dropout(dropout) )
     
     self.head = nn.Sequential(*layers)
-    print(self.head)
-    self.output = nn.Linear(n_hiddens[-1], n_skills)
+#     print(self.head)
+#     self.output = nn.Linear(n_hiddens[-1], n_skills)
 
   def forward(self, x):
-    return self.output(self.head(x))
+    return self.head(x)
+    # return self.output(self.head(x))
 
 
 '''
@@ -43,8 +45,8 @@ f(s, z) -> real number
 p(z | s) = f(s, z) / \sum_{z’} f(s, z’)
 '''
 
-#TODO: Added the dot product based classifier
-class Encoder(nn.Module):
+# TODO: Added the dot product based classifier
+class Discriminator_CPC(nn.Module):
     def __init__(self, state_n_input, skill_n_input, n_hiddens, n_latent, dropout=None):
       super().__init__()
       # define the state encoder
@@ -55,8 +57,8 @@ class Encoder(nn.Module):
       if dropout:
           state_n_input.append(nn.Dropout(dropout))
       for i in range(len(n_hiddens)-1):
-        state_n_input.append( nn.Linear(n_hiddens[i], n_hiddens[i+1]) )
-        state_n_input.append( nn.ReLU() )
+        state_enc_layers.append( nn.Linear(n_hiddens[i], n_hiddens[i+1]) )
+        state_enc_layers.append( nn.ReLU() )
         # TODO: Added dropout
         if dropout:
           state_n_input.append( nn.Dropout(dropout) )
@@ -87,14 +89,22 @@ class Encoder(nn.Module):
         state_rep = self.state_enc(state)
         # pass the skill to the skill encoder
         skill_rep = self.skill_enc(skill)
+        skills_int = torch.argmax(skill, dim=-1)
         # compute the dot product score
         score =  torch.sum(state_rep * skill_rep, dim=1)
-        score = torch.exp( score - score.max() )
+        print(f"score in forward: {score}")
         # compute the outer product score
         score_all_skills = self.score_all(state_rep)
-        # compute the final output
-        output = score / score_all_skills
-        print(f"output of the encoder: {output}")
+        # print(f"scores all before indexing: {score_all_skills}")
+        # input()
+        # score_all_skills[torch.arange(state_rep.shape[0]), skills_int] = score
+        # print(f"scores all after indexing: {score_all_skills}")
+        # input()
+        max_score = score_all_skills.max().item()
+        output = torch.exp(score - max_score) / torch.sum(torch.exp(score_all_skills - max_score), dim=-1)
+        
+        print(f"output: {output}") # should be near unifrom at initilization
+        # return state_rep, skill_rep, score
         return output
 
     def softmax(self, score, score_outer):
@@ -103,18 +113,20 @@ class Encoder(nn.Module):
         denominator = torch.sum( torch.exp(score_outer - max_score), dim=1)
         return numerator / denominator
 
-    @torch.no_grad()
+    # @torch.no_grad()
     def score_all(self, state_rep):
         batch_size = state_rep.shape[0]
-        scores = torch.zeros(batch_size)
+        scores = torch.zeros(batch_size, self.num_skills)
         for skill in range(self.num_skills):
             skill_onehot = torch.zeros(batch_size, self.num_skills)
             skill_onehot[torch.arange(batch_size), skill] = 1
             skill_rep = self.skill_enc(skill_onehot)
             score = torch.sum(state_rep * skill_rep, dim=1)
-            score = torch.exp(score - score.max())
-            print(f"Score in score all shape: {score.shape}")
-            scores += score
+            scores[:, skill] = torch.clone(score)
+            # score = torch.exp(score - score.max())
+            # print(f"Score in score all shape: {score.shape}")
+            # scores += score
+        # print(f"scores in scores all: {scores}, shape is {scores.shape}")
         return scores
 
         

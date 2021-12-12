@@ -47,36 +47,6 @@ def plot(x, y, xlabel, ylabel, legend, color, filename):
     fig.savefig(f'{files_dir}/{filename}', dpi=150)    
     # print("Saved")
 
-def plot_both(fig, x, y, xlabel, ylabel, legend, color, filename):
-    # fig = plt.figure()
-    axes  = fig.add_subplot(111)
-    plot_color = color
-    data_mean = y.mean(axis=1)
-    # print(len(data_mean))
-    data_mean = np.convolve(data_mean, np.ones(10)/10, mode='valid') 
-    data_std = y.std(axis=1)
-    data_std = np.convolve(data_std, np.ones(10)/10, mode='valid') 
-    print(f"mean: {data_mean[-1]}")
-    print(f"std: {data_std[-1]}")
-    # print(len(data_std))
-    # print(len(x))
-    # print(x[-1])
-    x = np.convolve(x, np.ones(10)/10, mode='valid') 
-    # print(len(x))
-    axes.plot(x, data_mean, label=legend, color=plot_color)
-    axes.fill_between(x, (data_mean-data_std), (data_mean+data_std), color=plot_color, alpha=0.3)
-    axes.set_xlabel(xlabel)
-    axes.set_ylabel(ylabel)
-    axes.grid(True)
-    axes.legend()
-    files_dir = f"Vis/{args.alg}_{args.env}_{args.stamp}"
-    os.makedirs(files_dir, exist_ok=True)
-    fig.savefig(f'{files_dir}/{filename}', dpi=150)    
-
-
-
-
-
 if __name__ == "__main__":
     args = cmd_args()
     # file_dir = conf.log_dir_finetune + f"{args.alg}_{args.env}_{args.stamp}/" + "eval_results/" + "evaluations.npz"

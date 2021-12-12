@@ -149,6 +149,7 @@ class DIAYN():
 
             # train the agent
             model.learn(total_timesteps=self.params['pretrain_steps'], callback=callbacks, log_interval=1, tb_log_name="SAC Pretrain")
+        return model
 
     # finetune the pretrained policy on a specific task
     def finetune(self):
