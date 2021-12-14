@@ -57,10 +57,10 @@ class DiscriminatorCallback(BaseCallback):
     # TODO: add smoothing parameter
     # TODO: add gradient penalties gp
     # TODO: add mixup regularization
-    # TODO: add parametrization: 0 -> MLP, 1 -> dot_based
+    # TODO: add parametrization: 0 -> MLP, 1 -> dot_based CPC style
 
     def __init__(self, discriminator, buffer, hyerparams, sw, n_skills, min_buffer_size=2048, verbose=0, save_dir="./",
-                 on_policy=False, paramerization=0):
+                 on_policy=False):
         super(DiscriminatorCallback, self).__init__(verbose)
         # classifier
         self.d = discriminator
@@ -79,9 +79,9 @@ class DiscriminatorCallback(BaseCallback):
         # batch size
         self.batch_size = hyerparams['batch_size']
         # use label smoothing if not None, otherwise use cross_entropy
-        if paramerization==0  and hyerparams['label_smoothing']:
+        if hyerparams['parametrization'] == "MLP"  and hyerparams['label_smoothing']:
             self.criterion = self.label_smoothedCrossEntropyLoss
-        elif paramerization==0:
+        elif hyerparams['parametrization']== "MLP":
             self.criterion = F.cross_entropy
         # tensorboard summary writer
         self.sw = sw
@@ -98,7 +98,7 @@ class DiscriminatorCallback(BaseCallback):
         # mixup regularization
         self.mixup = hyerparams['mixup']
         # parametrization 
-        self.paramerization = paramerization
+        self.paramerization = hyerparams['parametrization']
 
     def _on_step(self):
         """
@@ -203,7 +203,7 @@ class DiscriminatorCallback(BaseCallback):
         This event is triggered before updating the policy.
         """
         # MLP case
-        if self.paramerization == 0:
+        if self.paramerization == "MLP":
             current_buffer_size = len(
                 self.buffer) if self.on_policy else self.locals['replay_buffer'].buffer_size if self.locals['replay_buffer'].full else self.locals['replay_buffer'].pos
             if current_buffer_size >= self.min_buffer_size:
@@ -263,7 +263,7 @@ class DiscriminatorCallback(BaseCallback):
                     self.sw.add_scalar("discrimiator wights norm",
                                     weights_norm, self.num_timesteps)
                     torch.save(self.d.state_dict(), self.save_dir + "/disc.pth")
-        elif self.paramerization == 1:
+        elif self.paramerization == "CPC":
             current_buffer_size = len(
                 self.buffer) if self.on_policy else self.locals['replay_buffer'].buffer_size if self.locals['replay_buffer'].full else self.locals['replay_buffer'].pos
             if current_buffer_size >= self.min_buffer_size:
@@ -280,7 +280,9 @@ class DiscriminatorCallback(BaseCallback):
                         onehots_skills = torch.zeros(self.batch_size, self.n_skills)
                         onehots_skills[torch.arange(self.batch_size), skills] = 1
                     outputs = self.d(states.to(conf.device), onehots_skills.to(conf.device))
-                    loss = torch.mean(-torch.log(outputs))
+                    print(outputs)
+                    # input()s
+                    loss = outputs
                     # # TODO: add mixup
                     # if self.mixup:
                     #     inputs2, targets2 = self.buffer.sample(self.batch_size)

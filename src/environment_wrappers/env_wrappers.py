@@ -117,7 +117,7 @@ class RewardWrapper(gym.Wrapper):
   """
   gym wrapper that augment the state with random chosen skill index
   """
-  def __init__(self, env, discriminator, n_skills):
+  def __init__(self, env, discriminator, n_skills, parametrization="MLP"):
     # Call the parent constructor, so we can access self.env later
     super(RewardWrapper, self).__init__(env)
 
@@ -127,6 +127,7 @@ class RewardWrapper(gym.Wrapper):
     self.n_skills = n_skills
     self.reward = 0
     self.t = 0
+    self.parametrization = parametrization
   
 
   def step(self, action):
@@ -139,13 +140,26 @@ class RewardWrapper(gym.Wrapper):
     env_obs, skill = self.split_obs(obs)
     obs_t = torch.FloatTensor(env_obs).to(conf.device)
     self.discriminator.eval()
-    reward = (torch.log_softmax(self.discriminator(obs_t).detach(), dim=-1)[int(skill)] - np.log(1/self.n_skills)).item()
+    if self.parametrization == "MLP":
+        reward = (torch.log_softmax(self.discriminator(obs_t).detach(), dim=-1)[int(skill)] - np.log(1/self.n_skills)).item()
+    elif self.parametrization == "CPC":
+        skills_onehot = self.one_hot(skill)
+        # print("reward is")
+        # print()
+        # print(f"input shape: {obs_t.shape} and {skills_onehot.shape}")
+        # input()
+        reward = (-self.discriminator(obs_t.unsqueeze(0), skills_onehot.unsqueeze(0)).detach() - np.log(1/self.n_skills)).item()
     return obs, reward, done, info
 
   def split_obs(self, obs):
     env_obs = obs[: -self.n_skills]
     skill, = np.where( obs[-self.n_skills: ] == 1 )
     return env_obs, skill[0]
+
+  def one_hot(self, skill):
+    onehot = torch.zeros(self.n_skills)
+    onehot[skill] = 1
+    return onehot
 
 
 class SkillWrapperFinetune(gym.Wrapper):

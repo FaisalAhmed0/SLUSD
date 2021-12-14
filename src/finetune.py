@@ -84,7 +84,7 @@ discriminator_hyperparams = dict(
     label_smoothing = False,
     gp = None, # the weight of the gradient penalty term
     mixup = False,
-    parametrization = "Linear"
+    parametrization = "CPC" # TODO: add this as a CMD argument
 )
 
 # save a timestamp

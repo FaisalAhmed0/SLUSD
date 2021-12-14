@@ -9,7 +9,7 @@ from stable_baselines3.common.monitor import Monitor
 from src.environment_wrappers.env_wrappers import RewardWrapper, SkillWrapper, SkillWrapperFinetune
 from src.environment_wrappers.tasks_wrappers import HalfCheetahTaskWrapper
 from src.utils import record_video_finetune, best_skill
-from src.models.models import Discriminator
+from src.models.models import Discriminator, Discriminator_CPC
 from src.replayBuffers import DataBuffer
 from src.callbacks.callbacks import DiscriminatorCallback, VideoRecorderCallback, FineTuneCallback
 
@@ -22,11 +22,15 @@ import time
 class DIAYN():
     def __init__(self, params, alg_params, discriminator_hyperparams, env="MountainCarContinuous-v0", alg="ppo", directory="./", seed=10, device="cpu", conf=None, timestamp=None, checkpoints=False, args=None, task=None):
         # create the discirminator and the buffer
-        self.d = Discriminator(gym.make(env).observation_space.shape[0], [
-                               conf.layer_size_discriminator, conf.layer_size_discriminator], params['n_skills'], dropout=discriminator_hyperparams['dropout']).to(device)
-        self.buffer = DataBuffer(params['buffer_size'], obs_shape=gym.make(
-            env).observation_space.shape[0])
-
+        if discriminator_hyperparams['parametrization'] == "MLP":
+            self.d = Discriminator(gym.make(env).observation_space.shape[0], [
+                                   conf.layer_size_discriminator, conf.layer_size_discriminator], params['n_skills'], dropout=discriminator_hyperparams['dropout']).to(device)
+            self.buffer = DataBuffer(params['buffer_size'], obs_shape=gym.make(
+                env).observation_space.shape[0])
+        elif discriminator_hyperparams['parametrization'] == "CPC":
+            # Discriminator_CPC(10, 6, [100, 100], 32)
+            self.d = Discriminator_CPC(gym.make(env).observation_space.shape[0], params['n_skills'], [conf.layer_size_discriminator, conf.layer_size_discriminator], conf.latent_size).to(device)
+            
         # tensorboard summary writer
         '''
         learning_rate = 3e-4,
@@ -55,17 +59,18 @@ class DIAYN():
         self.checkpoints = checkpoints
         self.args = args
         self.task = task
+        self.parametrization = discriminator_hyperparams['parametrization']
 
     def pretrain(self):
         if self.alg == "ppo":
             env = DummyVecEnv([
                 lambda: Monitor(RewardWrapper(SkillWrapper(gym.make(
-                    self.env_name), self.params['n_skills'], max_steps=self.conf.max_steps), self.d, self.params['n_skills']),  self.directory),
+                    self.env_name), self.params['n_skills'], max_steps=self.conf.max_steps), self.d, self.params['n_skills'], parametrization=self.parametrization),  self.directory),
                 lambda: Monitor(RewardWrapper(SkillWrapper(gym.make(
-                    self.env_name), self.params['n_skills'], max_steps=self.conf.max_steps), self.d, self.params['n_skills']),  self.directory),
+                    self.env_name), self.params['n_skills'], max_steps=self.conf.max_steps), self.d, self.params['n_skills'], parametrization=self.parametrization),  self.directory),
                 lambda: Monitor(RewardWrapper(SkillWrapper(gym.make(
-                    self.env_name), self.params['n_skills'], max_steps=self.conf.max_steps), self.d, self.params['n_skills']),  self.directory),
-                lambda: Monitor(RewardWrapper(SkillWrapper(gym.make(self.env_name), self.params['n_skills'], max_steps=self.conf.max_steps), self.d, self.params['n_skills']),  self.directory)])
+                    self.env_name), self.params['n_skills'], max_steps=self.conf.max_steps), self.d, self.params['n_skills'], parametrization=self.parametrization),  self.directory),
+                lambda: Monitor(RewardWrapper(SkillWrapper(gym.make(self.env_name), self.params['n_skills'], max_steps=self.conf.max_steps), self.d, self.params['n_skills'], parametrization=self.parametrization),  self.directory)])
 
             # create the model with the speicifed hyperparameters
             model = PPO('MlpPolicy', env, verbose=1,
@@ -89,7 +94,7 @@ class DIAYN():
                                                            sw=self.sw, n_skills=self.params['n_skills'], min_buffer_size=self.params['min_train_size'], save_dir=self.directory, on_policy=True)
 
             eval_env = RewardWrapper(SkillWrapper(gym.make(
-                self.env_name), self.params['n_skills'], ev=True), self.d, self.params['n_skills'])
+                self.env_name), self.params['n_skills'], ev=True), self.d, self.params['n_skills'], parametrization=self.parametrization)
             eval_env = Monitor(eval_env, f"{self.directory}/eval_results")
             eval_callback = EvalCallback(eval_env, best_model_save_path=self.directory,
                                          log_path=f"{self.directory}/eval_results", eval_freq=5000,
@@ -107,7 +112,7 @@ class DIAYN():
             model.learn(total_timesteps=self.params['pretrain_steps'], callback=callbacks, log_interval=1, tb_log_name="PPO Pretrain")
         elif self.alg == "sac":
             env = DummyVecEnv([lambda: Monitor(RewardWrapper(SkillWrapper(gym.make(self.env_name), self.params['n_skills'], max_steps=self.conf.max_steps),
-                                                             self.d, self.params['n_skills']), self.directory)])
+                                                             self.d, self.params['n_skills'], parametrization=self.parametrization), self.directory)])
             # create the model with the speicifed hyperparameters
             model = SAC('MlpPolicy', env, verbose=1,
                         learning_rate=self.alg_params['learning_rate'],
@@ -131,7 +136,7 @@ class DIAYN():
                                                            n_skills=self.params['n_skills'], min_buffer_size=self.params['min_train_size'], save_dir=self.directory, on_policy=False)
 
             eval_env = RewardWrapper(SkillWrapper(gym.make(
-                self.env_name), self.params['n_skills'], ev=True), self.d, self.params['n_skills'])
+                self.env_name), self.params['n_skills'], ev=True), self.d, self.params['n_skills'], parametrization=self.parametrization)
             eval_env = Monitor(eval_env,  f"{self.directory}/eval_results")
 
             eval_callback = EvalCallback(eval_env, best_model_save_path=self.directory,

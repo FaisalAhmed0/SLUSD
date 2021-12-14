@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import numpy as np
 
 class Discriminator(nn.Module):
   '''
@@ -85,24 +86,35 @@ class Discriminator_CPC(nn.Module):
       
       
     def forward(self, state, skill):
+        batch_size = state.shape[0]
         # pass the state to the state encoder
         state_rep = self.state_enc(state)
         # pass the skill to the skill encoder
         skill_rep = self.skill_enc(skill)
-        skills_int = torch.argmax(skill, dim=-1)
+        # skills_int = torch.argmax(skill, dim=-1)
         # compute the dot product score
-        score =  torch.sum(state_rep * skill_rep, dim=1)
-        print(f"score in forward: {score}")
+        # score =  torch.sum(state_rep * skill_rep, dim=-1)
+        # print(f"score in forward: {score}")
         # compute the outer product score
-        score_all_skills = self.score_all(state_rep)
+        # score_all_skills = self.score_all(state_rep)
         # print(f"scores all before indexing: {score_all_skills}")
         # input()
         # score_all_skills[torch.arange(state_rep.shape[0]), skills_int] = score
         # print(f"scores all after indexing: {score_all_skills}")
         # input()
-        max_score = score_all_skills.max().item()
-        output = torch.exp(score - max_score) / torch.sum(torch.exp(score_all_skills - max_score), dim=-1)
-        
+        score_outer = torch.sum(state_rep[:, None, :] * skill_rep[None, :, :], dim=-1) 
+        print(f"score_outer: {score_outer}")
+        probs = torch.softmax(score_outer, dim=1)
+        print(f"probs: {probs}")
+        output = torch.nn.CrossEntropyLoss()(probs, target=torch.arange(batch_size))
+        # print(f"score outer: {score_outer}")
+        # with torch.no_grad():
+        #     max_score = np.max( (score.max().item(), score_outer.max().item()) )
+        #     print(f"max score: {max_score}")
+        #     print(f"numerator: {torch.exp(score - max_score)}")
+        #     print(f"denominator: {torch.sum(torch.exp(score_outer - max_score), dim=-1)}")
+        # # score_outer = torch.sum(state_rep[:, None, :] * skill_rep[None, :, :], dim=2) 
+        # output = torch.exp(score - max_score) / torch.sum(torch.exp(score_outer - max_score), dim=-1)
         print(f"output: {output}") # should be near unifrom at initilization
         # return state_rep, skill_rep, score
         return output
@@ -114,20 +126,21 @@ class Discriminator_CPC(nn.Module):
         return numerator / denominator
 
     # @torch.no_grad()
-    def score_all(self, state_rep):
-        batch_size = state_rep.shape[0]
-        scores = torch.zeros(batch_size, self.num_skills)
-        for skill in range(self.num_skills):
-            skill_onehot = torch.zeros(batch_size, self.num_skills)
-            skill_onehot[torch.arange(batch_size), skill] = 1
-            skill_rep = self.skill_enc(skill_onehot)
-            score = torch.sum(state_rep * skill_rep, dim=1)
-            scores[:, skill] = torch.clone(score)
+    # def score_all(self, state_rep):
+    #     batch_size = state_rep.shape[0]
+    #     scores = torch.zeros(batch_size, self.num_skills)
+    #     for skill in range(self.num_skills):
+    #         with torch.no_grad():
+    #             skill_onehot = torch.zeros(batch_size, self.num_skills)
+    #             skill_onehot[torch.arange(batch_size), skill] = 1
+    #         skill_rep = self.skill_enc(skill_onehot)
+    #         score = torch.sum(state_rep * skill_rep, dim=1)
+            # scores[:, skill] = torch.clone(score)
             # score = torch.exp(score - score.max())
             # print(f"Score in score all shape: {score.shape}")
             # scores += score
         # print(f"scores in scores all: {scores}, shape is {scores.shape}")
-        return scores
+        # return scores
 
         
 class MLP_policy(nn.Module):
