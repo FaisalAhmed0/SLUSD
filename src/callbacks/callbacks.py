@@ -268,6 +268,7 @@ class DiscriminatorCallback(BaseCallback):
                 self.buffer) if self.on_policy else self.locals['replay_buffer'].buffer_size if self.locals['replay_buffer'].full else self.locals['replay_buffer'].pos
             if current_buffer_size >= self.min_buffer_size:
                 epoch_loss = 0
+                self.d.train()
                 for _ in range(1):
                     if self.on_policy:
                         inputs, targets = self.buffer.sample(self.batch_size)
@@ -280,9 +281,10 @@ class DiscriminatorCallback(BaseCallback):
                         onehots_skills = torch.zeros(self.batch_size, self.n_skills)
                         onehots_skills[torch.arange(self.batch_size), skills] = 1
                     outputs = self.d(states.to(conf.device), onehots_skills.to(conf.device))
-                    print(outputs)
+                    print(f"output in the callback: {outputs}")
                     # input()s
-                    loss = outputs
+                    loss = torch.nn.CrossEntropyLoss()(outputs, target=torch.arange(self.batch_size))
+                    print(f"loss value: {loss}")
                     # # TODO: add mixup
                     # if self.mixup:
                     #     inputs2, targets2 = self.buffer.sample(self.batch_size)

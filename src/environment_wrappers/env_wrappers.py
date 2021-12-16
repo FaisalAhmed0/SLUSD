@@ -148,7 +148,10 @@ class RewardWrapper(gym.Wrapper):
         # print()
         # print(f"input shape: {obs_t.shape} and {skills_onehot.shape}")
         # input()
-        reward = (-self.discriminator(obs_t.unsqueeze(0), skills_onehot.unsqueeze(0)).detach() - np.log(1/self.n_skills)).item()
+        logits = self.discriminator(obs_t.unsqueeze(0), skills_onehot.unsqueeze(0))
+        probs = torch.softmax(logits, dim=-1)
+        reward = ( torch.log(probs).detach() - np.log(1/self.n_skills)).item()
+        print(f"reward in the skill wrapper: {reward}")
     return obs, reward, done, info
 
   def split_obs(self, obs):

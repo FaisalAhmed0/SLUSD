@@ -50,7 +50,7 @@ ppo_hyperparams = dict(
 sac_hyperparams = dict(
     learning_rate = 3e-4,
     gamma = 0.99,
-    batch_size = 128,
+    batch_size = 256,
     buffer_size = int(1e7),
     tau = 0.01,
     gradient_steps = 1,
@@ -84,7 +84,7 @@ discriminator_hyperparams = dict(
     label_smoothing = False,
     gp = None, # the weight of the gradient penalty term
     mixup = False,
-    parametrization = "CPC" # TODO: add this as a CMD argument
+    parametrization = "MLP" # TODO: add this as a CMD argument
 )
 
 # save a timestamp

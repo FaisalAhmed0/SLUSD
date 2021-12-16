@@ -36,7 +36,7 @@ layer_size_value = 300,
 layer_size_discriminator = 300,
 
 # size of the latent vector in CPC style discriminator
-latent_size = 64,
+latent_size = 50,
 
 # number of skills
 n_z = 6,

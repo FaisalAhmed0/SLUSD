@@ -13,25 +13,25 @@ class Discriminator(nn.Module):
   def __init__(self, n_input, n_hiddens, n_skills, dropout=None):
     super().__init__()
     layers = []
-    layers.append(nn.Linear(n_input, n_skills))
-#     layers.append(nn.Linear(n_input, n_hiddens[0]))
-#     layers.append(nn.ReLU())
-#     if dropout:
-#           layers.append( nn.Dropout(dropout) )
-#     for i in range(len(n_hiddens)-1):
-#       layers.append( nn.Linear(n_hiddens[i], n_hiddens[i+1]) )
-#       layers.append( nn.ReLU() )
-#       # TODO: Added dropout
-#       if dropout:
-#         layers.append( nn.Dropout(dropout) )
+    # layers.append(nn.Linear(n_input, n_skills))
+    layers.append(nn.Linear(n_input, n_hiddens[0]))
+    layers.append(nn.ReLU())
+    if dropout:
+          layers.append( nn.Dropout(dropout) )
+    for i in range(len(n_hiddens)-1):
+      layers.append( nn.Linear(n_hiddens[i], n_hiddens[i+1]) )
+      layers.append( nn.ReLU() )
+      # TODO: Added dropout
+      if dropout:
+        layers.append( nn.Dropout(dropout) )
     
     self.head = nn.Sequential(*layers)
-#     print(self.head)
-#     self.output = nn.Linear(n_hiddens[-1], n_skills)
+    print(self.head)
+    self.output = nn.Linear(n_hiddens[-1], n_skills)
 
   def forward(self, x):
-    return self.head(x)
-    # return self.output(self.head(x))
+    # return self.head(x)
+    return self.output(self.head(x))
 
 
 '''
@@ -104,9 +104,9 @@ class Discriminator_CPC(nn.Module):
         # input()
         score_outer = torch.sum(state_rep[:, None, :] * skill_rep[None, :, :], dim=-1) 
         print(f"score_outer: {score_outer}")
-        probs = torch.softmax(score_outer, dim=1)
-        print(f"probs: {probs}")
-        output = torch.nn.CrossEntropyLoss()(probs, target=torch.arange(batch_size))
+        # probs = torch.softmax(score_outer, dim=-1)
+        # print(f"probs: {probs}")
+        # output = torch.nn.CrossEntropyLoss()(probs, target=torch.arange(batch_size))
         # print(f"score outer: {score_outer}")
         # with torch.no_grad():
         #     max_score = np.max( (score.max().item(), score_outer.max().item()) )
@@ -115,9 +115,9 @@ class Discriminator_CPC(nn.Module):
         #     print(f"denominator: {torch.sum(torch.exp(score_outer - max_score), dim=-1)}")
         # # score_outer = torch.sum(state_rep[:, None, :] * skill_rep[None, :, :], dim=2) 
         # output = torch.exp(score - max_score) / torch.sum(torch.exp(score_outer - max_score), dim=-1)
-        print(f"output: {output}") # should be near unifrom at initilization
+        # print(f"output: {output}") # should be near unifrom at initilization
         # return state_rep, skill_rep, score
-        return output
+        return score_outer
 
     def softmax(self, score, score_outer):
         max_score = torch.max(score_outer)
