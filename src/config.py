@@ -26,11 +26,17 @@ eval_runs = 5,
 # total time steps
 total_timesteps = int(1e8),
 
+# layer size of the shared network
+layer_size_shared = 512,
+    
 # layer size of the actor
-layer_size_policy = 300,
+layer_size_policy = 128,
 
-# layer size of the critic
-layer_size_value = 300,
+# layer size of the value function critic
+layer_size_value = 128,
+    
+# layer size of the Q-function critic
+layer_size_q = 500,
 
 # layer size of the skills discriminator
 layer_size_discriminator = 300,
@@ -42,7 +48,7 @@ latent_size = 50,
 n_z = 6,
 
 # buffer size for the discriminator 
-buffer_size = int(1e7),
+buffer_size = int(1e6),
 
 # buffer size before training
 min_train_size = int(1e4),
