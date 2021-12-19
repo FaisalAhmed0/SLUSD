@@ -40,7 +40,6 @@ class SkillWrapper(gym.Wrapper):
     obs = self.env.reset()
     onehot = self.one_hot(self.skill)
     obs = np.array(list(obs) + list(onehot)).astype(np.float32)
-    self.t = 0
     return obs
 
   def step(self, action):
@@ -51,9 +50,6 @@ class SkillWrapper(gym.Wrapper):
     obs, reward, done, info = self.env.step(action)
     onehot = self.one_hot(self.skill)
     obs = np.array(list(obs.copy()) + list(onehot)).astype(np.float32)
-    self.t += 1
-    if self.t > self.env._max_episode_steps:
-      done = True
     return obs, reward, done, info
 
   def one_hot(self, index):
@@ -129,6 +125,10 @@ class RewardWrapper(gym.Wrapper):
     self.t = 0
     self.parametrization = parametrization
     self.batch_size = batch_size
+
+  def reset(self):
+    self.t = 0
+    return self.env.reset()
   
 
   def step(self, action):
@@ -145,14 +145,14 @@ class RewardWrapper(gym.Wrapper):
         reward = (torch.log_softmax(self.discriminator(obs_t).detach(), dim=-1)[int(skill)] - np.log(1/self.n_skills)).item()
     elif self.parametrization == "CPC":
         skills_onehot = self.one_hot(skill)
-        # print("reward is")
-        # print()
-        # print(f"input shape: {obs_t.shape} and {skills_onehot.shape}")
-        # input()
         logits = self.discriminator(obs_t.unsqueeze(0), skills_onehot.unsqueeze(0))
         probs = torch.softmax(logits, dim=-1)
         reward = ( torch.log(probs).detach() - np.log(1/self.batch_size)).item()
         print(f"reward in the skill wrapper: {reward}")
+    if self.t >= self.env.max_steps:
+        done = True
+    else:
+        done = False
     return obs, reward, done, info
 
   def split_obs(self, obs):
@@ -215,3 +215,36 @@ class SkillWrapperFinetune(gym.Wrapper):
     onehot = np.zeros(self.n_skills)
     onehot[index] = 1
     return onehot
+
+class TimestepsWrapper(gym.Wrapper):
+  """
+  gym wrapper that augment the state with random chosen skill index
+  """
+  def __init__(self, env, max_steps=1000):
+    super(TimestepsWrapper, self).__init__(env)
+
+    # skills distribution
+    self.env = env
+    self.max_steps = 1000
+    self.t = 0
+  
+  def reset(self):
+    """
+    Reset the environment 
+    """
+    self.t = 0
+    return self.env.reset()
+
+  def step(self, action):
+    """
+    :param action: ([float] or int) Action taken by the agent
+    :return: (np.ndarray, float, bool, dict) observation, reward, is the episode over?, additional informations
+    """
+    obs, reward, done, info = self.env.step(action)
+    self.t += 1
+    if self.t >= self.env._max_episode_steps:
+      done = True
+    else:
+      done = False
+    print(f"Timestep:{self.t} and done: {done}")
+    return obs, reward, done, info
