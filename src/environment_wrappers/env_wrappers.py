@@ -246,5 +246,5 @@ class TimestepsWrapper(gym.Wrapper):
       done = True
     else:
       done = False
-    print(f"Timestep:{self.t} and done: {done}")
+    # print(f"Timestep:{self.t} and done: {done}")
     return obs, reward, done, info
