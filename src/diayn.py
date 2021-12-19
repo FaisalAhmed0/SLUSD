@@ -86,7 +86,7 @@ class DIAYN():
                         gae_lambda=self.alg_params['gae_lambda'],
                         clip_range=self.alg_params['clip_range'],
                         policy_kwargs=dict(activation_fn=nn.Tanh,
-                                           net_arch=[dict(pi=[self.conf.layer_size_policy, self.conf.layer_size_policy], vf=[self.conf.layer_size_value, self.conf.layer_size_value])]),
+                                           net_arch=[self.conf.layer_size_shared, self.conf.layer_size_shared,dict(pi=[self.conf.layer_size_policy], vf=[self.conf.layer_size_value])]),
                         tensorboard_log=self.directory,
                         seed=self.seed
                         )
@@ -127,8 +127,8 @@ class DIAYN():
                         ent_coef=self.alg_params['ent_coef'],
                         gradient_steps=self.alg_params['gradient_steps'],
                         learning_starts=self.alg_params['learning_starts'],
-                        policy_kwargs=dict(net_arch=dict(pi=[self.conf.layer_size_policy, self.conf.layer_size_policy], qf=[
-                                           self.conf.layer_size_value, self.conf.layer_size_value])),
+                        policy_kwargs=dict(net_arch=dict(pi=[2*self.conf.layer_size_policy, 2*self.conf.layer_size_policy], qf=[
+                                           self.conf.layer_size_q, self.conf.layer_size_q])),
                         tensorboard_log=self.directory,
                         seed=self.seed
                         )
@@ -201,11 +201,13 @@ class DIAYN():
                         gamma=self.alg_params['gamma'],
                         buffer_size=self.alg_params['buffer_size'],
                         tau=self.alg_params['tau'],
+                        ent_coef=self.alg_params['ent_coef'],
                         gradient_steps=self.alg_params['gradient_steps'],
                         learning_starts=self.alg_params['learning_starts'],
-                        policy_kwargs=dict(net_arch=dict(pi=[self.conf.layer_size_policy, self.conf.layer_size_policy], qf=[
-                                           self.conf.layer_size_value, self.conf.layer_size_value])),
+                        policy_kwargs=dict(net_arch=dict(pi=[2*self.conf.layer_size_policy, 2*self.conf.layer_size_policy], qf=[
+                                           self.conf.layer_size_q, self.conf.layer_size_q])),
                         tensorboard_log=self.directory,
+                        seed=self.seed
                         )
         elif self.alg == "ppo":
             if self.task:
@@ -232,9 +234,9 @@ class DIAYN():
                         gae_lambda=self.alg_params['gae_lambda'],
                         clip_range=self.alg_params['clip_range'],
                         policy_kwargs=dict(activation_fn=nn.Tanh,
-                                           net_arch=[dict(pi=[self.conf.layer_size_policy, self.conf.layer_size_policy], vf=[self.conf.layer_size_value, self.conf.layer_size_value])]),
+                                           net_arch=[self.conf.layer_size_shared, self.conf.layer_size_shared,dict(pi=[self.conf.layer_size_policy], vf=[self.conf.layer_size_value])]),
                         tensorboard_log=self.directory,
-
+                        seed=self.seed
                         )
         
         # env = DummyVecEnv([lambda: SkillWrapperFinetune(Monitor(gym.make(
