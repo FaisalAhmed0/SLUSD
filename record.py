@@ -12,7 +12,7 @@ from stable_baselines3.common.callbacks import  EvalCallback
 from stable_baselines3.common.utils import get_schedule_fn
 from stable_baselines3.common.monitor import Monitor
 
-from src.environment_wrappers.env_wrappers import SkillWrapperFinetune, RewardWrapper, SkillWrapper
+from src.environment_wrappers.env_wrappers import SkillWrapperFinetune, RewardWrapper, SkillWrapper, TimestepsWrapper
 from src.config import conf
 
 
@@ -102,7 +102,7 @@ def record_skill(model, env_name, args):
         total_rewards = []
         for skill in range(n_skills):
             print(f"Running Skill: {skill}")
-            env = gym.make(env_name)
+            env = TimestepsWrapper(gym.make(env_name))
             env.seed(seed)
             video_folder = f"recorded_agents/env:{args.env},alg: {args.alg}_skills_videos"
             env = Monitor(env, video_folder, resume=True,force=False, uid=f"env: {env_name}, skill: {skill}")
