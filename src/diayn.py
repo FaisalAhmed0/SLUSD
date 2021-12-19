@@ -32,8 +32,10 @@ class DIAYN():
             self.d = Discriminator_CPC(gym.make(env).observation_space.shape[0], params['n_skills'], [conf.layer_size_discriminator, conf.layer_size_discriminator], conf.latent_size).to(device)
         elif discriminator_hyperparams['parametrization'] == "linear":
             self.d = nn.Linear(gym.make(env).observation_space.shape[0], params['n_skills'])
+            self.buffer = DataBuffer(params['buffer_size'], obs_shape=gym.make(
+                env).observation_space.shape[0])
             print(f"linear disriminator: {self.d}")
-            input()
+            # input()
             
         # tensorboard summary writer
         '''
@@ -67,14 +69,16 @@ class DIAYN():
 
     def pretrain(self):
         if self.alg == "ppo":
-            env = DummyVecEnv([
-                lambda: Monitor(RewardWrapper(SkillWrapper(gym.make(
-                    self.env_name), self.params['n_skills'], max_steps=self.conf.max_steps), self.d, self.params['n_skills'], parametrization=self.parametrization),  self.directory),
-                lambda: Monitor(RewardWrapper(SkillWrapper(gym.make(
-                    self.env_name), self.params['n_skills'], max_steps=self.conf.max_steps), self.d, self.params['n_skills'], parametrization=self.parametrization),  self.directory),
-                lambda: Monitor(RewardWrapper(SkillWrapper(gym.make(
-                    self.env_name), self.params['n_skills'], max_steps=self.conf.max_steps), self.d, self.params['n_skills'], parametrization=self.parametrization),  self.directory),
-                lambda: Monitor(RewardWrapper(SkillWrapper(gym.make(self.env_name), self.params['n_skills'], max_steps=self.conf.max_steps), self.d, self.params['n_skills'], parametrization=self.parametrization),  self.directory)])
+            env = DummyVecEnv([lambda: Monitor(RewardWrapper(SkillWrapper(gym.make(
+                    self.env_name), self.params['n_skills'], max_steps=self.conf.max_steps), self.d, self.params['n_skills']),  self.directory)]*self.alg_params['n_actors'])
+            # env = DummyVecEnv([
+            #     lambda: Monitor(RewardWrapper(SkillWrapper(gym.make(
+            #         self.env_name), self.params['n_skills'], max_steps=self.conf.max_steps), self.d, self.params['n_skills'], parametrization=self.parametrization),  self.directory),
+            #     lambda: Monitor(RewardWrapper(SkillWrapper(gym.make(
+            #         self.env_name), self.params['n_skills'], max_steps=self.conf.max_steps), self.d, self.params['n_skills'], parametrization=self.parametrization),  self.directory),
+            #     lambda: Monitor(RewardWrapper(SkillWrapper(gym.make(
+            #         self.env_name), self.params['n_skills'], max_steps=self.conf.max_steps), self.d, self.params['n_skills'], parametrization=self.parametrization),  self.directory),
+            #     lambda: Monitor(RewardWrapper(SkillWrapper(gym.make(self.env_name), self.params['n_skills'], max_steps=self.conf.max_steps), self.d, self.params['n_skills'], parametrization=self.parametrization),  self.directory)])
 
             # create the model with the speicifed hyperparameters
             model = PPO('MlpPolicy', env, verbose=1,
@@ -217,13 +221,9 @@ class DIAYN():
                                       lambda: SkillWrapperFinetune(Monitor(env,  f"{self.directory}/finetune_train_results"), self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, skill=best_skill_index), 
                                       lambda: SkillWrapperFinetune(Monitor(env,  f"{self.directory}/finetune_train_results"), self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, skill=best_skill_index), 
                                        lambda: SkillWrapperFinetune(Monitor(env,  f"{self.directory}/finetune_train_results"), self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, skill=best_skill_index)])
-            else:        
-                env = DummyVecEnv([lambda: SkillWrapperFinetune(Monitor(gym.make(
-        self.env_name),  f"{self.directory}/finetune_train_results"), self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, skill=best_skill_index), 
-                              lambda: SkillWrapperFinetune(Monitor(gym.make(
-        self.env_name),  f"{self.directory}/finetune_train_results"), self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, skill=best_skill_index), lambda: SkillWrapperFinetune(Monitor(gym.make(
-        self.env_name),  f"{self.directory}/finetune_train_results"), self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, skill=best_skill_index), lambda: SkillWrapperFinetune(Monitor(gym.make(
-        self.env_name),  f"{self.directory}/finetune_train_results"), self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, skill=best_skill_index)])
+            else:
+                env = DummyVecEnv([lambda: Monitor(RewardWrapper(SkillWrapper(gym.make(
+                    self.env_name), self.params['n_skills'], max_steps=self.conf.max_steps), self.d, self.params['n_skills']),  self.directory)]*self.alg_params['n_actors'])
             
             model = PPO('MlpPolicy', env, verbose=1,
                         learning_rate=self.alg_params['learning_rate'],

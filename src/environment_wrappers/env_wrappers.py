@@ -21,6 +21,7 @@ class SkillWrapper(gym.Wrapper):
     shape = env.observation_space.shape[0]
     self.observation_space = gym.spaces.Box(low=low, high=high, dtype=np.float32, shape=[shape+n_skills,])
     self.env._max_episode_steps = max_steps
+    self.max_steps = max_steps
     self.ev = ev
     if ev:
         self.seeds = [0, 10, 1234, 5, 42]

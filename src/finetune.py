@@ -27,12 +27,86 @@ torch.random.manual_seed(seed)
 params = dict( n_skills = 6,
            pretrain_steps = int(2e6),
            finetune_steps = int(1e5),
-           buffer_size = int(1e7),
+           buffer_size = int(1e6),
            min_train_size = int(1e4)
              )
 
 
+# setting the parameters for each environment
+env_params = {
+    'ppo':{
+        'MountainCarContinuous-v0': dict( 
+           pretrain_steps = int(30e6),
+            n_skills = 6
+             ), # 1 dof
+        'Reacher-v2': dict( 
+           pretrain_steps = int(30e6),
+            n_skills = 12
+             ), # 2 dof
+        'Swimmer-v2': dict( 
+           pretrain_steps = int(30e6),
+            n_skills = 12
+             ), # 2 dof
+        'Hopper-v2': dict( 
+           pretrain_steps = int(50e6),
+            n_skills = 15
+             ), # 3 dof
+        'HalfCheetah-v2': dict( 
+           pretrain_steps = int(70e6),
+            n_skills = 20
+             ),# 6 dof
+        'Walker2d-v2': dict( 
+           pretrain_steps = int(70e6),
+            n_skills = 20
+             ),# 6 dof
+        'Ant-v2': dict( 
+           pretrain_steps = int(100e6),
+            n_skills = 25
+             ),# 8 dof
+        'Humanoid-v2': dict( 
+           pretrain_steps = int(100e6),
+            n_skills = 25
+             ),# 8 dof
+    },
+    'sac':{
+        'MountainCarContinuous-v0': dict( 
+           pretrain_steps = int(500e3),
+            n_skills = 6
+             ), # 1 dof
+        'Reacher-v2': dict( 
+           pretrain_steps = int(500e3),
+            n_skills = 12
+             ), # 2 dof
+        'Swimmer-v2': dict( 
+           pretrain_steps = int(500e3),
+            n_skills = 12
+             ), # 2 dof
+        'Hopper-v2': dict( 
+           pretrain_steps = int(800e3),
+            n_skills = 15
+             ), # 3 dof
+        'HalfCheetah-v2': dict( 
+           pretrain_steps = int(2e6),
+            n_skills = 20
+             ),# 6 dof
+        'Walker2d-v2': dict( 
+           pretrain_steps = int(4e6),
+            n_skills = 20
+             ),# 6 dof
+        'Ant-v2': dict( 
+           pretrain_steps = int(10e6),
+            n_skills = 25
+             ),# 8 dof
+        'Humanoid-v2': dict( 
+           pretrain_steps = int(20e6),
+            n_skills = 25
+             ),# 8 dof
+    }
+    
+}
 
+
+'''
 # ppo hyperparams
 ppo_hyperparams = dict(
     learning_rate = 3e-4,
@@ -58,7 +132,34 @@ sac_hyperparams = dict(
     learning_starts = 10000,
     algorithm = "sac"
 )
+'''
+# ppo hyperparams
+ppo_hyperparams = dict(
+    n_steps = 2048,
+    learning_rate = 3e-4,
+    n_epochs = 10,
+    batch_size = 64,
+    gamma = 0.99,
+    gae_lambda = 0.95,
+    clip_range = 0.2,
+    ent_coef=0.5,
+    n_actors = 8,
+    algorithm = "ppo",
+    
+)
 
+# SAC Hyperparameters 
+sac_hyperparams = dict(
+    learning_rate = 3e-4,
+    gamma = 0.99,
+    buffer_size = int(1e6),
+    batch_size = 256,
+    tau = 0.005,
+    gradient_steps = 1,
+    ent_coef=0.5,
+    learning_starts = 10000,
+    algorithm = "sac"
+)
 # Evolution Stratigies Hyperparameters 
 es_hyperparams = dict(
     lr = 1e-3, # learning rate 
@@ -77,7 +178,7 @@ hyperparams = {
 # weight_decay=0.0, label_smoothing=None, gp=None, mixup=False
 discriminator_hyperparams = dict(
     learning_rate = 3e-4,
-    batch_size = 128,
+    batch_size = 64,
     n_epochs = 1,
     weight_decay = 0, 
     dropout = None, # The dropout probability
@@ -85,12 +186,9 @@ discriminator_hyperparams = dict(
     gp = None, # the weight of the gradient penalty term
     mixup = False,
     gradient_clip = False,
-    temperature = 0.07,
-    parametrization = "CPC" # TODO: add this as a CMD argument MLP, CPC, linear
+    temperature = 1,
+    parametrization = "linear" # TODO: add this as a CMD argument MLP, CPC, linear
 )
-
-# save a timestamp
-timestamp = time.time()
 
 
 # Extract arguments from terminal
@@ -104,12 +202,12 @@ def cmd_args():
     return args
 
 # save the hyperparameters
-def save_params(args, directory):
+def save_params(alg, directory):
     # save the hyperparams in a csv files
-    alg_hyperparams = hyperparams[args.alg]
+    alg_hyperparams = hyperparams[alg]
     
     alg_hyperparams_df = pd.DataFrame(alg_hyperparams, index=[0])
-    alg_hyperparams_df.to_csv(f"{directory}/{args.alg}_hyperparams.csv")
+    alg_hyperparams_df.to_csv(f"{directory}/{alg}_hyperparams.csv")
     
     discriminator_hyperparams_df = pd.DataFrame(discriminator_hyperparams, index=[0])
     discriminator_hyperparams_df.to_csv(f"{directory}/discriminator_hyperparams.csv")
@@ -122,11 +220,11 @@ def save_params(args, directory):
     config_d = vars(conf)
     config_df = pd.DataFrame(config_d, index=[0])
     config_df.to_csv(f"{directory}/configs.csv")
-    print(f"{args.alg} hyperparameters: {alg_hyperparams}" )
+    print(f"{alg} hyperparameters: {alg_hyperparams}" )
     print(f"discriminator hyperparameters: {discriminator_hyperparams}" )
     print(f"shared experiment parameters: {params}" )
     print(f"configurations: {config_d }" )
-    input()
+    # input()
 
 def run_diyan(args):
     if args.alg != 'es':
@@ -147,33 +245,63 @@ def run_diyan(args):
         
 
 if __name__ == "__main__":
-    print(f"Experiment timestamp: {timestamp}")
-    args = cmd_args()
-    params['pretrain_steps'] = args.presteps
-    params['n_skills'] = args.skills
-    # experiment directory
-    exp_directory = conf.log_dir_finetune + f"{args.alg}_{args.env}_skills:{params['n_skills']}_{timestamp}"
-    # create a folder for the expirment
-    os.makedirs(exp_directory)
-    # save the exp parameters
-    save_params(args, exp_directory)
-    # create a diyan object
-    alg_params = ppo_hyperparams if args.alg == "ppo" else sac_hyperparams
-    diayn = DIAYN(params, alg_params, discriminator_hyperparams, args.env, args.alg, exp_directory, seed=seed, conf=conf, timestamp=timestamp)
-    # pretraining step
-    model = diayn.pretrain()
-    # fine-tuning step 
-    diayn.finetune()
-    # save the final results
-    # extract data_r for finetuning results and data_i for the pretrained policy
-    file_dir_finetune = conf.log_dir_finetune +  f"{args.alg}_{args.env}_skills:{args.skills}_{timestamp}/" + "finetune_eval_results/" + "evaluations.npz"
-    files = np.load(file_dir_finetune)
-    data_r = files['results']
-    file_dir_skills = conf.log_dir_finetune +  f"{args.alg}_{args.env}_skills:{args.skills}_{timestamp}/" + "eval_results/" + "evaluations.npz"
-    files = np.load(file_dir_skills)
-    data_i = files['results']
-    df = report_resuts(args.env, args.alg, params['n_skills'], model, data_r, data_i, timestamp, exp_directory)
-    print(df)
+    for alg in env_params:
+        for env in env_params[alg]:
+            # save a timestamp
+            timestamp = time.time()
+            params['n_skills'] = env_params[alg][env]['n_skills']
+            params['pretrain_steps'] = env_params[alg][env]['pretrain_steps']
+            print(f"stamp: {timestamp}, alg: {alg}, env: {env}, n_skills: {params['n_skills']}, pretrain_steps: {params['pretrain_steps']}")
+            exp_directory = conf.log_dir_finetune + f"{alg}_{env}_skills:{params['n_skills']}_{timestamp}"
+            os.makedirs(exp_directory)
+            save_params(alg, exp_directory)
+            alg_params = hyperparams[alg]
+            # TODO add ES, when it is ready
+            diayn = DIAYN(params, alg_params, discriminator_hyperparams, env, alg, exp_directory, seed=seed, conf=conf, timestamp=timestamp)
+            # pretraining step
+            model = diayn.pretrain()
+            # fine-tuning step 
+            diayn.finetune()
+            # save the final results
+            # extract data_r for finetuning results and data_i for the pretrained policy
+            file_dir_finetune = conf.log_dir_finetune +  f"{alg}_{env}_skills:{params['n_skills']}_{timestamp}/" + "finetune_eval_results/" + "evaluations.npz"
+            files = np.load(file_dir_finetune)
+            data_r = files['results']
+            file_dir_skills = conf.log_dir_finetune +  f"{alg}_{env}_skills:{params['n_skills']}_{timestamp}/" + "eval_results/" + "evaluations.npz"
+            files = np.load(file_dir_skills)
+            data_i = files['results']
+            df = report_resuts(env, alg, params['n_skills'], model, data_r, data_i, timestamp, exp_directory)
+            print(df)
+            
+    # # save a timestamp
+    # timestamp = time.time()
+    # print(f"Experiment timestamp: {timestamp}")
+    # args = cmd_args()
+    # params['pretrain_steps'] = args.presteps
+    # params['n_skills'] = args.skills
+    # # experiment directory
+    # exp_directory = conf.log_dir_finetune + f"{args.alg}_{args.env}_skills:{params['n_skills']}_{timestamp}"
+    # # create a folder for the expirment
+    # os.makedirs(exp_directory)
+    # # save the exp parameters
+    # save_params(args, exp_directory)
+    # # create a diyan object
+    # alg_params = ppo_hyperparams if args.alg == "ppo" else sac_hyperparams
+    # diayn = DIAYN(params, alg_params, discriminator_hyperparams, args.env, args.alg, exp_directory, seed=seed, conf=conf, timestamp=timestamp)
+    # # pretraining step
+    # model = diayn.pretrain()
+    # # fine-tuning step 
+    # diayn.finetune()
+    # # save the final results
+    # # extract data_r for finetuning results and data_i for the pretrained policy
+    # file_dir_finetune = conf.log_dir_finetune +  f"{args.alg}_{args.env}_skills:{args.skills}_{timestamp}/" + "finetune_eval_results/" + "evaluations.npz"
+    # files = np.load(file_dir_finetune)
+    # data_r = files['results']
+    # file_dir_skills = conf.log_dir_finetune +  f"{args.alg}_{args.env}_skills:{args.skills}_{timestamp}/" + "eval_results/" + "evaluations.npz"
+    # files = np.load(file_dir_skills)
+    # data_i = files['results']
+    # df = report_resuts(args.env, args.alg, params['n_skills'], model, data_r, data_i, timestamp, exp_directory)
+    # print(df)
 
 
 
