@@ -117,7 +117,7 @@ class RewardWrapper(gym.Wrapper):
   """
   gym wrapper that augment the state with random chosen skill index
   """
-  def __init__(self, env, discriminator, n_skills, parametrization="MLP"):
+  def __init__(self, env, discriminator, n_skills, parametrization="MLP", batch_size=128):
     # Call the parent constructor, so we can access self.env later
     super(RewardWrapper, self).__init__(env)
 
@@ -128,6 +128,7 @@ class RewardWrapper(gym.Wrapper):
     self.reward = 0
     self.t = 0
     self.parametrization = parametrization
+    self.batch_size = batch_size
   
 
   def step(self, action):
@@ -140,7 +141,7 @@ class RewardWrapper(gym.Wrapper):
     env_obs, skill = self.split_obs(obs)
     obs_t = torch.FloatTensor(env_obs).to(conf.device)
     self.discriminator.eval()
-    if self.parametrization == "MLP":
+    if self.parametrization == "MLP"  or self.parametrization == "linear":
         reward = (torch.log_softmax(self.discriminator(obs_t).detach(), dim=-1)[int(skill)] - np.log(1/self.n_skills)).item()
     elif self.parametrization == "CPC":
         skills_onehot = self.one_hot(skill)
@@ -150,7 +151,7 @@ class RewardWrapper(gym.Wrapper):
         # input()
         logits = self.discriminator(obs_t.unsqueeze(0), skills_onehot.unsqueeze(0))
         probs = torch.softmax(logits, dim=-1)
-        reward = ( torch.log(probs).detach() - np.log(1/self.n_skills)).item()
+        reward = ( torch.log(probs).detach() - np.log(1/self.batch_size)).item()
         print(f"reward in the skill wrapper: {reward}")
     return obs, reward, done, info
 

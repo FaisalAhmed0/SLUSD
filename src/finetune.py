@@ -50,7 +50,7 @@ ppo_hyperparams = dict(
 sac_hyperparams = dict(
     learning_rate = 3e-4,
     gamma = 0.99,
-    batch_size = 256,
+    batch_size = 128,
     buffer_size = int(1e7),
     tau = 0.01,
     gradient_steps = 1,
@@ -77,14 +77,16 @@ hyperparams = {
 # weight_decay=0.0, label_smoothing=None, gp=None, mixup=False
 discriminator_hyperparams = dict(
     learning_rate = 3e-4,
-    batch_size = 64,
+    batch_size = 128,
     n_epochs = 1,
     weight_decay = 0, 
     dropout = None, # The dropout probability
     label_smoothing = False,
     gp = None, # the weight of the gradient penalty term
     mixup = False,
-    parametrization = "MLP" # TODO: add this as a CMD argument
+    gradient_clip = False,
+    temperature = 0.07,
+    parametrization = "CPC" # TODO: add this as a CMD argument MLP, CPC, linear
 )
 
 # save a timestamp

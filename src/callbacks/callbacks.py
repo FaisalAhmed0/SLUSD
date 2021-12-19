@@ -79,9 +79,9 @@ class DiscriminatorCallback(BaseCallback):
         # batch size
         self.batch_size = hyerparams['batch_size']
         # use label smoothing if not None, otherwise use cross_entropy
-        if hyerparams['parametrization'] == "MLP"  and hyerparams['label_smoothing']:
+        if (hyerparams['parametrization'] == "MLP" or hyerparams['parametrization']== "linear" ) and hyerparams['label_smoothing']:
             self.criterion = self.label_smoothedCrossEntropyLoss
-        elif hyerparams['parametrization']== "MLP":
+        elif hyerparams['parametrization']== "MLP" or hyerparams['parametrization']== "linear":
             self.criterion = F.cross_entropy
         # tensorboard summary writer
         self.sw = sw
@@ -99,6 +99,8 @@ class DiscriminatorCallback(BaseCallback):
         self.mixup = hyerparams['mixup']
         # parametrization 
         self.paramerization = hyerparams['parametrization']
+        # temperature
+        self.temperature = self.hyerparams['temperature']
 
     def _on_step(self):
         """
@@ -203,7 +205,7 @@ class DiscriminatorCallback(BaseCallback):
         This event is triggered before updating the policy.
         """
         # MLP case
-        if self.paramerization == "MLP":
+        if self.paramerization == "MLP" or self.paramerization == "linear":
             current_buffer_size = len(
                 self.buffer) if self.on_policy else self.locals['replay_buffer'].buffer_size if self.locals['replay_buffer'].full else self.locals['replay_buffer'].pos
             if current_buffer_size >= self.min_buffer_size:
@@ -220,7 +222,7 @@ class DiscriminatorCallback(BaseCallback):
                     if self.gp:
                         inputs.requires_grad_(True)
                     outputs = self.d(inputs.to(conf.device))
-                    loss = self.criterion(outputs, targets.to(
+                    loss = self.criterion(outputs/self.temperature, targets.to(
                         conf.device).to(torch.int64))
                     # TODO: add mixup
                     if self.mixup:
@@ -281,25 +283,10 @@ class DiscriminatorCallback(BaseCallback):
                         onehots_skills = torch.zeros(self.batch_size, self.n_skills)
                         onehots_skills[torch.arange(self.batch_size), skills] = 1
                     outputs = self.d(states.to(conf.device), onehots_skills.to(conf.device))
-                    print(f"output in the callback: {outputs}")
-                    # input()s
-                    loss = torch.nn.CrossEntropyLoss()(outputs, target=torch.arange(self.batch_size))
-                    print(f"loss value: {loss}")
-                    # # TODO: add mixup
-                    # if self.mixup:
-                    #     inputs2, targets2 = self.buffer.sample(self.batch_size)
-                    #     inputs = self.mixup_reg(input, inputs2)
-                    #     targets = self.mixup_reg(targets, targets2, targets=True)
-                    #     loss = 0
-                    #     loss = self.onehot_cross_entropy(outputs, targets)
-                    # # TODO: Add gradient penalty to the loss
-                    # if self.gp:
-                    #     inputs.requires_grad_(True)
-                    #     gp = self.grad_penalty(loss, inputs)
-                    #     loss += (self.gp * gp)
-                    # self.optimizer.zero_grad()
+                    # print(f"output in the callback: {outputs}")
+                    loss = torch.nn.CrossEntropyLoss()(outputs/self.temperature, target=torch.arange(self.batch_size))
+                    self.optimizer.zero_grad()
                     loss.backward()
-                    # clip_grad_norm_(model.parameters(), 0.1)
                     self.optimizer.step()
                     epoch_loss += loss.cpu().detach().item()
 

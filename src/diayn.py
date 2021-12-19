@@ -30,6 +30,10 @@ class DIAYN():
         elif discriminator_hyperparams['parametrization'] == "CPC":
             # Discriminator_CPC(10, 6, [100, 100], 32)
             self.d = Discriminator_CPC(gym.make(env).observation_space.shape[0], params['n_skills'], [conf.layer_size_discriminator, conf.layer_size_discriminator], conf.latent_size).to(device)
+        elif discriminator_hyperparams['parametrization'] == "linear":
+            self.d = nn.Linear(gym.make(env).observation_space.shape[0], params['n_skills'])
+            print(f"linear disriminator: {self.d}")
+            input()
             
         # tensorboard summary writer
         '''

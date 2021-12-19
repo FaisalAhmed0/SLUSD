@@ -109,7 +109,7 @@ def final_results(dir):
     # print(f"results: {logs['results']}")
     final_reward = np.mean(logs['results'][-1])
     rewards_std = np.std(logs['results'][-1])
-    print(f"reward: {final_reward}, std: {rewards_std}")
+    # print(f"reward: {final_reward}, std: {rewards_std}")
     return final_reward, rewards_std
 
 def plot_results(results_dict, args, stamp, reward_threshold):
@@ -127,42 +127,44 @@ def plot_results(results_dict, args, stamp, reward_threshold):
     plt.legend()
     plt.xlabel("Pretrain steps")
     plt.ylabel("Normalized Return")
-    plt.title("MountainCar")
+    if args.env == "MountainCarContinuous-v0":
+        plt.title(f"MountainCar")
+    else:
+        plt.title(f"{args.env[:args.env.index('-') ]}")
     files_dir = f"Vis/{args.env}"
     os.makedirs(files_dir, exist_ok=True)
-    try:
-        plt.savefig(f'./{files_dir}/pretrain_steps_exper_{args.skills}_skills_{stamp}.png', dpi=150)
-        print("plotted and saved")
-    except:
-        print("plotted and saved with exception")
-        plt.savefig(f"./pretrain_exp_{args.env}_ppo.png", dpi=150)
+    plt.savefig(f'./{files_dir}/pretrain_steps_exper_{args.skills}_skills_{stamp}.png', dpi=150)
+    print("plotted and saved")
+    # except:
+    #     print("plotted and saved with exception")
+    #     plt.savefig(f"./pretrain_exp_{args.env}_ppo.png", dpi=150)
 
     # plt.show()
     
 
 if __name__ == "__main__":
-    timestamp = 1637839098.20234
+    # timestamp = 1638611737.0454986
     print(f"Experiment timestamp: {timestamp}")
     args = cmd_args()
     pretrain_steps = [int(5e6), int(5e6)]
     n_samples = 100
     algs = ['sac', 'ppo']
     # algs = ['sac', 'ppo']
-    # experiment directory
-    # for alg, pretrain_step in zip(algs, pretrain_steps):
-    #     # print("############HERE#############")
-    #     exp_directory = conf.pretrain_steps_exper_dir + f"{args.env}/" + f"{alg}_{args.env}_skills:{params['n_skills']}_{timestamp}"
-    #     # create a folder for the expirment
-    #     os.makedirs(exp_directory)
-    #     # change the pretraining timesteps param
-    #     params['pretrain_steps'] = pretrain_step
-    #     # save the exp parameters
-    #     save_params(args, alg, exp_directory)
-    #     # create a diyan object
-    #     alg_params = ppo_hyperparams if alg == "ppo" else sac_hyperparams
-    #     diayn = DIAYN(params, alg_params, discriminator_hyperparams, args.env, alg, exp_directory, seed=seed, conf=conf, timestamp=timestamp, checkpoints=True, args=args)
-    #     # pretraining step
-    #     diayn.pretrain()
+    experiment directory
+    for alg, pretrain_step in zip(algs, pretrain_steps):
+        # print("############HERE#############")
+        exp_directory = conf.pretrain_steps_exper_dir + f"{args.env}/" + f"{alg}_{args.env}_skills:{params['n_skills']}_{timestamp}"
+        # create a folder for the expirment
+        os.makedirs(exp_directory)
+        # change the pretraining timesteps param
+        params['pretrain_steps'] = pretrain_step
+        # save the exp parameters
+        save_params(args, alg, exp_directory)
+        # create a diyan object
+        alg_params = ppo_hyperparams if alg == "ppo" else sac_hyperparams
+        diayn = DIAYN(params, alg_params, discriminator_hyperparams, args.env, alg, exp_directory, seed=seed, conf=conf, timestamp=timestamp, checkpoints=True, args=args)
+        # pretraining step
+        diayn.pretrain()
             
     # print(f"steps after pretraining: {steps}")
     # input()
