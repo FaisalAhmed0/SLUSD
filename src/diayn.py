@@ -11,7 +11,7 @@ from src.environment_wrappers.tasks_wrappers import HalfCheetahTaskWrapper
 from src.utils import record_video_finetune, best_skill
 from src.models.models import Discriminator, Discriminator_CPC
 from src.replayBuffers import DataBuffer
-from src.callbacks.callbacks import DiscriminatorCallback, VideoRecorderCallback, FineTuneCallback
+from src.callbacks.callbacks import DiscriminatorCallback, VideoRecorderCallback, FineTuneCallback, CPC_EvalCallback
 
 import torch.nn as nn
 from torch.utils.tensorboard import SummaryWriter
@@ -142,13 +142,16 @@ class DIAYN():
             #                                               n_z=self.params['n_skills'], videos_dir=self.conf.videos_dir + f"/sac_{self.env_name}_{self.timestamp}")
             discriminator_callback = DiscriminatorCallback(self.d, None, self.discriminator_hyperparams, sw=self.sw,
                                                            n_skills=self.params['n_skills'], min_buffer_size=self.params['min_train_size'], save_dir=self.directory, on_policy=False)
+            if self.parametrization != "CPC":
+                eval_env = RewardWrapper(SkillWrapper(gym.make(
+                    self.env_name), self.params['n_skills'], ev=True), self.d, self.params['n_skills'], parametrization=self.parametrization)
+                eval_env = Monitor(eval_env,  f"{self.directory}/eval_results")
 
-            eval_env = RewardWrapper(SkillWrapper(gym.make(
-                self.env_name), self.params['n_skills'], ev=True), self.d, self.params['n_skills'], parametrization=self.parametrization)
-            eval_env = Monitor(eval_env,  f"{self.directory}/eval_results")
-
-            eval_callback = EvalCallback(eval_env, best_model_save_path=self.directory,
-                                         log_path=f"{self.directory}/eval_results", eval_freq=5000, deterministic=True, render=False)
+                eval_callback = EvalCallback(eval_env, best_model_save_path=self.directory,
+                                             log_path=f"{self.directory}/eval_results", eval_freq=5000, deterministic=True, render=False)
+            elif self.parametrization == "CPC":
+                # (self, env_name, n_skills, tb_sw, discriminator, temp, model_save_path, eval_freq=5000,verbose=0):
+                eval_callback = CPC_EvalCallback(self.env_name, self.params['n_skills'], self.sw, self.d, self.discriminator_hyperparams['temperature'], self.directory, eval_freq=5000)
             
             # create the callback list
             if self.checkpoints:

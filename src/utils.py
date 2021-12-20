@@ -250,3 +250,38 @@ def report_resuts(env_name, alg, n_skills, model, data_r, data_i, timestamp, exp
     results_df.to_csv(f"{exper_directory}/results.csv")
     return results_df
 
+# evaluate the CPC based policy
+torch.no_grad()
+def evaluate_cpc(env_name, n_skills, model, tb_sw, discriminator, timesteps, temparture):
+    eval_runs = 5
+    max_steps = 1000
+    rewards = np.zeros(5)
+    env = SkillWrapper(gym.make(env_name), n_skills, ev=True)
+    i = 0
+    for run in range(eval_runs):
+        data = torch.zeros(max_steps, gym.make(env_name).observation_space.shape[0] + n_skills)
+        obs = env.reset()
+        data[0] = torch.tensor(obs.copy())
+        for i in range(1, max_steps):
+            action, _ = model.predict(obs, deterministic=True)
+            obs, reward, done, _ = env.step(action)
+            data[i] = torch.tensor(obs.copy())
+        # print(f"length of the evaluation buffer: {len(data)}")
+        discriminator.eval()
+        env_obs = torch.clone(data[:, : -discriminator.num_skills])
+        skills = torch.clone(data[:, -discriminator.num_skills:])
+        # print(torch.softmax(discriminator(env_obs, skills)/temparture, dim=-1).diag())
+        # print(torch.log_softmax(discriminator(env_obs, skills)/temparture, dim=-1).diag() - np.log(1/max_steps) )
+        final_return = ( torch.log_softmax(discriminator(env_obs, skills)/temparture, dim=-1).diag() - np.log(1/max_steps) ).sum().item()
+        # print(f"final return: {final_return}")
+        rewards[run] = final_return
+    # print(f"all seeds rewards: {rewards}")
+    # print(f"mean reward: {rewards.mean()} and std: {rewards.std()}")
+    tb_sw.add_scalar("eval/mean_reward", rewards.mean(), timesteps)
+    # input()
+    return rewards
+            
+            
+
+        
+    

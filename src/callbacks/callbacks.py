@@ -19,7 +19,7 @@ from stable_baselines3.common.monitor import Monitor
 
 
 from src.environment_wrappers.env_wrappers import RewardWrapper, SkillWrapper, SkillWrapperFinetune
-from src.utils import record_video, best_skill
+from src.utils import record_video, best_skill, evaluate_cpc
 from src.config import conf
 
 
@@ -436,3 +436,51 @@ class FineTuneCallback(BaseCallback):
         # record a video of the agent
         # record_video_finetune(self.env_name, best_skill_index, model,
         #                     self.params['n_skills'], video_length=1000, video_folder='videos_finetune/', alg=self.alg)
+
+# Callback for evaluation 
+class CPC_EvalCallback(BaseCallback):
+    """
+    A custom callback that derives from ``BaseCallback``.
+
+    :param verbose: (int) Verbosity level 0: not output 1: info 2: debug
+    """
+    def __init__(self, env_name, n_skills, tb_sw, discriminator, temp, model_save_path, eval_freq=5000,verbose=0):
+        super(CPC_EvalCallback, self).__init__(verbose)
+        self.env_name = env_name
+        self.n_skills = n_skills
+        self.tb_sw = tb_sw
+        self.discriminator = discriminator
+        self.eval_freq = eval_freq
+        self.temp = temp
+        self.model_path = model_save_path
+        self.eval_file = None
+        self.best_reward = - np.inf
+        self.results = []
+        self.timesteps = []
+        
+        
+    def _on_step(self):
+        if self.num_timesteps % self.eval_freq == 0:
+            evals_path = os.makedirs(f"{self.model_path}/eval_results", exist_ok=True)
+            print(f"current timestep: {self.num_timesteps}")
+            rewards = evaluate_cpc(self.env_name, self.n_skills, self.model, self.tb_sw, self.discriminator, self.num_timesteps, self.temp)
+            if results > self.best_reward:
+                self.best_reward = reward_mean
+                self.model.save('best_model')
+            self.timesteps.append(self.num_timesteps)
+            self.results.append(rewards)
+            timesteps = np.array(self.timesteps)
+            results = np.array(results)
+            np.savez(f"{evals_path}/evaluations.npz", timesteps=timesteps, results=results)
+            
+            
+            
+        return True
+
+    def _on_training_end(self) -> None:
+        """
+        This event is triggered before exiting the `learn()` method.
+        """
+        pass
+        # print("I am heere")
+        # evaluate_cpc(self.env_name, self.n_skills, self.model, self.tb_sw, self.discriminator, self.num_timesteps)

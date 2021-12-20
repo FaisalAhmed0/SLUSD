@@ -151,7 +151,7 @@ class RewardWrapper(gym.Wrapper):
         logits = self.discriminator(obs_t.unsqueeze(0), skills_onehot.unsqueeze(0))
         probs = torch.softmax(logits, dim=-1)
         reward = ( torch.log(probs).detach() - np.log(1/self.batch_size)).item()
-        print(f"reward in the skill wrapper: {reward}")
+        # print(f"reward in the skill wrapper: {reward}")
     if self.t >= self.env.max_steps:
         done = True
     else:
