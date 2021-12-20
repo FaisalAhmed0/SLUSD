@@ -34,40 +34,40 @@ params = dict( n_skills = 6,
 
 # setting the parameters for each environment
 env_params = {
-    'ppo':{
-        'MountainCarContinuous-v0': dict( 
-           pretrain_steps = int(30e6),
-            n_skills = 6
-             ), # 1 dof
-        'Reacher-v2': dict( 
-           pretrain_steps = int(30e6),
-            n_skills = 12
-             ), # 2 dof
-        'Swimmer-v2': dict( 
-           pretrain_steps = int(30e6),
-            n_skills = 12
-             ), # 2 dof
-        'Hopper-v2': dict( 
-           pretrain_steps = int(50e6),
-            n_skills = 15
-             ), # 3 dof
-        'HalfCheetah-v2': dict( 
-           pretrain_steps = int(70e6),
-            n_skills = 20
-             ),# 6 dof
-        'Walker2d-v2': dict( 
-           pretrain_steps = int(70e6),
-            n_skills = 20
-             ),# 6 dof
-        'Ant-v2': dict( 
-           pretrain_steps = int(100e6),
-            n_skills = 25
-             ),# 8 dof
-        'Humanoid-v2': dict( 
-           pretrain_steps = int(100e6),
-            n_skills = 25
-             ),# 8 dof
-    },
+    # 'ppo':{
+    #     'MountainCarContinuous-v0': dict( 
+    #        pretrain_steps = int(30e6),
+    #         n_skills = 6
+    #          ), # 1 dof
+    #     'Reacher-v2': dict( 
+    #        pretrain_steps = int(30e6),
+    #         n_skills = 12
+    #          ), # 2 dof
+    #     'Swimmer-v2': dict( 
+    #        pretrain_steps = int(30e6),
+    #         n_skills = 12
+    #          ), # 2 dof
+    #     'Hopper-v2': dict( 
+    #        pretrain_steps = int(50e6),
+    #         n_skills = 15
+    #          ), # 3 dof
+    #     'HalfCheetah-v2': dict( 
+    #        pretrain_steps = int(70e6),
+    #         n_skills = 20
+    #          ),# 6 dof
+    #     'Walker2d-v2': dict( 
+    #        pretrain_steps = int(70e6),
+    #         n_skills = 20
+    #          ),# 6 dof
+    #     'Ant-v2': dict( 
+    #        pretrain_steps = int(100e6),
+    #         n_skills = 25
+    #          ),# 8 dof
+    #     'Humanoid-v2': dict( 
+    #        pretrain_steps = int(100e6),
+    #         n_skills = 25
+    #          ),# 17 dof
+    # },
     'sac':{
         'MountainCarContinuous-v0': dict( 
            pretrain_steps = int(500e3),
@@ -100,7 +100,7 @@ env_params = {
         'Humanoid-v2': dict( 
            pretrain_steps = int(20e6),
             n_skills = 25
-             ),# 8 dof
+             ),# 17 dof
     }
     
 }
@@ -143,7 +143,7 @@ ppo_hyperparams = dict(
     gae_lambda = 0.95,
     clip_range = 0.2,
     ent_coef=0.5,
-    n_actors = 8,
+    n_actors = 16,
     algorithm = "ppo",
     
 )

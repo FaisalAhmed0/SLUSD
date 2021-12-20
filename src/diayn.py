@@ -70,7 +70,7 @@ class DIAYN():
     def pretrain(self):
         if self.alg == "ppo":
             env = DummyVecEnv([lambda: Monitor(RewardWrapper(SkillWrapper(gym.make(
-                    self.env_name), self.params['n_skills'], max_steps=self.conf.max_steps), self.d, self.params['n_skills']),  self.directory)]*self.alg_params['n_actors'])
+                    self.env_name), self.params['n_skills'], max_steps=self.conf.max_steps), self.d, self.params['n_skills'], parametrization=self.parametrization),  self.directory)]*self.alg_params['n_actors'])
             # env = DummyVecEnv([
             #     lambda: Monitor(RewardWrapper(SkillWrapper(gym.make(
             #         self.env_name), self.params['n_skills'], max_steps=self.conf.max_steps), self.d, self.params['n_skills'], parametrization=self.parametrization),  self.directory),

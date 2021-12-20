@@ -142,7 +142,9 @@ class RewardWrapper(gym.Wrapper):
     env_obs, skill = self.split_obs(obs)
     obs_t = torch.FloatTensor(env_obs).to(conf.device)
     self.discriminator.eval()
+    self.t += 1
     if self.parametrization == "MLP"  or self.parametrization == "linear":
+        # print(f"hereeee in timestep: {self.t}")
         reward = (torch.log_softmax(self.discriminator(obs_t).detach(), dim=-1)[int(skill)] - np.log(1/self.n_skills)).item()
     elif self.parametrization == "CPC":
         skills_onehot = self.one_hot(skill)
