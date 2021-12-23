@@ -453,7 +453,6 @@ class CPC_EvalCallback(BaseCallback):
         self.eval_freq = eval_freq
         self.temp = temp
         self.model_path = model_save_path
-        self.eval_file = None
         self.best_reward = - np.inf
         self.results = []
         self.timesteps = []
@@ -461,20 +460,18 @@ class CPC_EvalCallback(BaseCallback):
         
     def _on_step(self):
         if self.num_timesteps % self.eval_freq == 0:
-            evals_path = os.makedirs(f"{self.model_path}/eval_results", exist_ok=True)
+            evals_path = f"{self.model_path}/eval_results" 
+            os.makedirs(evals_path, exist_ok=True)
             print(f"current timestep: {self.num_timesteps}")
             rewards = evaluate_cpc(self.env_name, self.n_skills, self.model, self.tb_sw, self.discriminator, self.num_timesteps, self.temp)
-            if results > self.best_reward:
-                self.best_reward = reward_mean
-                self.model.save('best_model')
+            if rewards.mean() > self.best_reward:
+                self.best_reward = rewards.mean()
+                self.model.save(f'{self.model_path}/best_model')
             self.timesteps.append(self.num_timesteps)
             self.results.append(rewards)
             timesteps = np.array(self.timesteps)
-            results = np.array(results)
+            results = np.array(self.results)
             np.savez(f"{evals_path}/evaluations.npz", timesteps=timesteps, results=results)
-            
-            
-            
         return True
 
     def _on_training_end(self) -> None:

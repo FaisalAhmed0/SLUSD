@@ -36,72 +36,73 @@ params = dict( n_skills = 6,
 env_params = {
     'ppo':{
         'MountainCarContinuous-v0': dict( 
-           pretrain_steps = int(30e6),
+           pretrain_steps = int(200e6),
             n_skills = 6
              ), # 1 dof
         'Reacher-v2': dict( 
-           pretrain_steps = int(30e6),
-            n_skills = 12
+           pretrain_steps = int(220e6),
+            n_skills = 12,
+            clip_range = 0.01
              ), # 2 dof
-        'Swimmer-v2': dict( 
-           pretrain_steps = int(30e6),
-            n_skills = 12
-             ), # 2 dof
-        'Hopper-v2': dict( 
-           pretrain_steps = int(50e6),
-            n_skills = 15
-             ), # 3 dof
-        'HalfCheetah-v2': dict( 
-           pretrain_steps = int(70e6),
-            n_skills = 20
-             ),# 6 dof
-        'Walker2d-v2': dict( 
-           pretrain_steps = int(70e6),
-            n_skills = 20
-             ),# 6 dof
-        'Ant-v2': dict( 
-           pretrain_steps = int(100e6),
-            n_skills = 25
-             ),# 8 dof
-        'Humanoid-v2': dict( 
-           pretrain_steps = int(100e6),
-            n_skills = 25
-             ),# 17 dof
+        # 'Swimmer-v2': dict( 
+        #    pretrain_steps = int(80e6),
+        #     n_skills = 12
+        #      ), # 2 dof
+        # 'Hopper-v2': dict( 
+        #    pretrain_steps = int(100e6),
+        #     n_skills = 15
+        #      ), # 3 dof
+        # 'HalfCheetah-v2': dict( 
+        #    pretrain_steps = int(200e6),
+        #     n_skills = 20
+        #      ),# 6 dof
+        # 'Walker2d-v2': dict( 
+        #    pretrain_steps = int(300e6),
+        #     n_skills = 20
+        #      ),# 6 dof
+        # 'Ant-v2': dict( 
+        #    pretrain_steps = int(500e6),
+        #     n_skills = 25
+        #      ),# 8 dof
+        # 'Humanoid-v2': dict( 
+        #    pretrain_steps = int(800e6),
+        #     n_skills = 25
+        #      ),# 17 dof
     },
-    'sac':{
-        'MountainCarContinuous-v0': dict( 
-           pretrain_steps = int(500e3),
-            n_skills = 6
-             ), # 1 dof
-        'Reacher-v2': dict( 
-           pretrain_steps = int(500e3),
-            n_skills = 12
-             ), # 2 dof
-        'Swimmer-v2': dict( 
-           pretrain_steps = int(500e3),
-            n_skills = 12
-             ), # 2 dof
-        'Hopper-v2': dict( 
-           pretrain_steps = int(800e3),
-            n_skills = 15
-             ), # 3 dof
-        'HalfCheetah-v2': dict( 
-           pretrain_steps = int(2e6),
-            n_skills = 20
-             ),# 6 dof
-        'Walker2d-v2': dict( 
-           pretrain_steps = int(4e6),
-            n_skills = 20
-             ),# 6 dof
-        'Ant-v2': dict( 
-           pretrain_steps = int(10e6),
-            n_skills = 25
-             ),# 8 dof
-        'Humanoid-v2': dict( 
-           pretrain_steps = int(20e6),
-            n_skills = 25
-             ),# 17 dof
-    }
+    # 'sac':{
+    #     'MountainCarContinuous-v0': dict( 
+    #        pretrain_steps = int(5e6),
+    #         n_skills = 6
+    #          ), # 1 dof
+    #     'Reacher-v2': dict( 
+    #        pretrain_steps = int(5e6),
+    #         n_skills = 12
+    #          ), # 2 dof
+    #     'Swimmer-v2': dict( 
+    #        pretrain_steps = int(5e6),
+    #         n_skills = 12
+    #          ), # 2 dof
+    #     'Hopper-v2': dict( 
+    #        pretrain_steps = int(6e6),
+    #         n_skills = 15
+    #          ), # 3 dof
+        # 'HalfCheetah-v2': dict( 
+        #    pretrain_steps = int(10e6),
+        #     n_skills = 20
+        #      ),# 6 dof
+        # 'Walker2d-v2': dict( 
+        #    pretrain_steps = int(10e6),
+        #     n_skills = 20
+        #      ),# 6 dof
+    #     'Ant-v2': dict( 
+    #        pretrain_steps = int(20e6),
+    #         n_skills = 25
+    #          ),# 8 dof
+    #     'Humanoid-v2': dict( 
+    #        pretrain_steps = int(50e6),
+    #         n_skills = 25
+    #          ),# 17 dof
+    # }
     
 }
 
@@ -141,9 +142,9 @@ ppo_hyperparams = dict(
     batch_size = 64,
     gamma = 0.99,
     gae_lambda = 0.95,
-    clip_range = 0.2,
+    clip_range = 0.1,
     ent_coef=0.5,
-    n_actors = 16,
+    n_actors = 8,
     algorithm = "ppo",
     
 )
@@ -152,9 +153,9 @@ ppo_hyperparams = dict(
 sac_hyperparams = dict(
     learning_rate = 3e-4,
     gamma = 0.99,
-    buffer_size = int(1e6),
-    batch_size = 256,
-    tau = 0.005,
+    buffer_size = int(1e7),
+    batch_size = 128,
+    tau = 0.01,
     gradient_steps = 1,
     ent_coef=0.5,
     learning_starts = 10000,
@@ -178,7 +179,7 @@ hyperparams = {
 # weight_decay=0.0, label_smoothing=None, gp=None, mixup=False
 discriminator_hyperparams = dict(
     learning_rate = 3e-4,
-    batch_size = 1024,
+    batch_size = 64,
     n_epochs = 1,
     weight_decay = 0, 
     dropout = None, # The dropout probability
@@ -186,8 +187,8 @@ discriminator_hyperparams = dict(
     gp = None, # the weight of the gradient penalty term
     mixup = False,
     gradient_clip = False,
-    temperature = 0.07,
-    parametrization = "CPC" # TODO: add this as a CMD argument MLP, CPC, linear
+    temperature = 1,
+    parametrization = "linear" # TODO: add this as a CMD argument MLP, CPC, linear
 )
 
 
@@ -260,6 +261,9 @@ if __name__ == "__main__":
                 os.makedirs(exp_directory)
                 save_params(alg, exp_directory)
                 alg_params = hyperparams[alg]
+                if (env_params[alg][env]).get('clip_range'):
+                    # clip_range
+                    alg_params['clip_range'] = (env_params[alg][env]).get('clip_range')
                 # TODO add ES, when it is ready
                 diayn = DIAYN(params, alg_params, discriminator_hyperparams, env, alg, exp_directory, seed=seed, conf=conf, timestamp=timestamp)
                 # pretraining step

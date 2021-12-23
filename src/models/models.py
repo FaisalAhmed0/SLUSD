@@ -82,14 +82,14 @@ class Discriminator_CPC(nn.Module):
 
       skill_enc_layers.append(nn.Linear(n_hiddens[-1], n_latent))
       self.skill_enc = nn.Sequential(*skill_enc_layers)
-
-      
       
     def forward(self, state, skill):
         batch_size = state.shape[0]
         # pass the state to the state encoder
         state_rep = self.state_enc(state)
+        state_rep = (state_rep.T / torch.norm(state_rep, dim=-1)).T
         skill_rep = self.skill_enc(skill)
+        skill_rep = (skill_rep.T / torch.norm(skill_rep, dim=-1)).T
         score_outer = torch.sum(state_rep[:, None, :] * skill_rep[None, :, :], dim=-1) 
         # print(f"score_outer: {score_outer}")
         return score_outer
