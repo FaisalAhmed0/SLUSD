@@ -46,53 +46,77 @@ f(s, z) -> real number
 p(z | s) = f(s, z) / \sum_{z’} f(s, z’)
 '''
 
+# An Encoder network for CPC style discriminator 
+class Encoder(nn.Module):
+    def __init__(self,  n_input, n_hiddens, n_latent, dropout=None):
+        super().__init__()
+        layers = []
+        # layers.append(nn.Linear(n_input, n_skills))
+        layers.append(nn.Linear(n_input, n_hiddens[0]))
+        layers.append(nn.ReLU())
+        if dropout:
+              layers.append( nn.Dropout(dropout) )
+        for i in range(len(n_hiddens)-1):
+          layers.append( nn.Linear(n_hiddens[i], n_hiddens[i+1]) )
+          layers.append( nn.ReLU() )
+          # TODO: Added dropout
+          if dropout:
+            layers.append( nn.Dropout(dropout) )
+
+        layers.append(nn.Linear(n_hiddens[-1], n_latent))
+        self.model = nn.Sequential(*layers)
+        
+    def forward(self, x):
+        return self.model(x)
+        
+
 # TODO: Added the dot product based classifier
-class Discriminator_CPC(nn.Module):
-    def __init__(self, state_n_input, skill_n_input, n_hiddens, n_latent, dropout=None):
-      super().__init__()
-      # define the state encoder
-      self.num_skills = skill_n_input
-      state_enc_layers = []
-      state_enc_layers.append(nn.Linear(state_n_input, n_hiddens[0]))
-      state_enc_layers.append(nn.ReLU())
-      if dropout:
-          state_n_input.append(nn.Dropout(dropout))
-      for i in range(len(n_hiddens)-1):
-        state_enc_layers.append( nn.Linear(n_hiddens[i], n_hiddens[i+1]) )
-        state_enc_layers.append( nn.ReLU() )
-        # TODO: Added dropout
-        if dropout:
-          state_n_input.append( nn.Dropout(dropout) )
+# class Discriminator_CPC(nn.Module):
+#     def __init__(self, state_n_input, skill_n_input, n_hiddens, n_latent, dropout=None):
+#       super().__init__()
+#       # define the state encoder
+#       self.num_skills = skill_n_input
+#       state_enc_layers = []
+#       state_enc_layers.append(nn.Linear(state_n_input, n_hiddens[0]))
+#       state_enc_layers.append(nn.ReLU())
+#       if dropout:
+#           state_n_input.append(nn.Dropout(dropout))
+#       for i in range(len(n_hiddens)-1):
+#         state_enc_layers.append( nn.Linear(n_hiddens[i], n_hiddens[i+1]) )
+#         state_enc_layers.append( nn.ReLU() )
+#         # TODO: Added dropout
+#         if dropout:
+#           state_n_input.append( nn.Dropout(dropout) )
 
-      state_enc_layers.append(nn.Linear(n_hiddens[-1], n_latent))
-      self.state_enc = nn.Sequential(*state_enc_layers)
+#       state_enc_layers.append(nn.Linear(n_hiddens[-1], n_latent))
+#       self.state_enc = nn.Sequential(*state_enc_layers)
 
-      # define the skills encoder
-      skill_enc_layers = []
-      skill_enc_layers.append(nn.Linear(skill_n_input, n_hiddens[0]))
-      skill_enc_layers.append(nn.ReLU())
-      if dropout:
-          skill_enc_layers.append(nn.Dropout(dropout))
-      for i in range(len(n_hiddens)-1):
-        skill_enc_layers.append( nn.Linear(n_hiddens[i], n_hiddens[i+1]) )
-        skill_enc_layers.append( nn.ReLU() )
-        # TODO: Added dropout
-        if dropout:
-          skill_enc_layers.append( nn.Dropout(dropout) )
+#       # define the skills encoder
+#       skill_enc_layers = []
+#       skill_enc_layers.append(nn.Linear(skill_n_input, n_hiddens[0]))
+#       skill_enc_layers.append(nn.ReLU())
+#       if dropout:
+#           skill_enc_layers.append(nn.Dropout(dropout))
+#       for i in range(len(n_hiddens)-1):
+#         skill_enc_layers.append( nn.Linear(n_hiddens[i], n_hiddens[i+1]) )
+#         skill_enc_layers.append( nn.ReLU() )
+#         # TODO: Added dropout
+#         if dropout:
+#           skill_enc_layers.append( nn.Dropout(dropout) )
 
-      skill_enc_layers.append(nn.Linear(n_hiddens[-1], n_latent))
-      self.skill_enc = nn.Sequential(*skill_enc_layers)
+#       skill_enc_layers.append(nn.Linear(n_hiddens[-1], n_latent))
+#       self.skill_enc = nn.Sequential(*skill_enc_layers)
       
-    def forward(self, state, skill):
-        batch_size = state.shape[0]
-        # pass the state to the state encoder
-        state_rep = self.state_enc(state)
-        state_rep = (state_rep.T / torch.norm(state_rep, dim=-1)).T
-        skill_rep = self.skill_enc(skill)
-        skill_rep = (skill_rep.T / torch.norm(skill_rep, dim=-1)).T
-        score_outer = torch.sum(state_rep[:, None, :] * skill_rep[None, :, :], dim=-1) 
-        # print(f"score_outer: {score_outer}")
-        return score_outer
+#     def forward(self, state, skill):
+#         batch_size = state.shape[0]
+#         # pass the state to the state encoder
+#         state_rep = self.state_enc(state)
+#         state_rep = (state_rep.T / torch.norm(state_rep, dim=-1)).T
+#         skill_rep = self.skill_enc(skill)
+#         skill_rep = (skill_rep.T / torch.norm(skill_rep, dim=-1)).T
+#         score_outer = torch.sum(state_rep[:, None, :] * skill_rep[None, :, :], dim=-1) 
+#         # print(f"score_outer: {score_outer}")
+#         return score_outer
 
         
 class MLP_policy(nn.Module):
