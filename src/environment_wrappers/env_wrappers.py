@@ -9,7 +9,7 @@ class SkillWrapper(gym.Wrapper):
   """
   gym wrapper that augment the state with random chosen skill index
   """
-  def __init__(self, env, n_skills, max_steps=1000, ev=False):
+  def __init__(self, env, n_skills, max_steps=1000, ev=False, sample_freq=None):
     # Call the parent constructor, so we can access self.env later
     super(SkillWrapper, self).__init__(env)
 
@@ -23,6 +23,7 @@ class SkillWrapper(gym.Wrapper):
     self.env._max_episode_steps = max_steps
     self.max_steps = max_steps
     self.ev = ev
+    self.t = 0
     if ev:
         self.seeds = [0, 10, 1234, 5, 42]
         self.i = 0
@@ -48,6 +49,10 @@ class SkillWrapper(gym.Wrapper):
     :param action: ([float] or int) Action taken by the agent
     :return: (np.ndarray, float, bool, dict) observation, reward, is the episode over?, additional informations
     """
+    self.t += 1
+    if self.t % 100 == 0:
+        # print(f"New sampled skill at t={self.t}")
+        self.skill = self.skills_dist(low=0, high=self.n_skills, size=(1,)).item()
     obs, reward, done, info = self.env.step(action)
     onehot = self.one_hot(self.skill)
     obs = np.array(list(obs.copy()) + list(onehot)).astype(np.float32)
@@ -141,16 +146,22 @@ class RewardWrapper(gym.Wrapper):
 
     env_obs, skill = self.split_obs(obs)
     obs_t = torch.FloatTensor(env_obs).to(conf.device)
-    self.discriminator.eval()
     self.t += 1
     if self.parametrization == "MLP"  or self.parametrization == "linear":
+        self.discriminator.eval()
         # print(f"hereeee in timestep: {self.t}")
         reward = (torch.log_softmax(self.discriminator(obs_t).detach(), dim=-1)[int(skill)] - np.log(1/self.n_skills)).item()
     elif self.parametrization == "CPC":
-        skills_onehot = self.one_hot(skill)
-        logits = self.discriminator(obs_t.unsqueeze(0), skills_onehot.unsqueeze(0))
-        probs = torch.softmax(logits, dim=-1)
-        reward = ( torch.log(probs).detach() - np.log(1/self.batch_size)).item()
+        with torch.no_grad():
+            state_enc, skill_enc = self.discriminator
+            state_enc.eval()
+            skill_enc.eval()
+            skills_onehot = self.one_hot(skill)
+            state_rep = state_enc(obs_t.unsqueeze(0))
+            skill_rep = skill_enc(skills_onehot.unsqueeze(0))
+            logits = torch.sum(state_rep[:, None, :] * skill_rep[None, :, :], dim=-1) # shape: (B * B)
+            log_probs = torch.log_softmax(logits/state_enc.temperature, dim=-1)
+            reward = ( log_probs- np.log(1/self.batch_size)).item()
         # print(f"reward in the skill wrapper: {reward}")
     if self.t >= self.env.max_steps:
         done = True

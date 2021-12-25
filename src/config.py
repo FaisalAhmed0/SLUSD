@@ -40,9 +40,12 @@ layer_size_q = 500,
 
 # layer size of the skills discriminator
 layer_size_discriminator = 1024,
+    
+# layer size of the skills discriminator
+num_layers_discriminator = 2,
 
 # size of the latent vector in CPC style discriminator
-latent_size = 50,
+latent_size = 64,
 
 # number of skills
 n_z = 12,

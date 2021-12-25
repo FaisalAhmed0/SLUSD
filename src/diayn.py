@@ -9,7 +9,7 @@ from stable_baselines3.common.monitor import Monitor
 from src.environment_wrappers.env_wrappers import RewardWrapper, SkillWrapper, SkillWrapperFinetune
 from src.environment_wrappers.tasks_wrappers import HalfCheetahTaskWrapper
 from src.utils import record_video_finetune, best_skill
-from src.models.models import Discriminator, Discriminator_CPC
+from src.models.models import Discriminator, Encoder
 from src.replayBuffers import DataBuffer
 from src.callbacks.callbacks import DiscriminatorCallback, VideoRecorderCallback, FineTuneCallback, CPC_EvalCallback
 
@@ -29,7 +29,16 @@ class DIAYN():
                 env).observation_space.shape[0])
         elif discriminator_hyperparams['parametrization'] == "CPC":
             # Discriminator_CPC(10, 6, [100, 100], 32)
-            self.d = Discriminator_CPC(gym.make(env).observation_space.shape[0], params['n_skills'], [conf.layer_size_discriminator, conf.layer_size_discriminator], conf.latent_size).to(device)
+            obs_shape = gym.make(env).observation_space.shape[0]
+            skills_shape = params['n_skills']
+            hiddens = conf.num_layers_discriminator*[conf.layer_size_discriminator]
+            n_latent = conf.latent_size
+            self.state_enc = Encoder(obs_shape, hiddens, n_latent)
+            self.skill_enc = Encoder(skills_shape, hiddens, n_latent)
+            print(f'self.state_enc: {self.state_enc}')
+            print(f'self.skill_enc: {self.skill_enc}')
+            # input()
+            self.d = (self.state_enc, self.skill_enc)
         elif discriminator_hyperparams['parametrization'] == "linear":
             self.d = nn.Linear(gym.make(env).observation_space.shape[0], params['n_skills'])
             self.buffer = DataBuffer(params['buffer_size'], obs_shape=gym.make(
@@ -71,14 +80,6 @@ class DIAYN():
         if self.alg == "ppo":
             env = DummyVecEnv([lambda: Monitor(RewardWrapper(SkillWrapper(gym.make(
                     self.env_name), self.params['n_skills'], max_steps=self.conf.max_steps), self.d, self.params['n_skills'], parametrization=self.parametrization),  self.directory)]*self.alg_params['n_actors'])
-            # env = DummyVecEnv([
-            #     lambda: Monitor(RewardWrapper(SkillWrapper(gym.make(
-            #         self.env_name), self.params['n_skills'], max_steps=self.conf.max_steps), self.d, self.params['n_skills'], parametrization=self.parametrization),  self.directory),
-            #     lambda: Monitor(RewardWrapper(SkillWrapper(gym.make(
-            #         self.env_name), self.params['n_skills'], max_steps=self.conf.max_steps), self.d, self.params['n_skills'], parametrization=self.parametrization),  self.directory),
-            #     lambda: Monitor(RewardWrapper(SkillWrapper(gym.make(
-            #         self.env_name), self.params['n_skills'], max_steps=self.conf.max_steps), self.d, self.params['n_skills'], parametrization=self.parametrization),  self.directory),
-            #     lambda: Monitor(RewardWrapper(SkillWrapper(gym.make(self.env_name), self.params['n_skills'], max_steps=self.conf.max_steps), self.d, self.params['n_skills'], parametrization=self.parametrization),  self.directory)])
 
             # create the model with the speicifed hyperparameters
             model = PPO('MlpPolicy', env, verbose=1,

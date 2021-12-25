@@ -105,6 +105,7 @@ def record_skill(model, env_name, args):
             env = TimestepsWrapper(gym.make(env_name))
             env.seed(seed)
             video_folder = f"recorded_agents/env:{args.env},alg: {args.alg}_skills_videos"
+            # skill = torch.randint(low=0, high=n_skills, size=(1,)).item()
             env = Monitor(env, video_folder, resume=True,force=False, uid=f"env: {env_name}, skill: {skill}")
             obs = env.reset()
             aug_obs = augment_obs(obs, skill, n_skills)
@@ -113,6 +114,7 @@ def record_skill(model, env_name, args):
             while not done:
                 action, _ = model.predict(aug_obs, deterministic=True)
                 obs, reward, done, info = env.step(action)
+                # skill = torch.randint(low=0, high=n_skills, size=(1,)).item()
                 aug_obs = augment_obs(obs, skill, n_skills)
                 total_reward += reward
             total_rewards.append(total_reward)

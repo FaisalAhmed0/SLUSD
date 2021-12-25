@@ -10,6 +10,7 @@ from src.environment_wrappers.env_wrappers import RewardWrapper, SkillWrapperVid
 from src.config import conf
 
 import torch
+import torch.nn.functional as F
 
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
@@ -254,25 +255,38 @@ def report_resuts(env_name, alg, n_skills, model, data_r, data_i, timestamp, exp
 torch.no_grad()
 def evaluate_cpc(env_name, n_skills, model, tb_sw, discriminator, timesteps, temparture):
     eval_runs = 5
-    max_steps = 1000
+    batch_size = max_steps = 1000
     rewards = np.zeros(5)
     env = SkillWrapper(gym.make(env_name), n_skills, ev=True)
+    state_enc, skill_enc = discriminator
+    state_enc.eval()
+    skill_enc.eval()
     i = 0
     for run in range(eval_runs):
-        data = torch.zeros(max_steps, gym.make(env_name).observation_space.shape[0] + n_skills)
-        obs = env.reset()
-        data[0] = torch.tensor(obs.copy())
-        for i in range(1, max_steps):
-            action, _ = model.predict(obs, deterministic=True)
-            obs, reward, done, _ = env.step(action)
-            data[i] = torch.tensor(obs.copy())
+        for i in range(3):
+            data = torch.zeros(max_steps, gym.make(env_name).observation_space.shape[0] + n_skills)
+            obs = env.reset()
+            data[0] = torch.tensor(obs.copy())
+            for i in range(1, max_steps):
+                action, _ = model.predict(obs, deterministic=True)
+                obs, reward, done, _ = env.step(action)
+                data[i] = torch.tensor(obs.copy())
         # print(f"length of the evaluation buffer: {len(data)}")
-        discriminator.eval()
-        env_obs = torch.clone(data[:, : -discriminator.num_skills])
-        skills = torch.clone(data[:, -discriminator.num_skills:])
-        # print(torch.softmax(discriminator(env_obs, skills)/temparture, dim=-1).diag())
-        # print(torch.log_softmax(discriminator(env_obs, skills)/temparture, dim=-1).diag() - np.log(1/max_steps) )
-        final_return = ( torch.log_softmax(discriminator(env_obs, skills)/temparture, dim=-1).diag() - np.log(1/max_steps) ).sum().item()
+        env_obs = torch.clone(data[:, : -n_skills])
+        skills = torch.clone(data[:, -n_skills:])
+        # print(f"env_obs: {env_obs}")
+        # print(f"skills: {skills}")
+        # forward pass
+        state_rep = F.normalize(state_enc(env_obs), dim=-1) # shape (B * latent)
+        skill_rep = F.normalize(skill_enc(skills), dim=-1)# shape (B * latent)
+        # calculate the score/logits and logprobs
+        logits = torch.sum(state_rep[:, None, :] * skill_rep[None, :, :], dim=-1) # shape: (B * B)
+        log_probs = torch.log_softmax(logits/temparture, dim=-1)
+        # print(f"log probs in diag: {log_probs[:3]}")
+        # print(f"log_probs diag in eval: {log_probs.diag()[:3]}")
+        # input()
+        # calculate the reward
+        final_return =  ((log_probs.diag() - np.log(1/batch_size)).sum().item())/3
         # print(f"final return: {final_return}")
         rewards[run] = final_return
     # print(f"all seeds rewards: {rewards}")

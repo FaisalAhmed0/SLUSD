@@ -35,21 +35,21 @@ params = dict( n_skills = 6,
 # setting the parameters for each environment
 env_params = {
     'ppo':{
-        'MountainCarContinuous-v0': dict( 
-           pretrain_steps = int(200e6),
-            n_skills = 6
-             ), # 1 dof
-        'Reacher-v2': dict( 
-           pretrain_steps = int(220e6),
-            n_skills = 12,
-            clip_range = 0.01
-             ), # 2 dof
+        # 'MountainCarContinuous-v0': dict( 
+        #    pretrain_steps = int(200e6),
+        #     n_skills = 6
+        #      ), # 1 dof
+        # 'Reacher-v2': dict( 
+        #    pretrain_steps = int(220e6),
+        #     n_skills = 12,
+        #     clip_range = 0.01
+        #      ), # 2 dof
         # 'Swimmer-v2': dict( 
-        #    pretrain_steps = int(80e6),
+        #    pretrain_steps = int(200e6),
         #     n_skills = 12
         #      ), # 2 dof
         # 'Hopper-v2': dict( 
-        #    pretrain_steps = int(100e6),
+        #    pretrain_steps = int(200e6),
         #     n_skills = 15
         #      ), # 3 dof
         # 'HalfCheetah-v2': dict( 
@@ -155,7 +155,7 @@ sac_hyperparams = dict(
     gamma = 0.99,
     buffer_size = int(1e7),
     batch_size = 128,
-    tau = 0.01,
+    tau = 0.005,
     gradient_steps = 1,
     ent_coef=0.5,
     learning_starts = 10000,
@@ -179,7 +179,7 @@ hyperparams = {
 # weight_decay=0.0, label_smoothing=None, gp=None, mixup=False
 discriminator_hyperparams = dict(
     learning_rate = 3e-4,
-    batch_size = 64,
+    batch_size = 128,
     n_epochs = 1,
     weight_decay = 0, 
     dropout = None, # The dropout probability
@@ -187,8 +187,8 @@ discriminator_hyperparams = dict(
     gp = None, # the weight of the gradient penalty term
     mixup = False,
     gradient_clip = False,
-    temperature = 1,
-    parametrization = "linear" # TODO: add this as a CMD argument MLP, CPC, linear
+    temperature = 0.5,
+    parametrization = "CPC" # TODO: add this as a CMD argument MLP, CPC, linear
 )
 
 
