@@ -33,25 +33,10 @@ class Discriminator(nn.Module):
     # return self.head(x)
     return self.output(self.head(x))
 
-
-'''
-The classifier parametrization
-	s_enc = Sequential([Dense(64, ‘relu’), Dense(64, ‘relu’), Dense(32, ‘linear’)])
-	z_enc = Sequential([Dense(64, ‘relu’), Dense(64, ‘relu’), Dense(32, ‘linear’)])
-	s_repr = s_enc(s)  // [batch_size x 32]
-	z_repr = z_enc(z)
-	score = sum(s_repr * z_repr, axis=1)  // [batch_size]
-	score_outer = sum(s_repr[:, None, :] * z_repr[None, :, :], axis=2)  // [batch_size x batch_size]
-f(s, z) -> real number
-p(z | s) = f(s, z) / \sum_{z’} f(s, z’)
-'''
-
 # An Encoder network for different MI critics
 class Encoder(nn.Module):
-    def __init__(self,  n_input, n_hiddens, n_latent, dropout=None, temperature=0.07, num_skills=50):
+    def __init__(self,  n_input, n_hiddens, n_latent, dropout=None):
         super().__init__()
-        self.temperature = temperature
-        self.num_skills = num_skills
         layers = []
         # layers.append(nn.Linear(n_input, n_skills))
         layers.append(nn.Linear(n_input, n_hiddens[0]))
@@ -67,10 +52,43 @@ class Encoder(nn.Module):
 
         layers.append(nn.Linear(n_hiddens[-1], n_latent))
         self.model = nn.Sequential(*layers)
-        
-        
     def forward(self, x):
         return self.model(x)
+
+# Separable Critic
+class SeparableCritic(nn.Module):
+    def __init__(self, state_dim, skill_dim, hidden_dims, latent_dim, temperature=1):
+        super().__init__()
+        self.temp = temperature
+        self.num_skills = skill_dim
+        # State encoder
+        self.state_enc = Encoder(state_dim, hidden_dims, latent_dim)
+        # Skill encoder
+        self.skill_enc = Encoder(skill_dim, hidden_dims, latent_dim)
+    def forward(self, x, y):
+        x = F.normalize(self.state_enc(x), dim=-1) # shape (B * latent)
+        y = F.normalize(self.state_enc(y), dim=-1) # shape (B * latent)
+        return torch.sum(x[:, None, :] * y[None, :, :], dim=-1) / self.temp #shape (B * B)
+    
+# Concatenate Critic
+class ConcatCritic(nn.Module):
+    def __init__(self, state_dim, skill_dim, hidden_dims, temperature=1):
+        super().__init__()
+        self.temp = temperature
+        self.num_skills = skill_dim
+        self.mlp = Encoder(state_dim+skill_dim, hidden_dims, 1)
+    def forward(self, x, y):
+        batch_size = x.shape[0]
+        # tile x with the batch size
+        x_tiled = torch.tile(x[None, :], (batch_size, 1, 1))
+        # tile y with the batch size
+        y_tiled = torch.tile(y[:, None], (1, batch_size, 1))
+        # xy_pairs
+        xy_pairs = torch.cat((x_tiled, y_tiled), dim=2).reshape(batch_size*batch_size, -1)
+        # compute the scores
+        scores = self.mlp(xy_pairs) / self.temp
+        return scores.reshape(batch_size, batch_size).T
+        
         
 # Created for ES         
 class MLP_policy(nn.Module):
