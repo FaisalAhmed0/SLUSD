@@ -28,7 +28,7 @@ params = dict( n_skills = 6,
            pretrain_steps = int(2e6),
            finetune_steps = int(1e5),
            buffer_size = int(1e6),
-           min_train_size = int(1e4)
+           min_train_size = int(1e4),
              )
 
 
@@ -183,12 +183,16 @@ discriminator_hyperparams = dict(
     n_epochs = 1,
     weight_decay = 0, 
     dropout = None, # The dropout probability
-    label_smoothing = False,
+    label_smoothing = 0.0, # usually 0.2
     gp = None, # the weight of the gradient penalty term
     mixup = False,
-    gradient_clip = False,
+    gradient_clip = None,
     temperature = 0.5,
-    parametrization = "CPC" # TODO: add this as a CMD argument MLP, CPC, linear
+    parametrization = "Separable" # TODO: add this as a CMD argument MLP, Linear, Separable, Concat
+    lower_bound = "nce" # ba, tuba, nwj, nce, interpolate
+    log_baseline = None, 
+    alpha_logit = None
+    
 )
 
 

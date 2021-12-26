@@ -20,6 +20,7 @@ from stable_baselines3.common.monitor import Monitor
 
 from src.environment_wrappers.env_wrappers import RewardWrapper, SkillWrapper, SkillWrapperFinetune
 from src.utils import record_video, best_skill, evaluate_cpc
+from src.mi_lower_bounds import mi_lower_bound
 from src.config import conf
 
 

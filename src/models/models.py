@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 
+
 class Discriminator(nn.Module):
   '''
   Simple MLP classifier
@@ -56,6 +57,7 @@ class Encoder(nn.Module):
         return self.model(x)
 
 # Separable Critic
+# Based on https://github.com/google-research/google-research/blob/master/vbmi/vbmi_demo.ipynb
 class SeparableCritic(nn.Module):
     def __init__(self, state_dim, skill_dim, hidden_dims, latent_dim, temperature=1):
         super().__init__()
@@ -71,6 +73,7 @@ class SeparableCritic(nn.Module):
         return torch.sum(x[:, None, :] * y[None, :, :], dim=-1) / self.temp #shape (B * B)
     
 # Concatenate Critic
+# Based on https://github.com/google-research/google-research/blob/master/vbmi/vbmi_demo.ipynb
 class ConcatCritic(nn.Module):
     def __init__(self, state_dim, skill_dim, hidden_dims, temperature=1):
         super().__init__()
