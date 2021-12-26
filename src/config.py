@@ -22,6 +22,9 @@ generalization_exper_dir = "generalization_exper/",
     
 # number of the runs for the agent evaluation
 eval_runs = 5,
+    
+# evaluation frequency
+eval_freq = 5000,
 
 # total time steps
 total_timesteps = int(1e8),

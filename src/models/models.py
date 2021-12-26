@@ -59,14 +59,14 @@ class Encoder(nn.Module):
 # Separable Critic
 # Based on https://github.com/google-research/google-research/blob/master/vbmi/vbmi_demo.ipynb
 class SeparableCritic(nn.Module):
-    def __init__(self, state_dim, skill_dim, hidden_dims, latent_dim, temperature=1):
+    def __init__(self, state_dim, skill_dim, hidden_dims, latent_dim, temperature=1, dropout=None):
         super().__init__()
         self.temp = temperature
         self.num_skills = skill_dim
         # State encoder
-        self.state_enc = Encoder(state_dim, hidden_dims, latent_dim)
+        self.state_enc = Encoder(state_dim, hidden_dims, latent_dim, dropout=dropout)
         # Skill encoder
-        self.skill_enc = Encoder(skill_dim, hidden_dims, latent_dim)
+        self.skill_enc = Encoder(skill_dim, hidden_dims, latent_dim, dropout=dropout)
     def forward(self, x, y):
         x = F.normalize(self.state_enc(x), dim=-1) # shape (B * latent)
         y = F.normalize(self.state_enc(y), dim=-1) # shape (B * latent)
@@ -75,11 +75,11 @@ class SeparableCritic(nn.Module):
 # Concatenate Critic
 # Based on https://github.com/google-research/google-research/blob/master/vbmi/vbmi_demo.ipynb
 class ConcatCritic(nn.Module):
-    def __init__(self, state_dim, skill_dim, hidden_dims, temperature=1):
+    def __init__(self, state_dim, skill_dim, hidden_dims, temperature=1, dropout=None):
         super().__init__()
         self.temp = temperature
         self.num_skills = skill_dim
-        self.mlp = Encoder(state_dim+skill_dim, hidden_dims, 1)
+        self.mlp = Encoder(state_dim+skill_dim, hidden_dims, 1, dropout=dropout)
     def forward(self, x, y):
         batch_size = x.shape[0]
         # tile x with the batch size

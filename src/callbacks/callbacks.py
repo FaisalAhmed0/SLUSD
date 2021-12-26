@@ -19,7 +19,7 @@ from stable_baselines3.common.monitor import Monitor
 
 
 from src.environment_wrappers.env_wrappers import RewardWrapper, SkillWrapper, SkillWrapperFinetune
-from src.utils import record_video, best_skill, evaluate_cpc
+from src.utils import record_video, best_skill, evaluate_mi
 from src.mi_lower_bounds import mi_lower_bound
 from src.config import conf
 
@@ -62,7 +62,7 @@ class DiscriminatorCallback(BaseCallback):
 
     def __init__(self, discriminator, buffer, hyerparams, sw, n_skills, min_buffer_size=2048, verbose=0, save_dir="./",
                  on_policy=False):
-        super(DiscriminatorCallback, self).__init__(verbose))
+        super(DiscriminatorCallback, self).__init__(verbose)
         # classifier
         self.d = discriminator
         # data buffer
@@ -192,9 +192,10 @@ class DiscriminatorCallback(BaseCallback):
 
     # TODO: Add mixup r
     @torch.no_grad()
-    def mixup_reg(self, x1, x2, targets=False):
+    def mixup_reg(self, x1, x2, targets=False, m=None):
         # sample the mixing factor
-        m = np.random.beta(a=0.4, b=0.4)
+        if m is None:
+            m = np.random.beta(a=0.4, b=0.4)
         batch_size = self.batch_size
         if targets:
             y1 = torch.zeros((batch_size,self.n_skills))
@@ -202,7 +203,7 @@ class DiscriminatorCallback(BaseCallback):
             y2 = torch.zeros((batch_size,self.n_skills))
             y2[torch.arange(batch_size), x2] = 1
             return m*y1 + (1-m) * y2
-        return m*x1 + (1-m) * x2
+        return m*x1 + (1-m) * x2, m
 
     def _on_rollout_end(self):
         """
@@ -250,8 +251,8 @@ class DiscriminatorCallback(BaseCallback):
                                     self.batch_size)
                         states2, skills2 = self.split_obs(obs)
                     # compute the mixed inputs/targets
-                    mixed_states = self.mixup_reg(states, states2)
-                    mixed_skills = self.mixup_reg(skills, skills2, targets=True)
+                    mixed_states, m = self.mixup_reg(states, states2)
+                    mixed_skills, _ = self.mixup_reg(skills, skills2, targets=True, m=m)
                     scores = scores.detach()
                     scores = self.d(mixed_states)
                     loss = loss.detach()
@@ -417,20 +418,24 @@ class FineTuneCallback(BaseCallback):
         #                     self.params['n_skills'], video_length=1000, video_folder='videos_finetune/', alg=self.alg)
 
 # Callback for evaluation 
-class CPC_EvalCallback(BaseCallback):
+class MI_EvalCallback(BaseCallback):
     """
     A custom callback that derives from ``BaseCallback``.
 
     :param verbose: (int) Verbosity level 0: not output 1: info 2: debug
     """
-    def __init__(self, env_name, n_skills, tb_sw, discriminator, temp, model_save_path, eval_freq=5000,verbose=0):
-        super(CPC_EvalCallback, self).__init__(verbose)
+    # (self.env_name, self.d, self.params, self.sw, self.discriminator_hyperparams['temperature'], self.directory, eval_freq=self.conf.eval_freq)
+    def __init__(self, env_name, discriminator, params, tb_sw, discriminator_hyperparams, mi_estimator,model_save_path, ,eval_freq=5000, verbose=0):
+        super(MI_EvalCallback, self).__init__(verbose)
         self.env_name = env_name
-        self.n_skills = n_skills
+        self.n_skills = params['n_skills']
         self.tb_sw = tb_sw
         self.discriminator = discriminator
         self.eval_freq = eval_freq
-        self.temp = temp
+        self.temp = discriminator_hyperparams['temperature']
+        # mi_estimator is a named tuple with the following format
+        # namedtuple('MI_Estimate', "estimator_func estimator_type log_baseline alpha_logit")
+        self.mi_estimator = mi_estimator
         self.model_path = model_save_path
         self.best_reward = - np.inf
         self.results = []
@@ -442,7 +447,7 @@ class CPC_EvalCallback(BaseCallback):
             evals_path = f"{self.model_path}/eval_results" 
             os.makedirs(evals_path, exist_ok=True)
             print(f"current timestep: {self.num_timesteps}")
-            rewards = evaluate_cpc(self.env_name, self.n_skills, self.model, self.tb_sw, self.discriminator, self.num_timesteps, self.temp)
+            rewards = evaluate_mi(self.env_name, self.n_skills, self.model, self.tb_sw, self.discriminator, self.num_timesteps, self.temp, self.mi_estimator)
             if rewards.mean() > self.best_reward:
                 self.best_reward = rewards.mean()
                 self.model.save(f'{self.model_path}/best_model')

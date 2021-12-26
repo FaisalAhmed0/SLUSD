@@ -254,7 +254,7 @@ def report_resuts(env_name, alg, n_skills, model, data_r, data_i, timestamp, exp
 
 # evaluate the CPC based policy
 torch.no_grad()
-def evaluate_cpc(env_name, n_skills, model, tb_sw, discriminator, timesteps, temparture):
+def evaluate_mi(env_name, n_skills, model, tb_sw, discriminator, timesteps, temparture, mi_estimator):
     eval_runs = 5
     batch_size = max_steps = 1000
     rewards = np.zeros(5)
@@ -278,16 +278,15 @@ def evaluate_cpc(env_name, n_skills, model, tb_sw, discriminator, timesteps, tem
         # print(f"env_obs: {env_obs}")
         # print(f"skills: {skills}")
         # forward pass
-        state_rep = F.normalize(state_enc(env_obs), dim=-1) # shape (B * latent)
-        skill_rep = F.normalize(skill_enc(skills), dim=-1)# shape (B * latent)
-        # calculate the score/logits and logprobs
-        logits = torch.sum(state_rep[:, None, :] * skill_rep[None, :, :], dim=-1) # shape: (B * B)
-        log_probs = torch.log_softmax(logits/temparture, dim=-1)
+        scores = self.d(env_obs, skills)
+        # calculate the reward
+        estimator = mi_estimator.estimator_func
+        rewards = estimator(scores, mi_estimator.estimator_type, mi_estimator.log_baseline, mi_estimator.alpha_logit)
         # print(f"log probs in diag: {log_probs[:3]}")
         # print(f"log_probs diag in eval: {log_probs.diag()[:3]}")
         # input()
         # calculate the reward
-        final_return =  ((log_probs.diag() - np.log(1/batch_size)).sum().item())/3
+        final_return =  rewards.sum().item()/3
         # print(f"final return: {final_return}")
         rewards[run] = final_return
     # print(f"all seeds rewards: {rewards}")
