@@ -62,7 +62,7 @@ class DiscriminatorCallback(BaseCallback):
 
     def __init__(self, discriminator, buffer, hyerparams, sw, n_skills, min_buffer_size=2048, verbose=0, save_dir="./",
                  on_policy=False):
-        super(DiscriminatorCallback, self).__init__(verbose)
+        super(DiscriminatorCallback, self).__init__(verbose))
         # classifier
         self.d = discriminator
         # data buffer
@@ -75,11 +75,6 @@ class DiscriminatorCallback(BaseCallback):
         self.epochs = hyerparams['n_epochs']
         # batch size
         self.batch_size = hyerparams['batch_size']
-        # use label smoothing if not None, otherwise use cross_entropy
-        if (hyerparams['parametrization'] == "MLP" or hyerparams['parametrization']== "linear" ) and hyerparams['label_smoothing']:
-            self.criterion = self.label_smoothedCrossEntropyLoss
-        elif hyerparams['parametrization']== "MLP" or hyerparams['parametrization']== "linear":
-            self.criterion = F.cross_entropy
         # tensorboard summary writer
         self.sw = sw
         # number of skills
@@ -99,13 +94,17 @@ class DiscriminatorCallback(BaseCallback):
         # temperature
         self.temperature = self.hyerparams['temperature']
         # optimizer
-        print(f"Weight decay value is {self.weight_decay}")
-        if self.paramerization == "MLP" or self.paramerization == "linear":
-            self.optimizer = opt.Adam(
-                self.d.parameters(), lr=hyerparams['learning_rate'], weight_decay=self.weight_decay)
-        elif self.paramerization == "CPC":
-            state_enc, skill_enc = self.d
-            self.optimizer = opt.Adam(list(state_enc.parameters()) + list(skill_enc.parameters()), lr=hyerparams['learning_rate'], weight_decay=self.weight_decay)
+        self.optimizer = opt.Adam(self.d.parameters(), lr=hyerparams['learning_rate'], weight_decay=self.weight_decay)
+        # lower bound type
+        self.lower_bound = hyerparams['lower_bound']
+        # label smoothing
+        self.label_smoothing = hyerparams['label_smoothing']
+        # log baseline
+        self.log_baseline = hyerparams['log_baseline']
+        # alpha logit
+        self.alpha_logit = hyerparams['alpha_logit']
+        # gradient clip
+        self.gradient_clip = hyerparams['gradient_clip']
 
     def _on_step(self):
         """
@@ -209,128 +208,86 @@ class DiscriminatorCallback(BaseCallback):
         """
         This event is triggered before updating the policy.
         """
-        # MLP case
-        if self.paramerization == "MLP" or self.paramerization == "linear":
-            current_buffer_size = len(
+        current_buffer_size = len(
                 self.buffer) if self.on_policy else self.locals['replay_buffer'].buffer_size if self.locals['replay_buffer'].full else self.locals['replay_buffer'].pos
-            if current_buffer_size >= self.min_buffer_size:
-                # initlize the average losses
-                epoch_loss = 0
-                self.d.train()
-                for _ in range(1):
-                    if self.on_policy:
-                        inputs, targets = self.buffer.sample(self.batch_size)
-                    else:
-                        obs, _, _, _, _ = self.locals['replay_buffer'].sample(
-                            self.batch_size)
-                        inputs, targets = self.split_obs(obs)
-                    if self.gp:
-                        inputs.requires_grad_(True)
-                    outputs = self.d(inputs.to(conf.device))
-                    loss = self.criterion(outputs/self.temperature, targets.to(
-                        conf.device).to(torch.int64))
-                    # TODO: add mixup
-                    if self.mixup:
-                        if self.on_policy:
-                            inputs2, targets2 = self.buffer.sample(self.batch_size)
-                        else:
-                            obs, _, _, _, _ = self.locals['replay_buffer'].sample(
-                            self.batch_size)
-                            inputs2, targets2 = self.split_obs(obs)
-                        inputs = self.mixup_reg(inputs, inputs2)
-                        targets = self.mixup_reg(targets, targets2, targets=True)
-                        loss = 0
-                        loss = torch.mean(torch.sum(- targets * torch.log_softmax(outputs, dim=-1), dim=-1))
-                    # TODO: Add gradient penalty to the loss
-                    if self.gp:
-                        # inputs.requires_grad_(True)
-                        gp = self.grad_penalty(loss, inputs)
-                        loss += (self.gp * gp)
-                    self.optimizer.zero_grad()
-                    loss.backward()
-                    # clip_grad_norm_(model.parameters(), 0.1)
-                    self.optimizer.step()
-                    epoch_loss += loss.cpu().detach().item()
-
-                grad_norms, weights_norm = self.gradient_norm(self.d)
-                epoch_loss /= 1
-                if (not self.on_policy) and self.num_timesteps % 100 == 0:
-                    self.sw.add_scalar("discrimiator loss",
-                                    epoch_loss, self.num_timesteps)
-                    self.sw.add_scalar("discrimiator grad norm",
-                                    grad_norms, self.num_timesteps)
-                    self.sw.add_scalar("discrimiator wights norm",
-                                    weights_norm, self.num_timesteps)
-                    torch.save(self.d.state_dict(), self.save_dir + "/disc.pth")
+        if current_buffer_size >= self.min_buffer_size:
+            epoch_loss = 0
+            self.d.train()
+            for epoch in range(self.epochs):
+                # Extract the data
+                if self.on_policy:
+                    states, skills = self.buffer.sample(self.batch_size)
                 else:
-                    self.sw.add_scalar("discrimiator loss",
-                                    epoch_loss, self.num_timesteps)
-                    self.sw.add_scalar("discrimiator grad norm",
-                                    grad_norms, self.num_timesteps)
-                    self.sw.add_scalar("discrimiator wights norm",
-                                    weights_norm, self.num_timesteps)
-                    torch.save(self.d.state_dict(), self.save_dir + "/disc.pth")
-        elif self.paramerization == "CPC":
-            state_enc, skill_enc = self.d
-            state_enc.train()
-            skill_enc.train()
-            current_buffer_size = len(
-                self.buffer) if self.on_policy else self.locals['replay_buffer'].buffer_size if self.locals['replay_buffer'].full else self.locals['replay_buffer'].pos
-            if current_buffer_size >= self.min_buffer_size:
-                epoch_loss = 0
-                for _ in range(1):
-                    if self.on_policy:
-                        states, skills = self.buffer.sample(self.batch_size)
-                    else:
-                        obs, _, _, _, _ = self.locals['replay_buffer'].sample(
-                            self.batch_size)
-                        states, skills = self.split_obs(obs)
+                    obs, _, _, _, _ = self.locals['replay_buffer'].sample(
+                                    self.batch_size)
+                    states, skills = self.split_obs(obs)
+                # Make states require grad if gradient penalty is not none
+                if self.gp:
+                    states.requires_grad_(True)
+                # forward pass
+                if self.paramerization == "MLP" or  self.paramerization == "Linear":
+                    scores = self.d(states)
+                elif self.paramerization == "Separable" or  self.paramerization == "Concat":
                     # onehot encoding of the skills 
                     with torch.no_grad():
                         onehots_skills = torch.zeros(self.batch_size, self.n_skills)
                         onehots_skills[torch.arange(self.batch_size), skills] = 1
-                    # forward pass
-                    # print(f"state: {states[:3]}")
-                    # print(f"skills: {onehots_skills[:3]}")
-                    state_rep = F.normalize(state_enc(states), dim=-1) # shape (B * latent)
-                    # print(f"State rep in train: {state_rep}")
-                    skill_rep = F.normalize(skill_enc(onehots_skills), dim=-1)# shape (B * latent)
-                    # print(f"Skill rep in train: {skill_rep}")
-                    logits = torch.sum(state_rep[:, None, :] * skill_rep[None, :, :], dim=-1) # shape: (B * B)
-                    # print(f"log probs: {torch.log_softmax(logits/self.temperature, dim=-1)}")
-                    # input()
-                    # print(f"output in the callback: {outputs}")
-                    loss = torch.nn.CrossEntropyLoss()(logits/self.temperature, target=torch.arange(self.batch_size))
-                    self.optimizer.zero_grad()
-                    loss.backward()
-                    self.optimizer.step()
-                    epoch_loss += loss.cpu().detach().item()
-
-                state_enc_grad_norms, state_enc_weights_norm = self.gradient_norm(state_enc)
-                skill_enc_grad_norms, skill_enc_weights_norm = self.gradient_norm(skill_enc)
-                epoch_loss /= 1
-                if (not self.on_policy) and self.num_timesteps % 100 == 0:
-                    self.sw.add_scalar("discrimiator loss",
-                                    epoch_loss, self.num_timesteps)
-                    self.sw.add_scalar("state enc grad norm",
-                                    state_enc_grad_norms, self.num_timesteps)
-                    self.sw.add_scalar("state enc wights norm",
-                                    state_enc_weights_norm, self.num_timesteps)
-                    self.sw.add_scalar("skill enc grad norm",
-                                    skill_enc_grad_norms, self.num_timesteps)
-                    self.sw.add_scalar("skill enc wights norm",
-                                    skill_enc_weights_norm, self.num_timesteps)
-                    torch.save(state_enc.state_dict(), self.save_dir + "/disc_state_enc.pth")
-                    torch.save(skill_enc.state_dict(), self.save_dir + "/disc_state_enc.pth")
-                elif self.on_policy:
-                    self.sw.add_scalar("discrimiator loss",
-                                    epoch_loss, self.num_timesteps)
-                    self.sw.add_scalar("discrimiator grad norm",
-                                    grad_norms, self.num_timesteps)
-                    self.sw.add_scalar("discrimiator wights norm",
-                                    weights_norm, self.num_timesteps)
-                    torch.save(self.d.state_dict(), self.save_dir + "/disc.pth")
-
+                    scores = self.d(states, onehots_skills)
+                # compute the loss
+                if self.lower_bound == "ba":
+                    loss = nn.CrossEntropyLoss(label_smoothing=self.label_smoothing)(scores/self.temperature, skills)
+                elif self.lower_bound in ["tuba", "nwj", "nce", "interpolate"]:
+                    mi = mi_lower_bound(scores, self.lower_bound, self.log_baseline, self.alpha_logit).mean()
+                    loss = -mi
+                # check if some regularizors will be used
+                # Mixup regularization
+                if self.mixup:
+                    # sample a second batch
+                    if self.on_policy:
+                        states2, skills2 = self.buffer.sample(self.batch_size)
+                    else:
+                        obs, _, _, _, _ = self.locals['replay_buffer'].sample(
+                                    self.batch_size)
+                        states2, skills2 = self.split_obs(obs)
+                    # compute the mixed inputs/targets
+                    mixed_states = self.mixup_reg(states, states2)
+                    mixed_skills = self.mixup_reg(skills, skills2, targets=True)
+                    scores = scores.detach()
+                    scores = self.d(mixed_states)
+                    loss = loss.detach()
+                    loss = 0
+                    if self.lower_bound == "ba":
+                        loss = torch.mean(torch.sum(- mixed_skills * torch.log_softmax(scores/self.temperature, dim=-1), dim=-1))
+                # gradient penalty
+                if self.gp:
+                    gp = self.grad_penalty(loss, states)
+                    loss += (self.gp * gp)
+                # take a gradient step
+                self.optimizer.zero_grad()
+                loss.backward()
+                if self.gradient_clip:
+                    clip_grad_norm_(self.d.parameters(), self.gradient_clip)
+                self.optimizer.step()
+                epoch_loss += loss.cpu().detach().item()
+            epoch_loss /= self.epochs
+            # logs
+            grad_norms, weights_norm = self.gradient_norm(self.d)
+            if (not self.on_policy) and self.num_timesteps % 100 == 0:
+                self.sw.add_scalar("discrimiator loss",
+                                            epoch_loss, self.num_timesteps)
+                self.sw.add_scalar("discrimiator grad norm",
+                                grad_norms, self.num_timesteps)
+                self.sw.add_scalar("discrimiator wights norm",
+                                weights_norm, self.num_timesteps)
+                torch.save(self.d.state_dict(), self.save_dir + "/disc.pth")
+            elif self.on_policy:
+                self.sw.add_scalar("discrimiator loss",
+                                            epoch_loss, self.num_timesteps)
+                self.sw.add_scalar("discrimiator grad norm",
+                                grad_norms, self.num_timesteps)
+                self.sw.add_scalar("discrimiator wights norm",
+                                weights_norm, self.num_timesteps)
+                torch.save(self.d.state_dict(), self.save_dir + "/disc.pth")
 
 
 class FineTuneCallback(BaseCallback):
