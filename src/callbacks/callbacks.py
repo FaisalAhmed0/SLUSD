@@ -425,7 +425,7 @@ class MI_EvalCallback(BaseCallback):
     :param verbose: (int) Verbosity level 0: not output 1: info 2: debug
     """
     # (self.env_name, self.d, self.params, self.sw, self.discriminator_hyperparams['temperature'], self.directory, eval_freq=self.conf.eval_freq)
-    def __init__(self, env_name, discriminator, params, tb_sw, discriminator_hyperparams, mi_estimator,model_save_path, ,eval_freq=5000, verbose=0):
+    def __init__(self, env_name, discriminator, params, tb_sw, discriminator_hyperparams, mi_estimator, model_save_path, eval_freq=5000, verbose=0):
         super(MI_EvalCallback, self).__init__(verbose)
         self.env_name = env_name
         self.n_skills = params['n_skills']
@@ -454,6 +454,7 @@ class MI_EvalCallback(BaseCallback):
             self.timesteps.append(self.num_timesteps)
             self.results.append(rewards)
             timesteps = np.array(self.timesteps)
+            # print(f"results: {self.results}")
             results = np.array(self.results)
             np.savez(f"{evals_path}/evaluations.npz", timesteps=timesteps, results=results)
         return True

@@ -85,6 +85,8 @@ def infoNCE_lower_bound(scores, mean_reduction=False):
 # I_{\alpha}
 def interpolated_lower_bound(scores, baseline, alpha_logit, mean_reduction=False):
     batch_size = scores.shape[0]
+    if baseline is None:
+        baseline = torch.ones(batch_size)
     # InfoNCE baseline
     infoNCE_baseline = compute_log_loomean(scores)
     # print(f"infoNCE_baseline: {infoNCE_baseline}")

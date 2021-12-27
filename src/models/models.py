@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import numpy as np
 
 
@@ -69,7 +70,7 @@ class SeparableCritic(nn.Module):
         self.skill_enc = Encoder(skill_dim, hidden_dims, latent_dim, dropout=dropout)
     def forward(self, x, y):
         x = F.normalize(self.state_enc(x), dim=-1) # shape (B * latent)
-        y = F.normalize(self.state_enc(y), dim=-1) # shape (B * latent)
+        y = F.normalize(self.skill_enc(y), dim=-1) # shape (B * latent)
         return torch.sum(x[:, None, :] * y[None, :, :], dim=-1) / self.temp #shape (B * B)
     
 # Concatenate Critic

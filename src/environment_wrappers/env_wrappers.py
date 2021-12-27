@@ -147,21 +147,15 @@ class RewardWrapper(gym.Wrapper):
     env_obs, skill = self.split_obs(obs)
     obs_t = torch.FloatTensor(env_obs).to(conf.device)
     self.t += 1
-    if self.parametrization == "MLP"  or self.parametrization == "linear":
+    if self.parametrization in ["MLP", "Linear"]:
         self.discriminator.eval()
         # print(f"hereeee in timestep: {self.t}")
         reward = (torch.log_softmax(self.discriminator(obs_t).detach(), dim=-1)[int(skill)] - np.log(1/self.n_skills)).item()
-    elif self.parametrization == "CPC":
+    elif self.parametrization in ["Separable", "Concat"]:
         with torch.no_grad():
-            state_enc, skill_enc = self.discriminator
-            state_enc.eval()
-            skill_enc.eval()
+            self.discriminator.eval()
             skills_onehot = self.one_hot(skill)
-            state_rep = state_enc(obs_t.unsqueeze(0))
-            skill_rep = skill_enc(skills_onehot.unsqueeze(0))
-            logits = torch.sum(state_rep[:, None, :] * skill_rep[None, :, :], dim=-1) # shape: (B * B)
-            log_probs = torch.log_softmax(logits/state_enc.temperature, dim=-1)
-            reward = ( log_probs- np.log(1/self.batch_size)).item()
+            reward = self.discriminator(obs_t.unsqueeze(0), skills_onehot.unsqueeze(0)).mean().item()
         # print(f"reward in the skill wrapper: {reward}")
     if self.t >= self.env.max_steps:
         done = True

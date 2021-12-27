@@ -12,7 +12,7 @@ from src.utils import record_video_finetune, best_skill
 from src.mi_lower_bounds import mi_lower_bound
 from src.models.models import Discriminator, SeparableCritic, ConcatCritic
 from src.replayBuffers import DataBuffer
-from src.callbacks.callbacks import DiscriminatorCallback, VideoRecorderCallback, FineTuneCallback, CPC_EvalCallback
+from src.callbacks.callbacks import DiscriminatorCallback, VideoRecorderCallback, FineTuneCallback, MI_EvalCallback
 
 import torch.nn as nn
 from torch.utils.tensorboard import SummaryWriter
@@ -42,7 +42,7 @@ class DIAYN():
             # state_dim, skill_dim, hidden_dims, temperature=1, dropout=None)
             self.d = ConcatCritic(state_dim, skill_dim, hidden_dims, temperature, dropout).to(device)
         else:
-            raise ValueError(f'{discriminator_hyperparams['parametrization']} is an invalid parametrization')
+            raise ValueError(f"{discriminator_hyperparams['parametrization']} is invalid parametrization")
         # Create the data buffer for the discriminator
         self.buffer = DataBuffer(params['buffer_size'], obs_shape=state_dim)
             
@@ -132,9 +132,10 @@ class DIAYN():
                 eval_callback = EvalCallback(eval_env, best_model_save_path=self.directory,
                                              log_path=f"{self.directory}/eval_results", eval_freq=self.conf.eval_freq, deterministic=True, render=False)
             elif self.parametrization in ["Separable", "Concat"]:
-                MI_estimator = namedtuple('MI_estimator', "estimator_func", "estimator_type", "log_baseline", "alpha_logit")
+                MI_estimator = namedtuple('MI_estimator', "estimator_func estimator_type log_baseline alpha_logit")
                 mi_estimate = MI_estimator(mi_lower_bound, self.discriminator_hyperparams['lower_bound'], self.discriminator_hyperparams['log_baseline'], self.discriminator_hyperparams['alpha_logit'])
-                eval_callback = MI_EvalCallback(self.env_name, self.d, self.params, self.sw, self.discriminator_hyperparams['temperature'], mi_estimate, self.directory, eval_freq=self.conf.eval_freq)
+                # (env_name, discriminator, params, tb_sw, discriminator_hyperparams, mi_estimator, model_save_path, eval_freq=5000, verbose=0)
+                eval_callback = MI_EvalCallback(self.env_name, self.d, self.params, self.sw, self.discriminator_hyperparams, mi_estimate, self.directory, eval_freq=self.conf.eval_freq)
             
             # create the callback list
             if self.checkpoints:
@@ -149,7 +150,7 @@ class DIAYN():
             elif self.parametrization in ["MLP", "Linear"]:
                 model.learn(total_timesteps=self.params['pretrain_steps'], callback=callbacks, log_interval=1, tb_log_name="SAC Pretrain")
             else:
-                raise ValueError(f'{discriminator_hyperparams['parametrization']} is an invalid parametrization')
+                raise ValueError(f"{discriminator_hyperparams['parametrization']} is invalid parametrization")
         return model
 
     # finetune the pretrained policy on a specific task

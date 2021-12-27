@@ -188,10 +188,10 @@ discriminator_hyperparams = dict(
     mixup = False,
     gradient_clip = None,
     temperature = 0.5,
-    parametrization = "Separable" # TODO: add this as a CMD argument MLP, Linear, Separable, Concat
-    lower_bound = "nce" # ba, tuba, nwj, nce, interpolate
+    parametrization = "Separable", # TODO: add this as a CMD argument MLP, Linear, Separable, Concat
+    lower_bound = "nce", # ba, tuba, nwj, nce, interpolate
     log_baseline = None, 
-    alpha_logit = None
+    alpha_logit = -5. # small value of alpha => reduce the variance of nwj by introduce some nce bias
     
 )
 
@@ -203,6 +203,8 @@ def cmd_args():
     parser.add_argument("--alg", type=str, default="ppo")
     parser.add_argument("--skills", type=int, default=6)
     parser.add_argument("--presteps", type=int, default=int(1e6))
+    parser.add_argument("--pm", type=str, default="MLP")
+    parser.add_argument("--lb", type=str, default="ba")
     parser.add_argument("--run_all", type=bool, default=False)
     args = parser.parse_args()
     return args
@@ -230,7 +232,7 @@ def save_params(alg, directory):
     print(f"discriminator hyperparameters: {discriminator_hyperparams}" )
     print(f"shared experiment parameters: {params}" )
     print(f"configurations: {config_d }" )
-    # input()
+    input()
 
 def run_diyan(args):
     if args.alg != 'es':
@@ -253,6 +255,8 @@ def run_diyan(args):
 if __name__ == "__main__":
     args = cmd_args()
     run_all = args.run_all
+    discriminator_hyperparams['lower_bound'] = args.lb
+    discriminator_hyperparams['parametrization'] = args.pm
     if run_all:
         for alg in env_params:
             for env in env_params[alg]:

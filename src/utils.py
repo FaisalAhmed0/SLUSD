@@ -259,10 +259,8 @@ def evaluate_mi(env_name, n_skills, model, tb_sw, discriminator, timesteps, temp
     batch_size = max_steps = 1000
     rewards = np.zeros(5)
     env = SkillWrapper(gym.make(env_name), n_skills, ev=True)
-    state_enc, skill_enc = discriminator
-    state_enc.eval()
-    skill_enc.eval()
     i = 0
+    discriminator.eval()
     for run in range(eval_runs):
         for i in range(3):
             data = torch.zeros(max_steps, gym.make(env_name).observation_space.shape[0] + n_skills)
@@ -278,15 +276,15 @@ def evaluate_mi(env_name, n_skills, model, tb_sw, discriminator, timesteps, temp
         # print(f"env_obs: {env_obs}")
         # print(f"skills: {skills}")
         # forward pass
-        scores = self.d(env_obs, skills)
+        scores = discriminator(env_obs, skills)
         # calculate the reward
         estimator = mi_estimator.estimator_func
-        rewards = estimator(scores, mi_estimator.estimator_type, mi_estimator.log_baseline, mi_estimator.alpha_logit)
+        eps_reward = estimator(scores, mi_estimator.estimator_type, mi_estimator.log_baseline, mi_estimator.alpha_logit)
         # print(f"log probs in diag: {log_probs[:3]}")
         # print(f"log_probs diag in eval: {log_probs.diag()[:3]}")
         # input()
         # calculate the reward
-        final_return =  rewards.sum().item()/3
+        final_return =  eps_reward.sum().item()/3
         # print(f"final return: {final_return}")
         rewards[run] = final_return
     # print(f"all seeds rewards: {rewards}")
