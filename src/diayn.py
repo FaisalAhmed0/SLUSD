@@ -14,6 +14,7 @@ from src.models.models import Discriminator, SeparableCritic, ConcatCritic
 from src.replayBuffers import DataBuffer
 from src.callbacks.callbacks import DiscriminatorCallback, VideoRecorderCallback, FineTuneCallback, MI_EvalCallback
 
+import torch
 import torch.nn as nn
 from torch.utils.tensorboard import SummaryWriter
 
@@ -183,7 +184,7 @@ class DIAYN():
                     env = DummyVecEnv([lambda: SkillWrapperFinetune(Monitor(env,  f"{self.directory}/finetune_train_results"), self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, skill=best_skill_index)])
             else:
                 env = DummyVecEnv([lambda: SkillWrapperFinetune(Monitor(gym.make(
-        self.env_name),  f"{self.directory}/finetune_train_results"), self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, skill=best_skill_index)])
+        self.env_name),  f"{self.directory}/finetune_train_results"), self.params['n_skills'], r_seed=None,max_steps=gym.make(self.env_name)._max_episode_steps, skill=best_skill_index)])
                 
             model = SAC('MlpPolicy', env, verbose=1,
                         learning_rate=self.alg_params['learning_rate'],
@@ -207,7 +208,7 @@ class DIAYN():
                     
             else:
                 env = DummyVecEnv([lambda: Monitor(RewardWrapper(SkillWrapper(gym.make(
-                    self.env_name), self.params['n_skills'], max_steps=self.conf.max_steps), self.d, self.params['n_skills']),  self.directory)]*self.alg_params['n_actors'])
+                    self.env_name), self.params['n_skills'], max_steps=self.conf.max_steps, r_seed=None), self.d, self.params['n_skills']),  self.directory)]*self.alg_params['n_actors'])
             
             model = PPO('MlpPolicy', env, verbose=1,
                         learning_rate=self.alg_params['learning_rate'],
@@ -224,7 +225,7 @@ class DIAYN():
                         )
 
         eval_env = SkillWrapperFinetune(gym.make(
-            self.env_name), self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, skill=best_skill_index)
+            self.env_name), self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, r_seed=None, skill=best_skill_index)
         eval_env = Monitor(eval_env, f"{self.directory}/finetune_eval_results")
         
         eval_callback = EvalCallback(eval_env, best_model_save_path=self.directory + f"/best_finetuned_model_skillIndex:{best_skill_index}",
@@ -233,7 +234,7 @@ class DIAYN():
         if self.alg == "sac":
             model = SAC.load(model_dir, env=env, tensorboard_log=self.directory)
             model.learn(total_timesteps=self.params['finetune_steps'],
-                        callback=eval_callback, tb_log_name="SAC_FineTune")
+                        callback=eval_callback, tb_log_name="SAC_FineTune", d=None, mi_estimator=None)
         elif self.alg == "ppo":
             model = PPO.load(model_dir, env=env, tensorboard_log=self.directory,
                             clip_range=get_schedule_fn(self.alg_params['clip_range']))

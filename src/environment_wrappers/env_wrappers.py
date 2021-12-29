@@ -50,9 +50,9 @@ class SkillWrapper(gym.Wrapper):
     :return: (np.ndarray, float, bool, dict) observation, reward, is the episode over?, additional informations
     """
     self.t += 1
-    if self.t % 100 == 0:
-        # print(f"New sampled skill at t={self.t}")
-        self.skill = self.skills_dist(low=0, high=self.n_skills, size=(1,)).item()
+    # if self.t % 100 == 0:
+    #     # print(f"New sampled skill at t={self.t}")
+    #     self.skill = self.skills_dist(low=0, high=self.n_skills, size=(1,)).item()
     obs, reward, done, info = self.env.step(action)
     onehot = self.one_hot(self.skill)
     obs = np.array(list(obs.copy()) + list(onehot)).astype(np.float32)
@@ -178,10 +178,10 @@ class SkillWrapperFinetune(gym.Wrapper):
   """
   gym wrapper that augment the state with random chosen skill index
   """
-  def __init__(self, env, n_skills, skill, max_steps=1000):
+  def __init__(self, env, n_skills, skill, r_seed=None, max_steps=1000):
     super(SkillWrapperFinetune, self).__init__(env)
-
     # skills distribution
+    # print("Hello I am here")
     self.n_skills = n_skills
     self.skill = skill
     low, high = env.observation_space.low, env.observation_space.high
@@ -190,17 +190,21 @@ class SkillWrapperFinetune(gym.Wrapper):
     self.observation_space = gym.spaces.Box(low=low, high=high, dtype=np.float32, shape=[shape+n_skills,])
     self.env._max_episode_steps = max_steps
     # seeds for the 5 evaluation runs
+    self.manual_seed = r_seed
     self.seeds = [0, 10, 1234, 5, 42]
     self.i = 0
-
   
   def reset(self):
     """
     Reset the environment 
     """
     self.i = (self.i+1) % 5
-    self.env.seed(self.seeds[self.i])
+    if self.manual_seed is not None:
+        self.env.seed(self.manual_seed)
+    else:
+        self.env.seed(self.seeds[self.i])
     obs = self.env.reset()
+    # print("I am here")
     onehot = self.one_hot(self.skill)
     obs = np.array(list(obs) + list(onehot)).astype(np.float32)
     self.t = 0

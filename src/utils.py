@@ -6,7 +6,7 @@ import gym
 import numpy as np
 import pandas as pd
 
-from src.environment_wrappers.env_wrappers import RewardWrapper, SkillWrapperVideo, SkillWrapper
+from src.environment_wrappers.env_wrappers import RewardWrapper, SkillWrapperVideo, SkillWrapperFinetune
 from src.config import conf
 
 import torch
@@ -258,12 +258,15 @@ def evaluate_mi(env_name, n_skills, model, tb_sw, discriminator, timesteps, temp
     eval_runs = 5
     batch_size = max_steps = 1000
     rewards = np.zeros(5)
-    env = SkillWrapper(gym.make(env_name), n_skills, ev=True)
+    seeds = [0, 10, 1234, 5, 42]
+    n_sampled_skill = 5
     i = 0
     discriminator.eval()
     for run in range(eval_runs):
-        for i in range(3):
-            data = torch.zeros(max_steps, gym.make(env_name).observation_space.shape[0] + n_skills)
+        data = torch.zeros(n_sampled_skill * max_steps, gym.make(env_name).observation_space.shape[0] + n_skills)
+        for i in range(n_sampled_skill):
+            skill = np.random.randint(low=0, high=n_sampled_skill)
+            env = SkillWrapperFinetune(gym.make(env_name), n_skills, skill, r_seed=seeds[run])
             obs = env.reset()
             data[0] = torch.tensor(obs.copy())
             for i in range(1, max_steps):
@@ -271,6 +274,8 @@ def evaluate_mi(env_name, n_skills, model, tb_sw, discriminator, timesteps, temp
                 obs, reward, done, _ = env.step(action)
                 data[i] = torch.tensor(obs.copy())
         # print(f"length of the evaluation buffer: {len(data)}")
+        idx = torch.randperm(data.shape[0])
+        data = data[idx]
         env_obs = torch.clone(data[:, : -n_skills])
         skills = torch.clone(data[:, -n_skills:])
         # print(f"env_obs: {env_obs}")
@@ -284,7 +289,7 @@ def evaluate_mi(env_name, n_skills, model, tb_sw, discriminator, timesteps, temp
         # print(f"log_probs diag in eval: {log_probs.diag()[:3]}")
         # input()
         # calculate the reward
-        final_return =  eps_reward.sum().item()/3
+        final_return =  eps_reward.sum().item()/1
         # print(f"final return: {final_return}")
         rewards[run] = final_return
     # print(f"all seeds rewards: {rewards}")

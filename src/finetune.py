@@ -34,7 +34,7 @@ params = dict( n_skills = 6,
 
 # setting the parameters for each environment
 env_params = {
-    'ppo':{
+    # 'ppo':{
         # 'MountainCarContinuous-v0': dict( 
         #    pretrain_steps = int(200e6),
         #     n_skills = 6
@@ -68,8 +68,8 @@ env_params = {
         #    pretrain_steps = int(800e6),
         #     n_skills = 25
         #      ),# 17 dof
-    },
-    # 'sac':{
+    # },
+    'sac':{
     #     'MountainCarContinuous-v0': dict( 
     #        pretrain_steps = int(5e6),
     #         n_skills = 6
@@ -94,15 +94,15 @@ env_params = {
         #    pretrain_steps = int(10e6),
         #     n_skills = 20
         #      ),# 6 dof
-    #     'Ant-v2': dict( 
-    #        pretrain_steps = int(20e6),
-    #         n_skills = 25
-    #          ),# 8 dof
-    #     'Humanoid-v2': dict( 
-    #        pretrain_steps = int(50e6),
-    #         n_skills = 25
-    #          ),# 17 dof
-    # }
+        'Ant-v2': dict( 
+           pretrain_steps = int(25e6),
+            n_skills = 20
+             ),# 8 dof
+        'Humanoid-v2': dict( 
+           pretrain_steps = int(50e6),
+            n_skills = 20
+             ),# 17 dof
+    }
     
 }
 
@@ -179,7 +179,7 @@ hyperparams = {
 # weight_decay=0.0, label_smoothing=None, gp=None, mixup=False
 discriminator_hyperparams = dict(
     learning_rate = 3e-4,
-    batch_size = 128,
+    batch_size = 64,
     n_epochs = 1,
     weight_decay = 0, 
     dropout = None, # The dropout probability
@@ -187,11 +187,11 @@ discriminator_hyperparams = dict(
     gp = None, # the weight of the gradient penalty term
     mixup = False,
     gradient_clip = None,
-    temperature = 0.5,
-    parametrization = "Separable", # TODO: add this as a CMD argument MLP, Linear, Separable, Concat
-    lower_bound = "nce", # ba, tuba, nwj, nce, interpolate
+    temperature = 1,
+    parametrization = "Linear", # TODO: add this as a CMD argument MLP, Linear, Separable, Concat
+    lower_bound = "ba", # ba, tuba, nwj, nce, interpolate
     log_baseline = None, 
-    alpha_logit = -5. # small value of alpha => reduce the variance of nwj by introduce some nce bias
+    alpha_logit = None # small value of alpha => reduce the variance of nwj by introduce some nce bias
     
 )
 
@@ -232,7 +232,7 @@ def save_params(alg, directory):
     print(f"discriminator hyperparameters: {discriminator_hyperparams}" )
     print(f"shared experiment parameters: {params}" )
     print(f"configurations: {config_d }" )
-    input()
+    # input()
 
 def run_diyan(args):
     if args.alg != 'es':
@@ -255,8 +255,6 @@ def run_diyan(args):
 if __name__ == "__main__":
     args = cmd_args()
     run_all = args.run_all
-    discriminator_hyperparams['lower_bound'] = args.lb
-    discriminator_hyperparams['parametrization'] = args.pm
     if run_all:
         for alg in env_params:
             for env in env_params[alg]:
@@ -289,6 +287,8 @@ if __name__ == "__main__":
                 df = report_resuts(env, alg, params['n_skills'], model, data_r, data_i, timestamp, exp_directory)
                 print(df)
     else:
+        discriminator_hyperparams['lower_bound'] = args.lb
+        discriminator_hyperparams['parametrization'] = args.pm
         # save a timestamp
         timestamp = time.time()
         print(f"Experiment timestamp: {timestamp}")
