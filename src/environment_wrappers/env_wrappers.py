@@ -260,3 +260,41 @@ class TimestepsWrapper(gym.Wrapper):
       done = False
     # print(f"Timestep:{self.t} and done: {done}")
     return obs, reward, done, info
+
+
+class EvalWrapper(gym.Wrapper):
+  """
+  gym wrapper that augment the state with random chosen skill index
+  """
+  def __init__(self, env, max_steps=1000):
+    super(EvalWrapper, self).__init__(env)
+
+    # skills distribution
+    self.env = env
+    self.max_steps = 1000
+    self.t = 0
+    self.seeds = [0, 10, 1234, 5, 42]
+    self.i = 0
+  
+  def reset(self):
+    """
+    Reset the environment 
+    """
+    self.t = 0
+    self.i = (self.i+1) % 5
+    self.env.seed(self.seeds[self.i])
+    return self.env.reset()
+
+  def step(self, action):
+    """
+    :param action: ([float] or int) Action taken by the agent
+    :return: (np.ndarray, float, bool, dict) observation, reward, is the episode over?, additional informations
+    """
+    obs, reward, done, info = self.env.step(action)
+    self.t += 1
+    if self.t >= self.env._max_episode_steps:
+      done = True
+    else:
+      done = False
+    # print(f"Timestep:{self.t} and done: {done}")
+    return obs, reward, done, info

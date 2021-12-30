@@ -95,7 +95,7 @@ class DIAYN():
             eval_env = Monitor(eval_env, f"{self.directory}/eval_results")
             eval_callback = EvalCallback(eval_env, best_model_save_path=self.directory,
                                          log_path=f"{self.directory}/eval_results", eval_freq=self.conf.eval_freq,
-                                         deterministic=True, render=False)
+                                         deterministic=True, render=False, n_eval_episodes=self.conf.eval_runs)
             # create the callback list
             if self.checkpoints:
                 fineune_callback = FineTuneCallback(self.args, self.params, self.alg_params, self.conf, self.seed, self.alg, self.timestamp)
