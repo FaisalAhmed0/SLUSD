@@ -6,6 +6,9 @@ import ast
 
 import numpy as np
 import matplotlib.pyplot as plt
+import seaborn as sns
+
+sns.set_theme()
 
 import os
 from src.config import conf
@@ -23,6 +26,7 @@ def cmd_args():
     parser.add_argument("--stamps", nargs="*", type=str, required=True) # pass the timestamps as a list
     parser.add_argument("--colors", nargs="*", type=str, required=False, default=['b', 'r']) # pass the timestamps as a list
     parser.add_argument("--labels", nargs="*", type=str, required=False, default=None) # add custom labels 
+    parser.add_argument("--suffix", type=str, required=False, default=None) # add custom labels 
     args = parser.parse_args()
     return args
 
@@ -65,14 +69,14 @@ if __name__ == "__main__":
         plt.fill_between(steps, (data_mean-data_std), (data_mean+data_std), color=plot_color, alpha=0.3)
         plt.xlabel(xlabel)
         plt.ylabel(ylabel)
-        plt.grid(False)
+        # plt.grid(False)
         if len(algs) == 1:
             filename = f"{args.env}_pretraining_{alg}"
             files_dir = f"Vis/{args.env}"
             os.makedirs(files_dir, exist_ok=True)
             plt.savefig(f'{files_dir}/{filename}', dpi=150)    
     if len(algs) > 1:
-        filename = f"{args.env}_pretraining_all_algs"
+        filename = f"{args.env}_pretraining_all_algs {args.suffix}"
         files_dir = f"Vis/{args.env}"
         os.makedirs(files_dir, exist_ok=True)
         plt.savefig(f'{files_dir}/{filename}', dpi=150)    
@@ -112,9 +116,9 @@ if __name__ == "__main__":
         plt.fill_between(steps, (data_mean-data_std), (data_mean+data_std), color=plot_color, alpha=0.3)
         plt.xlabel(xlabel)
         plt.ylabel(ylabel)
-        plt.grid(False)
+        # plt.grid(False)
         if len(algs) == 1:
-            filename = f"{args.env}_finetune_{alg}"
+            filename = f"{args.env}_finetune_{alg} {args.suffix}"
             files_dir = f"Vis/{args.env}"
             os.makedirs(files_dir, exist_ok=True)
             plt.savefig(f'{files_dir}/{filename}', dpi=150)    

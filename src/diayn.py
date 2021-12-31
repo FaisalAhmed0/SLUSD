@@ -207,8 +207,9 @@ class DIAYN():
                     env = DummyVecEnv([lambda: SkillWrapperFinetune(Monitor(env,  f"{self.directory}/finetune_train_results"), self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, skill=best_skill_index)]*self.alg_params['n_actors'])
                     
             else:
-                env = DummyVecEnv([lambda: Monitor(RewardWrapper(SkillWrapper(gym.make(
-                    self.env_name), self.params['n_skills'], max_steps=self.conf.max_steps, r_seed=None), self.d, self.params['n_skills']),  self.directory)]*self.alg_params['n_actors'])
+                env = DummyVecEnv([lambda: SkillWrapperFinetune(Monitor(gym.make(
+        self.env_name),  f"{self.directory}/finetune_train_results"), self.params['n_skills'], r_seed=None,max_steps=gym.make(self.env_name)._max_episode_steps, 
+                                                                skill=best_skill_index)]*self.alg_params['n_actors'])
             
             model = PPO('MlpPolicy', env, verbose=1,
                         learning_rate=self.alg_params['learning_rate'],

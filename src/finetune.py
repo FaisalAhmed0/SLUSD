@@ -191,7 +191,7 @@ discriminator_hyperparams = dict(
     parametrization = "Linear", # TODO: add this as a CMD argument MLP, Linear, Separable, Concat
     lower_bound = "ba", # ba, tuba, nwj, nce, interpolate
     log_baseline = None, 
-    alpha_logit = None # small value of alpha => reduce the variance of nwj by introduce some nce bias
+    alpha_logit = -5. # small value of alpha => reduce the variance of nwj by introduce some nce bias
     
 )
 
