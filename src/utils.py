@@ -6,7 +6,7 @@ import gym
 import numpy as np
 import pandas as pd
 
-from src.environment_wrappers.env_wrappers import RewardWrapper, SkillWrapperVideo, SkillWrapperFinetune
+from src.environment_wrappers.env_wrappers import RewardWrapper, SkillWrapperVideo, SkillWrapperFinetune, SkillWrapper
 from src.config import conf
 
 import torch
@@ -24,6 +24,12 @@ from gym.wrappers import Monitor
 import pyglet
 from pyglet import *
 
+import random
+
+def seed_everything(seed):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.random.manual_seed(seed)
 
 def kde_entropy(data):
     # from https://github.com/paulbrodersen/entropy_estimators
@@ -153,44 +159,25 @@ def best_skill(model, env_name, n_skills, alg_type="rl"):
 
 
 # State coverage
-def run_pretrained_policy(env_name, n_skills, alg, timestamp):
-    # load the model
-    env = DummyVecEnv([lambda: SkillWrapper(gym.make(env_name), n_skills, max_steps=1000)])
-    # directory =  conf.log_dir_finetune + f"{alg}_{env_name}_{timestamp}" + "/best_model"
-    directory = conf.log_dir_finetune + f"{alg}_{env_name}_skills:{n_skills}_{timestamp}" + "/best_model"
-    if alg == "sac":
-        model = SAC.load(directory)
-    elif alg == "ppo":
-        model = PPO.load(directory, clip_range= get_schedule_fn(0.1))
+@torch.no_grad()
+def evaluate_state_coverage(env_name, n_skills, model):
     # run the model to collect the data
-    # print(model)
-    seeds = [0, 10, 1234, 5, 42]
-    entropy_list = []
-    for seed in seeds:
-        data = []
-        with torch.no_grad():
-            for i in range(5):
-                env = DummyVecEnv([lambda: gym.make(env_name) ])
-                env.seed(seed)
-                for skill in range(n_skills):
-                    obs = env.reset()
-                    obs = obs[0]
-                    data.append(obs.copy())
-                    aug_obs = augment_obs(obs, skill, n_skills)
-                    total_reward = 0
-                    done = False
-                    while not done:
-                        action, _ = model.predict(aug_obs, deterministic=False)
-                        obs, _, done, _ = env.step(action)
-                        obs = obs[0]
-                        data.append(obs.copy())
-                        aug_obs = augment_obs(obs, skill, n_skills)
-        data = np.array(data)
-        np.random.shuffle(data)
-        print(f"length of the data: {len(data)}")
-        entropy_list.append(kde_entropy(data))
-    print(f"Average entropy over all the random seeds: { np.mean(entropy_list) } with std of { np.std(entropy_list) }")
-    return np.mean(entropy_list), np.std(entropy_list)
+    data = []
+    # wrap inside the skill and reward wrappers
+    env = gym.make(env_name)
+    for skill in range(n_skills):
+        obs = env.reset()
+        aug_obs = augment_obs(obs, skill, n_skills)
+        total_reward = 0
+        done = False
+        while not done:
+            action, _ = model.predict(aug_obs, deterministic=False)
+            obs, _, done, _ = env.step(action)
+            data.append(obs.copy())
+            aug_obs = augment_obs(obs, skill, n_skills)
+    data = np.array(data)
+    np.random.shuffle(data)
+    return kde_entropy(data)
 
 
 # extract the final mean and std results of an experment
@@ -201,36 +188,57 @@ def extract_results(data):
     data_std = np.convolve(data_std, np.ones(10)/10, mode='valid') 
     print(f"mean: {data_mean[-1]}")
     print(f"std: {data_std[-1]}")
-    return data_mean[-1], data_std[-1]
+    return data_mean[-1]
 
 # extract the result of the finetuning
-def extract_resultes_intrinsic(env_name, n_skills, model):
-    seeds = [0, 10, 1234, 5, 42]
-    total = []
-    for seed in seeds:
-        total_rewards = []
-        for skill in range(n_skills):
-            print(f"Running Skill: {skill}")
-            env = gym.make(env_name)
-            env.seed(seed)
-            obs = env.reset()
+@torch.no_grad()
+def evaluate_pretrained_policy_ext(env_name, n_skills, model):
+    total_rewards = []
+    for skill in range(n_skills):
+        # print(f"Running Skill: {skill}")
+        env = gym.make(env_name)
+        obs = env.reset()
+        aug_obs = augment_obs(obs, skill, n_skills)
+        total_reward = 0
+        done = False
+        while not done:
+            action, _ = model.predict(aug_obs, deterministic=True)
+            obs, reward, done, info = env.step(action)
             aug_obs = augment_obs(obs, skill, n_skills)
-            total_reward = 0
-            done = False
-            while not done:
-                action, _ = model.predict(aug_obs, deterministic=True)
-                obs, reward, done, info = env.step(action)
-                aug_obs = augment_obs(obs, skill, n_skills)
-                total_reward += reward
-            total_rewards.append(total_reward)
-            env.close()
-        total.append(total_rewards)
-    total_mean  = np.mean(total, axis=0)
-    total_std = np.std(total, axis=0)
-    print(f"Total: {total}")
-    print(f"Total rewards mean: {total_mean}")
-    print(f"Best skill: {np.argmax(total_mean)} and best reward is: {np.max(total_mean)} with std: {total_std[np.argmax(total_mean)]}")
-    return np.max(total_mean), total_std[np.argmax(total_mean)]
+            total_reward += reward
+        total_rewards.append(total_reward)
+        env.close()
+    best_reward = np.max(total_rewards)
+    return best_reward
+
+@torch.no_grad()
+def evaluate_pretrained_policy_intr(env_name, n_skills, model, d, parametrization):
+    d.eval()
+    env = RewardWrapper(SkillWrapper(gym.make(env_name), n_skills), d, n_skills, parametrization)
+    done = False
+    total_reward = 0
+    obs = env.reset()
+    while not done:
+        action, _ = model.predict(obs, deterministic=True)
+        obs, reward, done, info = env.step(action)
+        total_reward += reward
+    return total_reward
+                        
+
+@torch.no_grad()
+def evaluate_adapted_policy(env_name, n_skills, bestskill, model):
+    env = gym.make(env_name)
+    done = False
+    obs = env.reset()
+    aug_obs = augment_obs(obs, bestskill, n_skills)
+    total_reward = 0
+    while not done:
+        action, _ = model.predict(aug_obs, deterministic=True)
+        obs, reward, done, info = env.step(action)
+        aug_obs = augment_obs(obs, bestskill, n_skills)
+        total_reward += reward
+    return total_reward
+
 
 
 # report the experiment results and save it in data frame

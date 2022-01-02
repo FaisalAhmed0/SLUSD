@@ -24,18 +24,18 @@ class SkillWrapper(gym.Wrapper):
     self.max_steps = max_steps
     self.ev = ev
     self.t = 0
-    if ev:
-        self.seeds = [0, 10, 1234, 5, 42]
-        self.i = 0
+    # if ev:
+    #     self.seeds = [0, 10, 1234, 5, 42]
+    #     self.i = 0
 
   
   def reset(self):
     """
     Reset the environment 
     """
-    if self.ev:
-        self.i = (self.i+1) % 5
-        self.env.seed(self.seeds[self.i])
+    # if self.ev:
+    #     self.i = (self.i+1) % 5
+    #     self.env.seed(self.seeds[self.i])
     # pick a random skill uniformly
     self.skill = self.skills_dist(low=0, high=self.n_skills, size=(1,)).item()
     
@@ -191,18 +191,13 @@ class SkillWrapperFinetune(gym.Wrapper):
     self.env._max_episode_steps = max_steps
     # seeds for the 5 evaluation runs
     self.manual_seed = r_seed
-    self.seeds = [0, 10, 1234, 5, 42]
-    self.i = 0
   
   def reset(self):
     """
     Reset the environment 
     """
-    self.i = (self.i+1) % 5
     if self.manual_seed is not None:
         self.env.seed(self.manual_seed)
-    else:
-        self.env.seed(self.seeds[self.i])
     obs = self.env.reset()
     # print("I am here")
     onehot = self.one_hot(self.skill)
@@ -273,16 +268,12 @@ class EvalWrapper(gym.Wrapper):
     self.env = env
     self.max_steps = 1000
     self.t = 0
-    self.seeds = [0, 10, 1234, 5, 42]
-    self.i = 0
   
   def reset(self):
     """
     Reset the environment 
     """
     self.t = 0
-    self.i = (self.i+1) % 5
-    self.env.seed(self.seeds[self.i])
     return self.env.reset()
 
   def step(self, action):
