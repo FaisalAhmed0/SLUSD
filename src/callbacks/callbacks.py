@@ -236,7 +236,7 @@ class DiscriminatorCallback(BaseCallback):
                     scores = self.d(states, onehots_skills)
                 # compute the loss
                 if self.lower_bound == "ba":
-                    loss = nn.CrossEntropyLoss(label_smoothing=self.label_smoothing)(scores/self.temperature, skills)
+                    loss = nn.CrossEntropyLoss(label_smoothing=self.label_smoothing)(scores/self.temperature, skills.to(torch.long))
                 elif self.lower_bound in ["tuba", "nwj", "nce", "interpolate"]:
                     mi = mi_lower_bound(scores, self.lower_bound, self.log_baseline, self.alpha_logit).mean()
                     loss = -mi

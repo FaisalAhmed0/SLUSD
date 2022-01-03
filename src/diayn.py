@@ -131,12 +131,12 @@ class DIAYN():
                 eval_env = Monitor(eval_env,  f"{self.directory}/eval_results")
 
                 eval_callback = EvalCallback(eval_env, best_model_save_path=self.directory,
-                                             log_path=f"{self.directory}/eval_results", eval_freq=self.conf.eval_freq, deterministic=True, render=False)
+                                             log_path=f"{self.directory}/eval_results", eval_freq=self.conf.eval_freq*5, deterministic=True, render=False)
             elif self.parametrization in ["Separable", "Concat"]:
                 MI_estimator = namedtuple('MI_estimator', "estimator_func estimator_type log_baseline alpha_logit")
                 mi_estimate = MI_estimator(mi_lower_bound, self.discriminator_hyperparams['lower_bound'], self.discriminator_hyperparams['log_baseline'], self.discriminator_hyperparams['alpha_logit'])
                 # (env_name, discriminator, params, tb_sw, discriminator_hyperparams, mi_estimator, model_save_path, eval_freq=5000, verbose=0)
-                eval_callback = MI_EvalCallback(self.env_name, self.d, self.params, self.sw, self.discriminator_hyperparams, mi_estimate, self.directory, eval_freq=self.conf.eval_freq)
+                eval_callback = MI_EvalCallback(self.env_name, self.d, self.params, self.sw, self.discriminator_hyperparams, mi_estimate, self.directory, eval_freq=self.conf.eval_freq*self.alg_params['n_actors'])
             
             # create the callback list
             if self.checkpoints:
@@ -230,7 +230,7 @@ class DIAYN():
         eval_env = Monitor(eval_env, f"{self.directory}/finetune_eval_results")
         
         eval_callback = EvalCallback(eval_env, best_model_save_path=self.directory + f"/best_finetuned_model_skillIndex:{best_skill_index}",
-                                    log_path=f"{self.directory}/finetune_eval_results", eval_freq=self.conf.eval_freq,
+                                    log_path=f"{self.directory}/finetune_eval_results", eval_freq=self.conf.eval_freq*5 if self.alg == "sac" else self.conf.eval_freq,
                                     deterministic=True, render=False)
         if self.alg == "sac":
             model = SAC.load(model_dir, env=env, tensorboard_log=self.directory)

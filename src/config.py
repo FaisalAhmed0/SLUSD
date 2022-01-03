@@ -24,7 +24,7 @@ generalization_exper_dir = "generalization_exper/",
 eval_runs = 5,
     
 # evaluation frequency
-eval_freq = 5000,
+eval_freq = 1000,
 
 # total time steps
 total_timesteps = int(1e8),

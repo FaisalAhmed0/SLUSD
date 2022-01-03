@@ -14,26 +14,85 @@ import pandas as pd
 import time
 import os
 import random
+from collections import defaultdict
+
+import matplotlib.pyplot as plt
+import seaborn as sns
+sns.set_theme(style="darkgrid")
+sns.set(font_scale = 0.7)
 
 
 # shared parameters
 params = dict( n_skills = 6,
            pretrain_steps = int(5e3),
-           finetune_steps = int(5e3),
+           finetune_steps = int(10e3),
            buffer_size = int(1e6),
            min_train_size = int(1e4),
              )
 
 
-# setting the parameters for each environment
+# list for multip-processing
+envs = [
+    # 1
+    {
+     'ppo':{
+        'MountainCarContinuous-v0': dict( 
+           pretrain_steps = int(10e3),
+            n_skills = 6
+             ), # 1 dof
+        },
+    'sac':{
+        'MountainCarContinuous-v0': dict( 
+           pretrain_steps = int(10e3),
+            n_skills = 6
+             ), # 1 dof
+        }
+    },
+    # 2
+    {
+     'ppo':{
+        'Reacher-v2': dict( 
+           pretrain_steps = int(10e3),
+            n_skills = 12,
+            clip_range = 0.01
+             ), # 2 dof
+        },
+    'sac':{
+        'Reacher-v2': dict( 
+           pretrain_steps = int(10e3),
+            n_skills = 12
+             ), # 2 dof
+        }
+    },
+    # 3
+    {
+     'ppo':{
+        'Reacher-v2': dict( 
+           pretrain_steps = int(10e3),
+            n_skills = 12,
+            clip_range = 0.01
+             ), # 2 dof
+        },
+    'sac':{
+        'Reacher-v2': dict( 
+           pretrain_steps = int(10e3),
+            n_skills = 12
+             ), # 2 dof
+        }
+    },
+    
+    
+]
+
+# # setting the parameters for each environment
 # env_params = {
 #     'ppo':{
 #         'MountainCarContinuous-v0': dict( 
-#            pretrain_steps = int(200e6),
+#            pretrain_steps = int(10e3),
 #             n_skills = 6
 #              ), # 1 dof
 #         'Reacher-v2': dict( 
-#            pretrain_steps = int(220e6),
+#            pretrain_steps = int(10e3),
 #             n_skills = 12,
 #             clip_range = 0.01
 #              ), # 2 dof
@@ -64,11 +123,11 @@ params = dict( n_skills = 6,
 #     },
 #     'sac':{
 #         'MountainCarContinuous-v0': dict( 
-#            pretrain_steps = int(5e6),
+#            pretrain_steps = int(10e3),
 #             n_skills = 6
 #              ), # 1 dof
 #         'Reacher-v2': dict( 
-#            pretrain_steps = int(5e6),
+#            pretrain_steps = int(10e3),
 #             n_skills = 12
 #              ), # 2 dof
 #         'Swimmer-v2': dict( 
@@ -137,7 +196,7 @@ ppo_hyperparams = dict(
     gae_lambda = 0.95,
     clip_range = 0.1,
     ent_coef=0.5,
-    n_actors = 8,
+    n_actors = 5,
     algorithm = "ppo",
     
 )
@@ -206,7 +265,7 @@ def cmd_args():
 def save_params(alg, directory):
     # save the hyperparams in a csv files
     alg_hyperparams = hyperparams[alg]
-    
+    params
     alg_hyperparams_df = pd.DataFrame(alg_hyperparams, index=[0])
     alg_hyperparams_df.to_csv(f"{directory}/{alg}_hyperparams.csv")
     
@@ -221,10 +280,10 @@ def save_params(alg, directory):
     config_d = vars(conf)
     config_df = pd.DataFrame(config_d, index=[0])
     config_df.to_csv(f"{directory}/configs.csv")
-    print(f"{alg} hyperparameters: {alg_hyperparams}" )
-    print(f"discriminator hyperparameters: {discriminator_hyperparams}" )
-    print(f"shared experiment parameters: {params}" )
-    print(f"configurations: {config_d }" )
+    print(f"{alg} hyperparame`ters: {alg_hyperparams}\n" )
+    print(f"discriminator hyperparameters: {discriminator_hyperparams}\n" )
+    print(f"shared experiment parameters: {params}\n" )
+    print(f"configurations: {config_d }\n" )
     # input()
 
 def run_diyan(args):
@@ -270,22 +329,142 @@ def save_final_results(all_results, env_dir):
     df =pd.DataFrame(results_dic, index=[0])
     df.to_csv(f"{env_dir}/final_results.csv")
     print(df)
+    return df
     
+def plot_learning_curves(env_name, algs, stamps, skills_list, pms, lbs):
+    colors = ['b', 'r', 'g', 'b']
+    xlabel = "Timesteps"
+    ylabel = "Reward"
+    legends =  algs
+    # file_dir = conf.log_dir_finetune + f"{args.alg}_{args.env}_{args.stamp}/" + "eval_results/" + "evaluations.npz"
+    # file_dir = conf.log_dir_finetune + f"{args.alg}_{args.env}_{args.stamp}/" + "evaluations.npz"
+    print("######## Skills evaluation ########")
+    plt.figure()
+    plt.title(f"{env_name[: env_name.index('-')]}")
+    for i in range(len(algs)):
+        skills = skills_list[i]
+        pm = pms[i]
+        lb = lbs[i]
+        alg = algs[i]
+        print(f"Algorithm: {alg}")
+        plot_color = colors[i]
+        stamp = stamps[i]
+        # legend = alg
+        main_exper_dir = conf.log_dir_finetune + f"cls:{pm}, lb:{lb}/"
+        env_dir = main_exper_dir + f"env: {env_name}, alg:{alg}, stamp:{stamp}/"
+        seeds_list = []
+        for seed in seeds:
+            seed_everything(seed)
+            seed_dir = env_dir + f"seed:{seed}/"
+            file_dir_skills = seed_dir + "eval_results/" + "evaluations.npz"
+            files = np.load(file_dir_skills)
+            steps = files['timesteps']
+            results = files['results']
+            print(f"results.shape: {results.shape}")
+            seeds_list.append(results.mean(axis=1).reshape(-1))
+            # data_mean = results.mean(axis=1)
+            # data_std = results.std(axis=1)
+            # print(f"mean: {data_mean[-1]}")
+            # print(f"std: {data_std[-1]}")
+        data_mean = np.mean(seeds_list, axis=0)
+        print(f"seeds list shape {np.array(seeds_list).shape}")
+        # input()
+        data_std = np.std(seeds_list, axis=0)
+        # data_mean = np.convolve(data_mean, np.ones(10)/10, mode='valid') 
+        # data_std = np.convolve(data_std, np.ones(10)/10, mode='valid') 
+        # steps = np.convolve(steps, np.ones(10)/10, mode='valid') 
+        print(f"data shape: {data_mean.shape}")
+        print(f"steps shape: {steps.shape}")
+        # input()
+        if len(algs) > 1:
+            plt.plot(steps, data_mean, label=legends[i], color=plot_color)
+            plt.legend()
+        else:
+            plt.plot(steps, data_mean, color=plot_color)
+        plt.fill_between(steps, (data_mean-data_std), (data_mean+data_std), color=plot_color, alpha=0.3)
+        plt.xlabel(xlabel)
+        plt.ylabel(ylabel)
+        # plt.grid(False)
+        if len(algs) == 1:
+            filename = f"{env_name}_pretraining_{alg}"
+            files_dir = f"Vis/{env_name}"
+            os.makedirs(files_dir, exist_ok=True)
+            plt.savefig(f'{files_dir}/{filename}', dpi=150)    
+    if len(algs) > 1:
+        filename = f"{env_name}_pretraining_all_algs"
+        files_dir = f"Vis/{env_name}_cls:{pm}_lb:{lb}"
+        os.makedirs(files_dir, exist_ok=True)
+        plt.savefig(f'{files_dir}/{filename}', dpi=150)    
     
-    
+    # loop throgh the finetuning results
+    # loop throgh the finetuning results
+    plt.figure()
+    plt.title(f"{env_name[: env_name.index('-')]}")
+    print("######## Finetine evaluation ########")
+    seeds_list = []
+    for i in range(len(algs)):
+        skills = skills_list[i]
+        pm = pms[i]
+        lb = lbs[i]
+        alg = algs[i]
+        print(f"Algorithm: {alg}")
+        plot_color = colors[i]
+        stamp = stamps[i]
+        legend = alg
+        main_exper_dir = conf.log_dir_finetune + f"cls:{pm}, lb:{lb}/"
+        env_dir = main_exper_dir + f"env: {env_name}, alg:{alg}, stamp:{stamp}/"
+        seed_list = []
+        for seed in seeds:
+            seed_everything(seed)
+            seed_dir = env_dir + f"seed:{seed}/"
+            file_dir_finetune = seed_dir + "finetune_eval_results/" + "evaluations.npz"
+            files = np.load(file_dir_finetune)
+            steps = files['timesteps']
+            results = files['results']
+            seeds_list.append(results.mean(axis=1).reshape(-1))
+        data_mean = np.mean(seeds_list, axis=0)
+        data_std = np.std(seeds_list, axis=0)
+        if len(algs) > 1:
+            plt.plot(steps, data_mean, label=legends[i], color=plot_color)
+            plt.legend()
+        else:
+            plt.plot(steps, data_mean, color=plot_color)
+        plt.fill_between(steps, (data_mean-data_std), (data_mean+data_std), color=plot_color, alpha=0.3)
+        plt.xlabel(xlabel)
+        plt.ylabel(ylabel)
+        # plt.grid(False)
+        if len(algs) == 1:
+            filename = f"{env_name}_finetune_{alg}"
+            files_dir = f"Vis/{env_name}_cls:{pm}_lb:{lb}"
+            os.makedirs(files_dir, exist_ok=True)
+            plt.savefig(f'{files_dir}/{filename}', dpi=150)    
+    if len(algs) > 1:
+        filename = f"{env_name}_finetune_all_algs"
+        files_dir = f"Vis/{env_name}"
+        os.makedirs(files_dir, exist_ok=True)
+        plt.savefig(f'{files_dir}/{filename}', dpi=150)      
         
-
+def train_all(env_params):
+    
+    
+    
 if __name__ == "__main__":
-    seeds = [0, 10, 1234, 5, 42]
+    plots_dict = {}
+    seeds = [0, 10]# 10, 1234, 5, 42]
     args = cmd_args()
     run_all = args.run_all
-    main_exper_dir = None
-    main_exper_dir = conf.log_dir_finetune + f"cls:{discriminator_hyperparams['parametrization']}, lb:{discriminator_hyperparams['lower_bound']}/"
     discriminator_hyperparams['lower_bound'] = args.lb
     discriminator_hyperparams['parametrization'] = args.pm
+    main_exper_dir = None
+    main_exper_dir = conf.log_dir_finetune + f"cls:{discriminator_hyperparams['parametrization']}, lb:{discriminator_hyperparams['lower_bound']}/"
+    columns = ['Algorithm', "Mean Return", "Mean State Entropy", "Mean Intrinsic Return" , "Mean Return Before Adaptation"]
+    results_df = pd.DataFrame(columns=columns)
     if run_all:
+        #####################
         for alg in env_params:
             for env in env_params[alg]:
+                if env not in plots_dict:
+                    plots_dict[env] = defaultdict(lambda: [])
                 # save a timestamp
                 timestamp = time.time()
                 # Environment directory
@@ -294,7 +473,7 @@ if __name__ == "__main__":
                 params['n_skills'] = env_params[alg][env]['n_skills']
                 params['pretrain_steps'] = env_params[alg][env]['pretrain_steps']
                 print(f"stamp: {timestamp}, alg: {alg}, env: {env}, n_skills: {params['n_skills']}, pretrain_steps: {params['pretrain_steps']}")
-                save_params(alg, env_dir)
+                # save_params(alg, env_dir)
                 alg_params = hyperparams[alg]
                 if (env_params[alg][env]).get('clip_range'):
                     # clip_range
@@ -313,12 +492,49 @@ if __name__ == "__main__":
                     # Evaluate the policy 
                     intrinsic_reward_mean, reward_beforeFinetune_mean, reward_mean, entropy_mean = evaluate(env, n_skills, pretrained_policy, adapted_policy, discriminator, 
                                                                                                             discriminator_hyperparams['parametrization'], best_skill)
+                    # # For testing
+                    # intrinsic_reward_mean = np.random.rand() * 100
+                    # reward_beforeFinetune_mean = np.random.rand() * 100
+                    # reward_mean = np.random.rand() * 100
+                    # entropy_mean = np.random.rand() * 100
+                    
                     # save results
                     seed_results.append([intrinsic_reward_mean, reward_beforeFinetune_mean, reward_mean, entropy_mean])
-                save_final_results(seed_results, env_dir)
+                    d = {'Algorithm': alg, 
+                         "Environment": env[: env.index('-')] if env != "MountainCarContinuous-v0" else "MountainCar",
+                         "Mean Return": reward_mean, 
+                         "Mean Intrinsic Return": intrinsic_reward_mean, 
+                         "Mean State Entropy": entropy_mean, 
+                         "Mean Return Before Adaptation":reward_beforeFinetune_mean}
+                    results_df = results_df.append(d, ignore_index=True)
+                # add to the plot dict
+                plots_dict[env]["algs"].append(alg)
+                plots_dict[env]["stamps"].append(timestamp)
+                plots_dict[env]["skills"].append(params['n_skills'])
+                plots_dict[env]["pms"].append(discriminator_hyperparams['parametrization'])
+                plots_dict[env]["lbs"].append(discriminator_hyperparams['lower_bound'])
+            save_final_results(seed_results, env_dir)
+            #####################
+        print(f"results_df: {results_df}")
+        print(f"plot_dict: {plots_dict}")
+        input()
+        for env in plots_dict:
+            plot
+        for col in columns[1:]:
+            plt.figure(figsize=(10, 5))
+            y_axis = col
+            # ax = sns.barplot(x="Algorithm", y=y_axis, data=results_df, hue="Environment")
+            if col == "Mean Return":
+                ax = sns.barplot(x="Environment", y=y_axis, data=results_df, hue="Algorithm", hue_order=['ppo', 'sac'])
+                sns.move_legend(ax, "lower left", title='Algorithm')
+            else:
+                ax = sns.barplot(x="Environment", y=y_axis, data=results_df, hue="Algorithm", hue_order=['ppo', 'sac'])
+                ax.legend_.remove()
+            filename = f"adaptation_experiment_final_{y_axis}.png"
+            files_dir = f"Vis/adaptation_experiment_cls:{discriminator_hyperparams['parametrization']}, lb:{discriminator_hyperparams['lower_bound']}/"
+            os.makedirs(files_dir, exist_ok=True)
+            plt.savefig(files_dir + filename)
     else:
-        discriminator_hyperparams['lower_bound'] = args.lb
-        discriminator_hyperparams['parametrization'] = args.pm
         # save a timestamp
         timestamp = time.time()
         print(f"Experiment timestamp: {timestamp}")
@@ -329,7 +545,6 @@ if __name__ == "__main__":
         save_params(args.alg, env_dir)
         alg_params = hyperparams[args.alg]
         seed_results = []
-        
         for i in range(len(seeds)):
             seed_everything(seeds[i])
             seed_dir = env_dir + f"seed:{seeds[i]}"
@@ -347,6 +562,10 @@ if __name__ == "__main__":
             seed_results.append([intrinsic_reward_mean, reward_beforeFinetune_mean, reward_mean, entropy_mean])
             
         save_final_results(seed_results, env_dir)
+        
+        
+        
+        
 
 
 

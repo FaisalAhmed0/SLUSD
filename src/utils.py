@@ -126,7 +126,7 @@ def plot_evaluation(logfile_dir, env_name=None ,save=False):
 def augment_obs(obs, skill, n_skills):
     onehot = np.zeros(n_skills)
     onehot[skill] = 1
-    aug_obs = np.array(list(obs) + list(onehot)).astype(np.float32)
+    aug_obs = np.array(list(obs.copy()) + list(onehot)).astype(np.float32)
     return torch.FloatTensor(aug_obs).unsqueeze(dim=0)
 
 
@@ -161,22 +161,33 @@ def best_skill(model, env_name, n_skills, alg_type="rl"):
 # State coverage
 @torch.no_grad()
 def evaluate_state_coverage(env_name, n_skills, model):
+    # print(f"Number of skills: {n_skills}")
     # run the model to collect the data
     data = []
     # wrap inside the skill and reward wrappers
     env = gym.make(env_name)
     for skill in range(n_skills):
         obs = env.reset()
+        data.append(list(obs.reshape(-1).copy()))
         aug_obs = augment_obs(obs, skill, n_skills)
         total_reward = 0
         done = False
         while not done:
             action, _ = model.predict(aug_obs, deterministic=False)
             obs, _, done, _ = env.step(action)
-            data.append(obs.copy())
+            data.append(list(obs.reshape(-1).copy()))
             aug_obs = augment_obs(obs, skill, n_skills)
+            # break
+        # break
+    # I stoped here
+    # print(f"data: {data}")
+    # input()
     data = np.array(data)
     np.random.shuffle(data)
+    # print("here")
+    # print(data.shape)
+    # print(data[:3])
+    # input()
     return kde_entropy(data)
 
 
