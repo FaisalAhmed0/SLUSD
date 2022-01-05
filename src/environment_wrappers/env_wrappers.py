@@ -145,7 +145,7 @@ class RewardWrapper(gym.Wrapper):
     obs, reward, done, info = self.env.step(action)
 
     env_obs, skill = self.split_obs(obs)
-    obs_t = torch.FloatTensor(env_obs).to(conf.device)
+    obs_t = torch.FloatTensor(env_obs, device=conf.device)
     self.t += 1
     if self.parametrization in ["MLP", "Linear"]:
         self.discriminator.eval()
@@ -169,7 +169,7 @@ class RewardWrapper(gym.Wrapper):
     return env_obs, skill[0]
 
   def one_hot(self, skill):
-    onehot = torch.zeros(self.n_skills)
+    onehot = torch.zeros(self.n_skills, device=conf.device)
     onehot[skill] = 1
     return onehot
 

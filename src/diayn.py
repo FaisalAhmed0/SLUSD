@@ -24,7 +24,7 @@ from collections import namedtuple
 
 
 class DIAYN():
-    def __init__(self, params, alg_params, discriminator_hyperparams, env="MountainCarContinuous-v0", alg="ppo", directory="./", seed=10, device="cpu", conf=None, timestamp=None, checkpoints=False, args=None, task=None):
+    def __init__(self, params, alg_params, discriminator_hyperparams, env="MountainCarContinuous-v0", alg="ppo", directory="./", seed=10, conf=None, timestamp=None, checkpoints=False, args=None, task=None):
         # create the discirminator
         state_dim = gym.make(env).observation_space.shape[0]
         skill_dim = params['n_skills']
@@ -33,15 +33,15 @@ class DIAYN():
         temperature = discriminator_hyperparams['temperature']
         dropout = discriminator_hyperparams['dropout']
         if discriminator_hyperparams['parametrization'] == "MLP":
-            self.d = Discriminator(state_dim, hidden_dims, skill_dim, dropout=discriminator_hyperparams['dropout']).to(device)
+            self.d = Discriminator(state_dim, hidden_dims, skill_dim, dropout=discriminator_hyperparams['dropout']).to(conf.device)
         elif discriminator_hyperparams['parametrization'] == "Linear":
-            self.d = nn.Linear(state_dim, skill_dim).to(device)
+            self.d = nn.Linear(state_dim, skill_dim).to(conf.device)
         elif discriminator_hyperparams['parametrization'] == "Separable":
             # state_dim, skill_dim, hidden_dims, latent_dim, temperature=1, dropout=None)
-            self.d = SeparableCritic(state_dim, skill_dim, hidden_dims, latent_dim, temperature, dropout).to(device)
+            self.d = SeparableCritic(state_dim, skill_dim, hidden_dims, latent_dim, temperature, dropout).to(conf.device)
         elif discriminator_hyperparams['parametrization'] == "Concat":
             # state_dim, skill_dim, hidden_dims, temperature=1, dropout=None)
-            self.d = ConcatCritic(state_dim, skill_dim, hidden_dims, temperature, dropout).to(device)
+            self.d = ConcatCritic(state_dim, skill_dim, hidden_dims, temperature, dropout).to(conf.device)
         else:
             raise ValueError(f"{discriminator_hyperparams['parametrization']} is invalid parametrization")
         # Create the data buffer for the discriminator
@@ -103,7 +103,7 @@ class DIAYN():
             else:
                 callbacks = [discriminator_callback, eval_callback]
             # train the agent
-            model.learn(total_timesteps=self.params['pretrain_steps'], callback=callbacks, log_interval=1, tb_log_name="PPO Pretrain")
+            model.learn(total_timesteps=self.params['pretrain_steps'], callback=callbacks, log_interval=3, tb_log_name="PPO Pretrain")
         elif self.alg == "sac":
             env = DummyVecEnv([lambda: Monitor(RewardWrapper(SkillWrapper(gym.make(self.env_name), self.params['n_skills'], max_steps=self.conf.max_steps),
                                                              self.d, self.params['n_skills'], parametrization=self.parametrization), self.directory)])
@@ -147,9 +147,9 @@ class DIAYN():
 
             # train the agent
             if self.parametrization in ["Separable", "Concat"]:
-                model.learn(total_timesteps=self.params['pretrain_steps'], callback=callbacks, log_interval=1, tb_log_name="SAC Pretrain", d=self.d, mi_estimator=mi_estimate)
+                model.learn(total_timesteps=self.params['pretrain_steps'], callback=callbacks, log_interval=3, tb_log_name="SAC Pretrain", d=self.d, mi_estimator=mi_estimate)
             elif self.parametrization in ["MLP", "Linear"]:
-                model.learn(total_timesteps=self.params['pretrain_steps'], callback=callbacks, log_interval=1, tb_log_name="SAC Pretrain")
+                model.learn(total_timesteps=self.params['pretrain_steps'], callback=callbacks, log_interval=3, tb_log_name="SAC Pretrain")
             else:
                 raise ValueError(f"{discriminator_hyperparams['parametrization']} is invalid parametrization")
         return model, self.d

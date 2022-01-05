@@ -1,6 +1,8 @@
 import numpy as np
 import torch
 
+from src.config import conf
+
 # data bufffer for the discriminator
 class DataBuffer():
   '''
@@ -28,8 +30,8 @@ class DataBuffer():
   def sample(self, sample_size):
     assert sample_size <= self.size, "Sample size is larger than the buffer size"
     indinces = np.random.randint(0, self.size, sample_size)
-    inputs = torch.FloatTensor(self.observations[indinces])
-    outputs = torch.tensor(self.skills[indinces])
+    inputs = torch.FloatTensor(self.observations[indinces], device=conf.device)
+    outputs = torch.tensor(self.skills[indinces], device=conf.device)
     return inputs, outputs
 
   def __len__(self):

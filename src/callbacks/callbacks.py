@@ -119,7 +119,7 @@ class DiscriminatorCallback(BaseCallback):
             for obs_vec in self.locals['obs_tensor']:
                 env_obs, skill = self.split_obs(obs_vec)
                 obs = torch.clone(env_obs)
-                skill = torch.tensor(skill)
+                skill = torch.tensor(skill, device=conf.device)
                 self.buffer.add(obs, skill)
         return True
 

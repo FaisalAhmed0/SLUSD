@@ -86,7 +86,7 @@ def augment_obs(obs, skill, n_skills):
     onehot = np.zeros(n_skills)
     onehot[skill] = 1
     aug_obs = np.array(list(obs) + list(onehot)).astype(np.float32)
-    return torch.FloatTensor(aug_obs).unsqueeze(dim=0)
+    return torch.FloatTensor(aug_obs, device=conf.device).unsqueeze(dim=0)
 
 
 # A method to return the best performing skill

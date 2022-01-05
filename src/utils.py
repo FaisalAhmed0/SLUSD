@@ -287,11 +287,11 @@ def evaluate_mi(env_name, n_skills, model, tb_sw, discriminator, timesteps, temp
             skill = np.random.randint(low=0, high=n_sampled_skill)
             env = SkillWrapperFinetune(gym.make(env_name), n_skills, skill, r_seed=seeds[run])
             obs = env.reset()
-            data[0] = torch.tensor(obs.copy())
+            data[0] = torch.tensor(obs.copy(), device=conf.device)
             for i in range(1, max_steps):
                 action, _ = model.predict(obs, deterministic=True)
                 obs, reward, done, _ = env.step(action)
-                data[i] = torch.tensor(obs.copy())
+                data[i] = torch.tensor(obs.copy(), device=conf.device)
         # print(f"length of the evaluation buffer: {len(data)}")
         idx = torch.randperm(data.shape[0])
         data = data[idx]
@@ -325,8 +325,8 @@ def log_interpolate(log_a, log_b, alpha_logit):
     based on this notebook by google research 
 https://github.com/google-research/google-research/blob/master/vbmi/vbmi_demo.ipynb
     '''
-    log_alpha =  - F.softplus(torch.tensor(-alpha_logit))
-    log_1_minus_alpha =  - F.softplus(torch.tensor(alpha_logit))
+    log_alpha =  - F.softplus(torch.tensor(-alpha_logit, device=conf.device))
+    log_1_minus_alpha =  - F.softplus(torch.tensor(alpha_logit, device=conf.device))
     dim = tuple(i for i in range(log_a.dim()))
     y = torch.logsumexp( torch.stack((log_alpha + log_a, log_1_minus_alpha + log_b)) , dim=0)
     return y
@@ -344,12 +344,12 @@ https://github.com/google-research/google-research/blob/master/vbmi/vbmi_demo.ip
     safe_d = torch.where(d_ok, d, torch.ones_like(d))
     loo_lse = scores + softplus_inverse(safe_d)
     # normailize by the batch size
-    loo_lme = loo_lse - torch.log(torch.tensor(scores.shape[1]) - 1.)
+    loo_lme = loo_lse - torch.log(torch.tensor(scores.shape[1], device=conf.device) - 1.)
     return loo_lme
 
 def softplus_inverse(x):
     if not torch.is_tensor(x):
-        x = torch.tensor(x)
+        x = torch.tensor(x, device=conf.device)
     '''
     A function that implement tge softplus invserse, this is based on tensorflow implementatiion on 
     https://github.com/tensorflow/probability/blob/v0.15.0/tensorflow_probability/python/math/generic.py#L494-L545
@@ -363,5 +363,152 @@ def softplus_inverse(x):
     x = torch.where(is_too_small | is_too_large, torch.ones_like(x), x)
     y = x + torch.log(-(torch.exp(-x) - 1))
     return torch.where(is_too_small, too_small_value, torch.where(is_too_large, too_large_value, y))
+
+
+#### Useful function for the adaptation expeirment ####
+def evaluate(env, n_skills, pretrained_policy, adapted_policy, discriminator, parametrization, bestskill):
+    # intrinsic reward
+    intrinsic_reward_mean = np.mean([evaluate_pretrained_policy_intr(env, n_skills, pretrained_policy, discriminator, parametrization) for _ in range(10)])
+    # best skill reward before adaptation
+    reward_beforeFinetune_mean = np.mean([evaluate_pretrained_policy_ext(env, n_skills, pretrained_policy) for _ in range(10)])
+    # reward after adaptation
+    reward_mean = np.mean([evaluate_adapted_policy(env, n_skills, bestskill, adapted_policy) for _ in range(10)])
+    # entropy
+    entropy_mean = np.mean([evaluate_state_coverage(env, n_skills, pretrained_policy) for _ in range(10)])
+    return intrinsic_reward_mean, reward_beforeFinetune_mean, reward_mean, entropy_mean
+
+def save_final_results(all_results, env_dir):
+    results_mean = np.mean(all_results, axis=0)
+    results_std = np.std(all_results, axis=0)
+    results_dic = dict(
+                intrinsic_reward_mean = results_mean[0],
+                intrinsic_reward_std = results_std[0],
+                reward_beforeFinetune_mean = results_mean[1],
+                reward_beforeFinetune_std = results_std[1],
+                reward_mean = results_mean[2],
+                reward_std = results_std[2],
+                entropy_mean = results_mean[3],
+                entropy_std = results_std[3],
+
+    )
+    df =pd.DataFrame(results_dic, index=[0])
+    df.to_csv(f"{env_dir}/final_results.csv")
+    print(df)
+    return df
+
+def plot_learning_curves(env_name, algs, stamps, skills_list, pms, lbs):
+    colors = ['b', 'r', 'g', 'b']
+    xlabel = "Environment Timesteps"
+    ylabel = "Reward After Adaptation"
+    legends =  algs
+    # file_dir = conf.log_dir_finetune + f"{args.alg}_{args.env}_{args.stamp}/" + "eval_results/" + "evaluations.npz"
+    # file_dir = conf.log_dir_finetune + f"{args.alg}_{args.env}_{args.stamp}/" + "evaluations.npz"
+    print("######## Skills evaluation ########")
+    plt.figure(figsize=conf.learning_curve_figsize)
+    plt.title(f"{env_name[: env_name.index('-')]}")
+    for i in range(len(algs)):
+        skills = skills_list[i]
+        pm = pms[i]
+        lb = lbs[i]
+        alg = algs[i]
+        print(f"Algorithm: {alg}")
+        plot_color = colors[i]
+        stamp = stamps[i]
+        # legend = alg
+        main_exper_dir = conf.log_dir_finetune + f"cls:{pm}, lb:{lb}/"
+        env_dir = main_exper_dir + f"env: {env_name}, alg:{alg}, stamp:{stamp}/"
+        seeds_list = []
+        for seed in conf.seeds:
+            seed_everything(seed)
+            seed_dir = env_dir + f"seed:{seed}/"
+            file_dir_skills = seed_dir + "eval_results/" + "evaluations.npz"
+            files = np.load(file_dir_skills)
+            steps = files['timesteps']
+            results = files['results']
+            print(f"results.shape: {results.shape}")
+            seeds_list.append(results.mean(axis=1).reshape(-1))
+            # data_mean = results.mean(axis=1)
+            # data_std = results.std(axis=1)
+            # print(f"mean: {data_mean[-1]}")
+            # print(f"std: {data_std[-1]}")
+        data_mean = np.mean(seeds_list, axis=0)
+        print(f"seeds list shape {np.array(seeds_list).shape}")
+        # input()
+        data_std = np.std(seeds_list, axis=0)
+        # data_mean = np.convolve(data_mean, np.ones(10)/10, mode='valid') 
+        # data_std = np.convolve(data_std, np.ones(10)/10, mode='valid') 
+        # steps = np.convolve(steps, np.ones(10)/10, mode='valid') 
+        print(f"data shape: {data_mean.shape}")
+        print(f"steps shape: {steps.shape}")
+        # input()
+        if len(algs) > 1:
+            plt.plot(steps, data_mean, label=legends[i], color=plot_color)
+            plt.legend()
+        else:
+            plt.plot(steps, data_mean, color=plot_color)
+        plt.fill_between(steps, (data_mean-data_std), (data_mean+data_std), color=plot_color, alpha=0.3)
+        plt.xlabel(xlabel)
+        plt.ylabel(ylabel)
+        # plt.grid(False)
+        if len(algs) == 1:
+            filename = f"{env_name}_pretraining_{alg}"
+            files_dir = f"Vis/{env_name}_cls:{pm}_lb:{lb}"
+            os.makedirs(files_dir, exist_ok=True)
+            plt.savefig(f'{files_dir}/{filename}', dpi=150)    
+    if len(algs) > 1:
+        filename = f"{env_name}_pretraining_all_algs"
+        files_dir = f"Vis/{env_name}_cls:{pm}_lb:{lb}"
+        os.makedirs(files_dir, exist_ok=True)
+        plt.savefig(f'{files_dir}/{filename}', dpi=150)    
+    
+    # loop throgh the finetuning results
+    # loop throgh the finetuning results
+    plt.figure(figsize=conf.learning_curve_figsize)
+    plt.title(f"{env_name[: env_name.index('-')]}")
+    print("######## Finetine evaluation ########")
+    seeds_list = []
+    for i in range(len(algs)):
+        skills = skills_list[i]
+        pm = pms[i]
+        lb = lbs[i]
+        alg = algs[i]
+        print(f"Algorithm: {alg}")
+        plot_color = colors[i]
+        stamp = stamps[i]
+        legend = alg
+        main_exper_dir = conf.log_dir_finetune + f"cls:{pm}, lb:{lb}/"
+        env_dir = main_exper_dir + f"env: {env_name}, alg:{alg}, stamp:{stamp}/"
+        seed_list = []
+        for seed in conf.seeds:
+            seed_everything(seed)
+            seed_dir = env_dir + f"seed:{seed}/"
+            file_dir_finetune = seed_dir + "finetune_eval_results/" + "evaluations.npz"
+            files = np.load(file_dir_finetune)
+            steps = files['timesteps']
+            results = files['results']
+            seeds_list.append(results.mean(axis=1).reshape(-1))
+        data_mean = np.mean(seeds_list, axis=0)
+        data_std = np.std(seeds_list, axis=0)
+        if len(algs) > 1:
+            plt.plot(steps, data_mean, label=legends[i], color=plot_color)
+            plt.legend()
+        else:
+            plt.plot(steps, data_mean, color=plot_color)
+        plt.fill_between(steps, (data_mean-data_std), (data_mean+data_std), color=plot_color, alpha=0.3)
+        plt.xlabel(xlabel)
+        plt.ylabel(ylabel)
+        # plt.grid(False)
+        if len(algs) == 1:
+            filename = f"{env_name}_finetune_{alg}"
+            files_dir = f"Vis/{env_name}_cls:{pm}_lb:{lb}"
+            os.makedirs(files_dir, exist_ok=True)
+            plt.savefig(f'{files_dir}/{filename}', dpi=150)    
+    if len(algs) > 1:
+        filename = f"{env_name}_finetune_all_algs"
+        files_dir = f"Vis/{env_name}_cls:{pm}_lb:{lb}"
+        os.makedirs(files_dir, exist_ok=True)
+        plt.savefig(f'{files_dir}/{filename}', dpi=150)      
+
+#### Useful function for the adaptation expeirment ####
         
     

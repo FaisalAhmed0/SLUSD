@@ -61,6 +61,18 @@ min_train_size = int(1e4),
 
 # max steps in the environment
 max_steps = 1000,
+    
+# bar plot figure size
+barplot_figsize = (8, 6),
+
+# font scale
+font_scale = 2.0,
+    
+# learning curve fig size
+learning_curve_figsize = (8, 6),
+    
+# random seeds
+seeds = (0, ), #10]# 10, 1234, 5, 42 ]
 
 # device
 device = "cuda" if torch.cuda.is_available() else "cpu",
