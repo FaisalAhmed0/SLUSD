@@ -241,6 +241,7 @@ class DIAYN_MB():
         # TODO: replace this with the hyperparams arguments
         model_trainer = models.ModelTrainer(dynamics_model, optim_lr=self.alg_params['learning_rate'], weight_decay=self.alg_params['weight_decay'])
         # number of trials is the number of iterations 
+        best_eval_reward = -np.inf
         for trial in range(num_trials):
           # initilization
             obs = env.reset()    
@@ -286,6 +287,13 @@ class DIAYN_MB():
                 
                 if timesteps % (conf.eval_freq * 5) == 0:
                     rewards = self.evaluate_policy(self.env_name, model_env)
+                    # save the best model
+                    model_env.dynamics_model.save(f"{self.directory}")
+                    if rewards.mean() > best_eval_reward:
+                        best_eval_reward = rewards.mean()
+                        print(f"New best reward: {best_eval_reward}")
+                        # save the model
+                        
                     self.timesteps.append(timesteps)
                     self.results.append(rewards)
                     timesteps = np.array(timesteps)
@@ -305,6 +313,44 @@ class DIAYN_MB():
                     self.sw.add_scalar("rllout/train_reward", total_reward, timesteps)
                     print(f"TimeStep: {timesteps}, Rollout reward: {total_reward}")
                     break
+        return model_env, self.d
+    
+    def finetune(self):
+        '''
+        pets_hyperparams = dict(
+        learning_rate = 1e-3,
+        batch_size = 64,
+        ensemble_size = 5,
+        trial_length = conf.max_steps/4,
+        planning_horizon = 15,
+        elite_ratio = 0.1,
+        num_particles = 20,
+        weight_decay = 5e-5
+        algorithm = "pets"
+        '''
+        self.timesteps = []
+        self.results = []
+        # create MBRL lib gym-like env wrapper
+        env_name = self.env_name
+        seed = self.seed
+        env = gym.make(env_name)
+        env.env.seed(seed)
+        rng = np.random.default_rng(seed=seed)
+        generator = torch.Generator(device=self.conf.device)
+        generator.manual_seed(seed)
+        obs_shape = env.observation_space.shape
+        act_shape = env.action_space.shape
+        reward_fn = AdaptationReward(env_name)
+        term_fn = Termination(env_name)
+        ## Configrations
+        # TODO: replace this with the hyperparams arguments
+        trial_length = self.alg_params['trial_length'] 
+        num_trials = int(self.params['pretrain_steps'] // trial_length)
+        ensemble_size = self.alg_params['ensemble_size'] 
+        
+        
+        
+        
     
     
     
@@ -347,6 +393,7 @@ class DIAYN_MB():
             obs, reward, done, _ = env.step(action_seq[0])
             total_reward += reward
         return total_reward
+    
 
         
         
@@ -503,3 +550,106 @@ class Reward_func():
         env_obs = obs[:, :-self.n_skills]
         skills = np.argmax(obs[:, -self.n_skills:].cpu().numpy(), axis=-1)
         return env_obs, skills
+    
+    
+class AdaptationReward():
+    def __init__(self, env_name):
+        self.env_name = env_name
+        
+    def __call__(self, action, next_obs):
+        if env_name == "MountainCarContinuous-v0":
+            return self.MC_reward(action, next_obs)
+        elif env_name == "Reacher-v2":
+            return self.Reacher_reward(action, next_obs)
+        elif env_name == "Swimmer-v2":
+            return self.Swimmer_reward(action, next_obs)
+        elif env_name == "Hopper-v2":
+            return self.Hopper_reward(action, next_obs)
+        elif env_name == "HalfCheetah-v2":
+            return self.HalfCheetah_reward(action, next_obs)
+        elif env_name == "Walker2d-v2":
+            return self.Walker_reward(action, next_obs)
+        elif env_name == "Ant-v2":
+            return self.Ant_reward(action, next_obs)
+        elif env_name == "Humanoid-v2":
+            return self.Humanoid_reward(action, next_obs)
+    
+    def MC_reward(self, action, next_obs):
+        position = next_obs[0]
+        velocity = next_obs[1]
+        goal_position =  0.45
+        goal_velocity = 0
+        # Convert a possible numpy bool to a Python bool.
+        done = bool(position >= goal_position and velocity >= goal_velocity)
+        reward = 0
+        if done:
+            reward = 100.0
+        reward -= math.pow(action[0], 2) * 0.1
+        return reward
+
+    def Reacher_reward(self, action, next_obs):
+        pass
+    def Swimmer_reward(self, action, next_obs):
+        pass
+    def Hopper_reward(self, action, next_obs):
+        pass
+    def HalfCheetah_reward(self, action, next_obs):
+        pass
+    def Walker_reward(self, action, next_obs):
+        pass
+    def Ant_reward(self, action, next_obs):
+        pass
+    def Humanoid_reward(self, action, next_obs):
+        pass
+    
+    
+    
+    
+    
+
+# Termination Functions
+class Termination():
+    def __init__(self, env_name):
+        self.env_name = env_name
+        
+    def __call__(self, action, next_obs):
+        if env_name == "MountainCarContinuous-v0":
+            return self.MC(action, next_obs)
+        elif env_name == "Reacher-v2":
+            return self.Reacher(action, next_obs)
+        elif env_name == "Swimmer-v2":
+            return self.Swimmer(action, next_obs)
+        elif env_name == "Hopper-v2":
+            return self.Hopper(action, next_obs)
+        elif env_name == "HalfCheetah-v2":
+            return self.HalfCheetah(action, next_obs)
+        elif env_name == "Walker2d-v2":
+            return self.Walker(action, next_obs)
+        elif env_name == "Ant-v2":
+            return self.Ant(action, next_obs)
+        elif env_name == "Humanoid-v2":
+            return self.Humanoid(action, next_obs)
+    
+    def MC(self, action, next_obs):
+        position = next_obs[0]
+        velocity = next_obs[1]
+        goal_position =  0.45
+        goal_velocity = 0
+        # Convert a possible numpy bool to a Python bool.
+        done = bool(position >= goal_position and velocity >= goal_velocity)
+        return done
+    def Reacher(self, action, next_obs):
+        pass
+    def Swimmer(self, action, next_obs):
+        pass
+    def Hopper(self, action, next_obs):
+        pass
+    def HalfCheetah(self, action, next_obs):
+        pass
+    def Walker(self, action, next_obs):
+        pass
+    def Ant(self, action, next_obs):
+        pass
+    def Humanoid(self, action, next_obs):
+        pass
+

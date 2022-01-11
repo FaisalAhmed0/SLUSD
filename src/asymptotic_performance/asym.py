@@ -30,7 +30,7 @@ envs_mp = [
      #    },
     'sac':{
         'Reacher-v2': dict( 
-           steps = int(500e5),
+           steps = int(5e6),
              ), # 2 dof
         }
     },
@@ -43,7 +43,7 @@ envs_mp = [
      #    },
     'sac':{
         'Swimmer-v2': dict( 
-           steps = int(500e5)
+           steps = int(5e6),
              ), # 2 dof
         }
     },
@@ -56,7 +56,7 @@ envs_mp = [
      #    },
     'sac':{
         'Hopper-v2': dict( 
-           steps = int(1e6),
+           steps = int(5e6),
              ), # 2 dof
         }
     },
@@ -69,7 +69,7 @@ envs_mp = [
      #    },
     'sac':{
         'HalfCheetah-v2': dict( 
-           steps = int(2e6),
+           steps = int(5e6),
              ), # 2 dof
         }
     },
@@ -82,7 +82,7 @@ envs_mp = [
      #    },
     'sac':{
         'Walker2d-v2': dict( 
-           steps = int(2e6),
+           steps = int(5e6),
              ), # 2 dof
         }
     },
@@ -95,7 +95,7 @@ envs_mp = [
      #    },
     'sac':{
         'Ant-v2': dict( 
-           steps = int(3e6),
+           steps = int(5e6),
              ), # 2 dof
         }
     },
