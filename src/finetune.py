@@ -466,7 +466,7 @@ if __name__ == "__main__":
         elif args.alg == "es":
             params['n_skills'] = args.skills
             alg_params['iterations'] = args.presteps
-            alg_params['iterations_finetune'] = env_params[alg][env]['adaptation_iterations']
+            # alg_params['iterations_finetune'] = env_params[alg][env]['adaptation_iterations']
             print(f"stamp: {timestamp}, alg: {args.alg}, env: {args.env}, n_skills: {params['n_skills']}, pretrain_iterations: {alg_params['iterations']}")
         env_dir = main_exper_dir + f"env: {args.env}, alg:{args.alg}, stamp:{timestamp}/"
         os.makedirs(env_dir, exist_ok=True)

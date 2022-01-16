@@ -48,7 +48,7 @@ from collections import namedtuple
 
 
 class DIAYN_MB():
-    def __init__(self, params, alg_params, discriminator_hyperparams, env="MountainCarContinuous-v0", alg="pets", directory="./", seed=10, device="cpu", conf=None, timestamp=None, checkpoints=False, args=None, task=None, adapt_params=sac_hyperparams):
+    def __init__(self, params, alg_params, discriminator_hyperparams, env="MountainCarContinuous-v0", alg="pets", directory="./", seed=10, device="cpu", conf=None, timestamp=None, checkpoints=False, args=None, task=None, adapt_params=None):
         # create the discirminator
         state_dim = gym.make(env).observation_space.shape[0]
         skill_dim = params['n_skills']
