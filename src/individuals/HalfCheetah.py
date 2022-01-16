@@ -27,9 +27,11 @@ class HalfCheetah(Individual):
     HalfCheetah controlled by a feedforward policy network
     """
     # Static variables
-    d = None # the discriminator
+    # the discriminator
+    d = None 
     n_skills = None # the number of skills
     skill = None # skill for the case of finetuning
+    paramerization = None
     def __init__(self):
         self.net = MLP_policy(17 + conf.n_z, [conf.layer_size_policy, conf.layer_size_policy], 6)
         self.conf = conf
@@ -49,7 +51,7 @@ class HalfCheetah(Individual):
         if HalfCheetah.skill:
             env = SkillWrapperFinetune(gym.make("HalfCheetah-v2"), HalfCheetah.n_skills, max_steps=self.conf.max_steps, skill=HalfCheetah.skill)
         else:
-            env = RewardWrapper(SkillWrapper(gym.make("HalfCheetah-v2"), HalfCheetah.n_skills, max_steps=self.conf.max_steps), HalfCheetah.d, HalfCheetah.n_skills)
+            env = RewardWrapper(SkillWrapper(gym.make("HalfCheetah-v2"), HalfCheetah.n_skills, max_steps=self.conf.max_steps), HalfCheetah.d, HalfCheetah.n_skills, HalfCheetah.paramerization)
         obs = env.reset()
         done = False
         r_tot = 0

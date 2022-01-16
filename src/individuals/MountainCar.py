@@ -30,11 +30,16 @@ class MountainCar(Individual):
     MountainCar controlled by a feedforward policy network
     """
     # Static variables
-    d = None # the discriminator
-    n_skills = None # the number of skills
-    skill = None # skill for the case of finetuning
+    # the discriminator
+    d = None 
+    # the number of skills
+    n_skills = None 
+    # skill for the case of finetuning
+    skill = None 
+    # Discriminator parametrization
+    paramerization = None
     def __init__(self):
-        self.net = MLP_policy(2 + conf.n_z, [conf.layer_size_policy, conf.layer_size_policy], 1)
+        self.net = MLP_policy(2 + MountainCar.n_skills, [conf.layer_size_policy, conf.layer_size_policy], 1)
         self.conf = conf
         self.t = 0
 
@@ -52,7 +57,7 @@ class MountainCar(Individual):
         if MountainCar.skill:
             env = SkillWrapperFinetune(gym.make("MountainCarContinuous-v0"), MountainCar.n_skills, max_steps=self.conf.max_steps, skill=MountainCar.skill)
         else:
-            env = RewardWrapper(SkillWrapper(gym.make("MountainCarContinuous-v0"), MountainCar.n_skills, max_steps=self.conf.max_steps), MountainCar.d, MountainCar.n_skills)
+            env = RewardWrapper(SkillWrapper(gym.make("MountainCarContinuous-v0"), MountainCar.n_skills, max_steps=self.conf.max_steps), MountainCar.d, MountainCar.n_skills, MountainCar.paramerization)
         obs = env.reset()
         done = False
         r_tot = 0

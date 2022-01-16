@@ -3,9 +3,12 @@ import pickle
 import json
 
 from src.config import conf
-from src.diayn import DIAYN # diayn with model-free RL
-from src.diayn_es import DIAYN_ES # diayn with evolution stratigies
-from src.diayn_mb import DIAYN_MB # diayn with evolution model-based RL
+# diayn with model-free RL
+from src.diayn import DIAYN 
+# diayn with evolution stratigies
+from src.diayn_es import DIAYN_ES 
+# diayn with evolution model-based RL
+from src.diayn_mb import DIAYN_MB 
 from src.utils import seed_everything, evaluate_pretrained_policy_ext, evaluate_adapted_policy, evaluate_state_coverage, evaluate_pretrained_policy_intr, evaluate, save_final_results, plot_learning_curves
 
 import torch
@@ -28,96 +31,87 @@ import seaborn as sns
 sns.set_theme(style="darkgrid")
 sns.set(font_scale = conf.font_scale)
 
+# Asymptotic performance of the expert
+asymp_perofrmance = {
+    'HalfCheetah-v2': 8070.205213363435,
+    'Walker2d-v2': 5966.481684037183,
+    'Ant-v2': 6898.620003217143,
+    "MountainCarContinuous-v0": 95.0
+
+    }
 
 # shared parameters
 params = dict( n_skills = 30,
-           pretrain_steps = int(10e6),
+           pretrain_steps = int(20e3),
            finetune_steps = int(1e4),
            buffer_size = int(1e6),
-           min_train_size = int(1e4),
+           min_train_size = int(100),
              )
 
 
 # list for multip-processing
 envs_mp = [
     # 1
-    {
-     'ppo':{
+    { # 1 dof
+    #  'ppo':{
+    #     'MountainCarContinuous-v0': dict( 
+    #        pretrain_steps = int(1e4), #int(25e6),
+    #         n_skills = 10 #30
+    #          ), # 1 dof
+    #     },
+    # 'sac':{
+    #     'MountainCarContinuous-v0': dict( 
+    #        pretrain_steps = int (1e4), #int(3e5),
+    #         n_skills = 10 #30
+    #          ), # 1 dof
+    #     },
+    'es':{
         'MountainCarContinuous-v0': dict( 
-           pretrain_steps = int(1e4), #int(25e6),
+           pretrain_iterations = 3, #int(3e5),
+           adaptation_iterations = 3, #int(3e5),
             n_skills = 3 #30
              ), # 1 dof
         },
-    'sac':{
+    'pets':{
         'MountainCarContinuous-v0': dict( 
-           pretrain_steps = int (1e4), #int(3e5),
+           pretrain_steps = int(1000), #int(25e6),
+           finetune_steps = int(1000), #int(3e5),
             n_skills = 3 #30
              ), # 1 dof
-        }
+        },
+    
     },
     # 2
-    {
+    { # 6 dof
      'ppo':{
-        'Reacher-v2': dict( 
-           pretrain_steps = int(1e4), #int(25e6),
-            n_skills = 3, #30,
-            clip_range = 0.01
+        'HalfCheetah-v2': dict( 
+           pretrain_steps = int(1e4), #int(500e6),
+            n_skills = 30
              ), # 2 dof
         },
     'sac':{
-        'Reacher-v2': dict( 
-           pretrain_steps = int(1e4), #int(25e6),
-            n_skills =3 #30,
+        'HalfCheetah-v2': dict( 
+           pretrain_steps = int(1e4),# int(2e6),
+            n_skills = 30
              ), # 2 dof
-        }
+        },
+    'es':{
+        'HalfCheetah-v2': dict( 
+           pretrain_iterations = 3, #int(3e5),
+           adaptation_iterations = 3, #int(3e5),
+            n_skills = 30 #30
+             ), # 1 dof
+        },
+    'pets':{
+        'HalfCheetah-v2': dict( 
+           pretrain_steps = int(2e5), #int(25e6),
+           finetune_steps = int(100e3), #int(3e5),
+            n_skills = 30 #30
+             ), # 1 dof
+        },
     },
     # 3
-    {
-     'ppo':{
-        'Swimmer-v2': dict( 
-           pretrain_steps = int(35e6),
-            n_skills = 30
-             ), # 2 dof
-        },
-    'sac':{
-        'Swimmer-v2': dict( 
-           pretrain_steps = int(5e5),
-            n_skills = 30
-             ), # 2 dof
-        }
-    },
-    # 4
-    {
-     'ppo':{
-        'Hopper-v2': dict( 
-           pretrain_steps = int(100e6),
-            n_skills = 30
-             ), # 2 dof
-        },
-    'sac':{
-        'Hopper-v2': dict( 
-           pretrain_steps = int(1e6),
-            n_skills = 30
-             ), # 2 dof
-        }
-    },
-    # 5
-    {
-     'ppo':{
-        'HalfCheetah-v2': dict( 
-           pretrain_steps = int(500e6),
-            n_skills = 30
-             ), # 2 dof
-        },
-    'sac':{
-        'HalfCheetah-v2': dict( 
-           pretrain_steps = int(2e6),
-            n_skills = 30
-             ), # 2 dof
-        }
-    },
-    # 6
-    {
+    { # 6 dof
      'ppo':{
         'Walker2d-v2': dict( 
            pretrain_steps = int(550e6),
@@ -129,115 +123,54 @@ envs_mp = [
            pretrain_steps = int(2e6),
             n_skills = 30
              ), # 2 dof
-        }
+        },
+    'es':{
+        'Walker2d-v2': dict( 
+           pretrain_iterations = 3, #int(3e5),
+           adaptation_iterations = 3, #int(3e5),
+            n_skills = 30 #30
+             ), # 1 dof
+        },
+    'pets':{
+        'Walker2d-v2': dict( 
+           pretrain_steps = int(3e5), #int(25e6),
+           finetune_steps = int(100e3), #int(3e5),
+            n_skills = 30 #30
+             ), # 1 dof
+        },
+        
     },
-    # 7
-    {
+    # 4
+    { # 8 dof
      'ppo':{
         'Ant-v2': dict( 
            pretrain_steps = int(700e6),
             n_skills = 30
-             ), # 2 dof
+             ), 
         },
     'sac':{
         'Ant-v2': dict( 
            pretrain_steps = int(3e6),
             n_skills = 30
-             ), # 2 dof
-        }
-    },
-    # 8
-    {
-     'ppo':{
-        'Humanoid-v2': dict( 
-           pretrain_steps = int(800e6),
-            n_skills = 30
-             ), # 2 dof
+             ), 
         },
-    'sac':{
-        'Humanoid-v2': dict( 
-           pretrain_steps = int(5e6),
-            n_skills = 30
-             ), # 2 dof
-        }
-    },
-    
+    'es':{
+        'Ant-v2': dict( 
+           pretrain_iterations = 3, #int(3e5),
+           adaptation_iterations = 3, #int(3e5),
+            n_skills = 30 #30
+             ), # 1 dof
+        },
+    'pets':{
+        'Ant-v2': dict( 
+           pretrain_steps = int(3e5), #int(25e6),
+           finetune_steps = int(100e3), #int(3e5),
+            n_skills = 30 #30
+             ), # 1 dof
+        },
+    },    
     
 ]
-
-# setting the parameters for each environment
-env_params = {
-    'ppo':{
-        'MountainCarContinuous-v0': dict( 
-           pretrain_steps = int(10e3),
-            n_skills = 6
-             ), # 1 dof
-        'Reacher-v2': dict( 
-           pretrain_steps = int(10e3),
-            n_skills = 12,
-            clip_range = 0.01
-             ), # 2 dof
-        'Swimmer-v2': dict( 
-           pretrain_steps = int(200e6),
-            n_skills = 12
-             ), # 2 dof
-        'Hopper-v2': dict( 
-           pretrain_steps = int(200e6),
-            n_skills = 15
-             ), # 3 dof
-        'HalfCheetah-v2': dict( 
-           pretrain_steps = int(200e6),
-            n_skills = 20
-             ),# 6 dof
-        'Walker2d-v2': dict( 
-           pretrain_steps = int(300e6),
-            n_skills = 20
-             ),# 6 dof
-        'Ant-v2': dict( 
-           pretrain_steps = int(500e6),
-            n_skills = 25
-             ),# 8 dof
-        'Humanoid-v2': dict( 
-           pretrain_steps = int(800e6),
-            n_skills = 25
-             ),# 17 dof
-    },
-    'sac':{
-        'MountainCarContinuous-v0': dict( 
-           pretrain_steps = int(10e3),
-            n_skills = 6
-             ), # 1 dof
-        'Reacher-v2': dict( 
-           pretrain_steps = int(10e3),
-            n_skills = 12
-             ), # 2 dof
-        'Swimmer-v2': dict( 
-           pretrain_steps = int(5e6),
-            n_skills = 12
-             ), # 2 dof
-        'Hopper-v2': dict( 
-           pretrain_steps = int(6e6),
-            n_skills = 15
-             ), # 3 dof
-        'HalfCheetah-v2': dict( 
-           pretrain_steps = int(10e6),
-            n_skills = 20
-             ),# 6 dof
-        'Walker2d-v2': dict( 
-           pretrain_steps = int(10e6),
-            n_skills = 20
-             ),# 6 dof
-        'Ant-v2': dict( 
-           pretrain_steps = int(25e6),
-            n_skills = 20
-             ),# 8 dof
-        'Humanoid-v2': dict( 
-           pretrain_steps = int(50e6),
-            n_skills = 20
-             ),# 17 dof
-    }
-    
-}
 
 
 # ppo hyperparams
@@ -271,23 +204,33 @@ sac_hyperparams = dict(
 # PETS Hyperparameters 
 pets_hyperparams = dict(
     learning_rate = 1e-3,
-    batch_size = 64,
+    batch_size = 128,
     ensemble_size = 5,
-    trial_length = conf.max_steps/4,
-    population_size = 500,
-    planning_horizon = 15,
-    elite_ratio = 0.1,
+    trial_length = 200,
+    population_size = 250,
+    planning_horizon = 10,
+    elite_ratio = 0.05,
     num_particles = 20,
     weight_decay = 5e-5,
     algorithm = "pets"
 )
 
 
-# Evolution Stratigies Hyperparameters 
+# Evolution Stratigies Hyperparameters after hyperparameters search
+'''
 es_hyperparams = dict(
-    lr = 1e-3, # learning rate 
-    iterations = 2500, # iterations 
-    pop_size = 80, # population size
+    lr = 1e-2, # learning rate 
+    iterations = 100, # iterations 
+    pop_size = 500, # population size
+    algorithm = "es"
+)
+'''
+# Dummy
+es_hyperparams = dict(
+    lr = 1e-2, # learning rate 
+    iterations = 3, # iterations 
+    iterations_finetune = 3,
+    pop_size = 2, # population size
     algorithm = "es"
 )
 
@@ -313,9 +256,7 @@ discriminator_hyperparams = dict(
     parametrization = "Linear", # TODO: add this as a CMD argument MLP, Linear, Separable, Concat
     lower_bound = "ba", # ba, tuba, nwj, nce, interpolate
     log_baseline = None, 
-    alpha_logit = -5., # small value of alpha => reduce the variance of nwj by introduce some nce bias
-    
-    
+    alpha_logit = -5., # small value of alpha => reduce the variance of nwj by introduce some nce bias 
 )
 
 
@@ -349,43 +290,21 @@ def save_params(alg, directory):
     
     # general configrations
     config_d = vars(conf)
-    # config_d['seeds'] = str(config_d['seeds'])
-    # config_d['barplot_figsize'] = str(config_d['barplot_figsize'])
-    # config_d['learning_curve_figsize'] = str(config_d['learning_curve_figsize'])
-    # print(config_d)
-    # input()
     dictionary_data = config_d
     a_file = open(f"{directory}/configs.json", "w")
     json.dump(config_d, a_file)
     a_file.close()
-    # input()
-    # config_df = pd.DataFrame(config_d, index=[0])
-    # config_df.to_csv(f"{directory}/configs.csv")
     print(f"{alg} hyperparame`ters: {alg_hyperparams}\n" )
     print(f"discriminator hyperparameters: {discriminator_hyperparams}\n" )
     print(f"shared experiment parameters: {params}\n" )
     print(f"configurations: {config_d }\n" )
-
-def run_diyan(args):
-    if args.alg != 'es':
-        alg_params = ppo_hyperparams if args.alg == "ppo" else sac_hyperparams
-        diayn = DIAYN(params, alg_params, discriminator_hyperparams, args.env, args.alg, exp_directory, seed=seed, conf=conf, timestamp=timestamp)
-        # pretraining step
-        diayn.pretrain()
-        # fine-tuning step 
-        diayn.finetune()
-    elif args.alg == "es":
-        diayn_es = DIAYN_ES(params, alg_params, discriminator_hyperparams, args.env, exp_directory, seed=seed, conf=conf, timestamp=timestamp, args=args)
-        # pretraining step
-        diayn_es.pretrain()
-        # fine-tuning step 
-        diayn_es.finetune()
              
         
 def train_all(env_params, results_df_list, plots_d_list):
     plots_dict = {}
     columns = ['Algorithm', "Reward After Adaptation", "State Entropy", "Intrinsic Reward" , "Reward Before Adaptation", "Environment"]
     results_df = pd.DataFrame(columns=columns)
+    print(f"{env_params}")
     #####################
     for alg in env_params:
         for env in env_params[alg]:
@@ -396,11 +315,19 @@ def train_all(env_params, results_df_list, plots_d_list):
             # Environment directory
             env_dir = main_exper_dir + f"env: {env}, alg:{alg}, stamp:{timestamp}/"
             os.makedirs(env_dir, exist_ok=True)
-            params['n_skills'] = env_params[alg][env]['n_skills']
-            params['pretrain_steps'] = env_params[alg][env]['pretrain_steps']
-            print(f"stamp: {timestamp}, alg: {alg}, env: {env}, n_skills: {params['n_skills']}, pretrain_steps: {params['pretrain_steps']}")
-            # save_params(alg, env_dir)
             alg_params = hyperparams[alg]
+            if alg in ['ppo', 'sac', 'pets']:
+                params['n_skills'] = env_params[alg][env]['n_skills']
+                params['pretrain_steps'] = env_params[alg][env]['pretrain_steps']
+                if alg == "pets":
+                    params['finetune_steps'] = env_params[alg][env]['finetune_steps']
+                print(f"stamp: {timestamp}, alg: {alg}, env: {env}, n_skills: {params['n_skills']}, pretrain_steps: {params['pretrain_steps']}")
+            elif alg == "es":
+                params['n_skills'] = env_params[alg][env]['n_skills']
+                alg_params['iterations'] = env_params[alg][env]['pretrain_iterations']
+                alg_params['iterations_finetune'] = env_params[alg][env]['adaptation_iterations']
+                print(f"stamp: {timestamp}, alg: {alg}, env: {env}, n_skills: {params['n_skills']}, pretrain_iterations: {alg_params['iterations']}")
+            # save_params(alg, env_dir)
             if (env_params[alg][env]).get('clip_range'):
                 # clip_range
                 alg_params['clip_range'] = (env_params[alg][env]).get('clip_range')
@@ -410,7 +337,6 @@ def train_all(env_params, results_df_list, plots_d_list):
                 seed_dir = env_dir + f"seed:{conf.seeds[i]}"
                 os.makedirs(seed_dir, exist_ok=True)
                 if alg in ("sac", "ppo"):
-                    # TODO add ES, when it is ready
                     diayn = DIAYN(params, alg_params, discriminator_hyperparams, env, alg, seed_dir, seed=conf.seeds[i], conf=conf, timestamp=timestamp)
                     # pretraining step
                     pretrained_policy, discriminator = diayn.pretrain()
@@ -418,25 +344,33 @@ def train_all(env_params, results_df_list, plots_d_list):
                     adapted_policy, best_skill = diayn.finetune()
                     # Evaluate the policy 
                     intrinsic_reward_mean, reward_beforeFinetune_mean, reward_mean, entropy_mean = evaluate(env, params['n_skills'], pretrained_policy, adapted_policy, discriminator, 
-                                                                                                        discriminator_hyperparams['parametrization'], best_skill)
+                                                                                                        discriminator_hyperparams['parametrization'], best_skill, alg)
                 elif alg == "pets":
-                    # (self, params, alg_params, discriminator_hyperparams, env="MountainCarContinuous-v0", alg="ppo", directory="./", seed=10, device="cpu", conf=None, timestamp=None, checkpoints=False, args=None, task=None):
                     diayn = DIAYN_MB(params, alg_params, discriminator_hyperparams, env, alg, seed_dir, seed=conf.seeds[i], conf=conf, timestamp=timestamp)
                     # pretraining step
                     pretrained_model, discriminator = diayn.pretrain()
                     # fine-tune step
                     adapted_policy, best_skill = diayn.finetune()
                     # Evaluate the policy 
-                    # intrinsic_reward_mean, reward_beforeFinetune_mean, reward_mean, entropy_mean = pass
-                
-                threshold = gym.make(env).spec.reward_threshold
+                    intrinsic_reward_mean, reward_beforeFinetune_mean, reward_mean, entropy_mean = evaluate(env, params['n_skills'], pretrained_policy, adapted_policy, discriminator, 
+                                                                                                        discriminator_hyperparams['parametrization'], best_skill, alg)
+                elif alg == "es":
+                    diayn = DIAYN_ES(params, alg_params, discriminator_hyperparams, env, "es", seed_dir, seed=conf.seeds[i], conf=conf, timestamp=timestamp)
+                    # pretraining step
+                    pretrained_policy, discriminator = diayn.pretrain()
+                    # adaptation step
+                    adapted_policy, best_skill = diayn.finetune()
+                    # Evaluate the policy 
+                    intrinsic_reward_mean, reward_beforeFinetune_mean, reward_mean, entropy_mean = evaluate(env, params['n_skills'], pretrained_policy, adapted_policy, discriminator, 
+                                                                                                        discriminator_hyperparams['parametrization'], best_skill, alg)
+                asym = asymp_perofrmance[env]
                 # save results
-                seed_results.append([intrinsic_reward_mean, reward_beforeFinetune_mean/threshold, reward_mean/threshold, entropy_mean])
+                seed_results.append([intrinsic_reward_mean, reward_beforeFinetune_mean/asym, reward_mean/asym, entropy_mean])
                 d = {'Algorithm': alg.upper(), 
-                     "Reward After Adaptation": reward_mean/threshold, 
+                     "Reward After Adaptation": reward_mean/asym, 
                      "Intrinsic Reward": intrinsic_reward_mean, 
                      "State Entropy": entropy_mean, 
-                     "Reward Before Adaptation": reward_beforeFinetune_mean,
+                     "Reward Before Adaptation": reward_beforeFinetune_mean/asym,
                      "Environment": env[: env.index('-')] if env != "MountainCarContinuous-v0" else "MountainCar"
                     }
                 results_df = results_df.append(d, ignore_index=True)
@@ -482,8 +416,7 @@ if __name__ == "__main__":
         manager = mp.Manager()
         results_df_list = manager.list()
         plots_d_list = manager.list()
-
-        n_processes = len(envs_mp[:2])
+        n_processes = len(envs_mp[:1])
         processes_list = []
         for i in range(n_processes):
             p = mp.Process(target=train_all, args=(envs_mp[i], results_df_list, plots_d_list))
@@ -492,7 +425,6 @@ if __name__ == "__main__":
         for p in processes_list:
             p.join()
         print(f"results_df_list: {results_df_list}")
-        print(f"plots_d_list: {plots_d_list}")
         for plot_dict in plots_d_list:
             env_name = list(plot_dict.keys())[0]
             algs = plot_dict[env_name]['algs']
@@ -500,19 +432,21 @@ if __name__ == "__main__":
             skills_list = plot_dict[env_name]['skills']
             pms = plot_dict[env_name]['pms']
             lbs = plot_dict[env_name]['lbs']
-            plot_learning_curves(env_name, algs, stamps, skills_list, pms, lbs)
-        # print(results_df_list)
+            asym = asymp_perofrmance[env_name]
+            plot_learning_curves(env_name, algs, stamps, skills_list, pms, lbs, asym)
         results_df = df_from_list(results_df_list, columns)
-        # print(results_df)
+        results_df.to_csv(f"{main_exper_dir}/results_df.csv")
+        print("results df")
+        print(f"{results_df}")
         for col in columns[2:]:
             plt.figure(figsize=conf.barplot_figsize)
             y_axis = col
             # ax = sns.barplot(x="Algorithm", y=y_axis, data=results_df, hue="Environment")
             if col == "Reward After Adaptation":
-                ax = sns.barplot(x="Environment", y=y_axis, data=results_df, hue="Algorithm", hue_order=['ppo'.upper(), 'sac'.upper()])
+                ax = sns.barplot(x="Environment", y=y_axis, data=results_df, hue="Algorithm", hue_order=['ppo'.upper(), 'sac'.upper(), 'es'.upper()])
                 sns.move_legend(ax, "lower left", title='Algorithm')
             else:
-                ax = sns.barplot(x="Environment", y=y_axis, data=results_df, hue="Algorithm", hue_order=['ppo'.upper(), 'sac'.upper()])
+                ax = sns.barplot(x="Environment", y=y_axis, data=results_df, hue="Algorithm", hue_order=['ppo'.upper(), 'sac'.upper(), 'es'.upper()])
                 ax.legend_.remove()
             filename = f"adaptation_experiment_final_{y_axis}.png"
             files_dir = f"Vis/adaptation_experiment_cls:{discriminator_hyperparams['parametrization']}, lb:{discriminator_hyperparams['lower_bound']}/"
@@ -524,6 +458,15 @@ if __name__ == "__main__":
         print(f"Experiment timestamp: {timestamp}")
         params['pretrain_steps'] = args.presteps
         params['n_skills'] = args.skills
+        if args.alg in ['ppo', 'sac', 'pets']:
+                params['n_skills'] = args.skills
+                params['pretrain_steps'] = args.presteps
+                print(f"stamp: {timestamp}, alg: {args.alg}, env: {args.env}, n_skills: {params['n_skills']}, pretrain_steps: {params['pretrain_steps']}")
+        elif alg == "es":
+            params['n_skills'] = args.skills
+            alg_params['iterations'] = args.presteps
+            alg_params['iterations_finetune'] = env_params[alg][env]['adaptation_iterations']
+            print(f"stamp: {timestamp}, alg: {args.alg}, env: {args.env}, n_skills: {params['n_skills']}, pretrain_iterations: {alg_params['iterations']}")
         env_dir = main_exper_dir + f"env: {args.env}, alg:{args.alg}, stamp:{timestamp}/"
         os.makedirs(env_dir, exist_ok=True)
         save_params(args.alg, env_dir)
@@ -541,16 +484,28 @@ if __name__ == "__main__":
                 # fine-tuning step 
                 adapted_policy, best_skill = diayn.finetune()
                 # Evaluate the policy 
-                intrinsic_reward_mean, reward_beforeFinetune_mean, reward_mean, entropy_mean = evaluate(env, params['n_skills'], pretrained_policy, adapted_policy, discriminator, 
-                                                                                                    discriminator_hyperparams['parametrization'], best_skill)
+                intrinsic_reward_mean, reward_beforeFinetune_mean, reward_mean, entropy_mean = evaluate(args.env, params['n_skills'], pretrained_policy, adapted_policy, discriminator, 
+                                                                                                    discriminator_hyperparams['parametrization'], best_skill, args.alg)
             elif args.alg == "pets":
                 diayn = DIAYN_MB(params, alg_params, discriminator_hyperparams, args.env, args.alg, seed_dir, seed=conf.seeds[i], conf=conf, timestamp=timestamp)
                 # pretraining step
-                pretrained_model, discriminator = diayn.pretrain()
+                pretrained_policy, discriminator = diayn.pretrain()
+                print("Finished")
                 # fine-tune step
                 adapted_policy, best_skill = diayn.finetune()
                 # Evaluate the policy 
-                # intrinsic_reward_mean, reward_beforeFinetune_mean, reward_mean, entropy_mean = pass
+                # Evaluate the policy 
+                intrinsic_reward_mean, reward_beforeFinetune_mean, reward_mean, entropy_mean = evaluate(args.env, params['n_skills'], pretrained_policy, adapted_policy, discriminator, 
+                                                                                                    discriminator_hyperparams['parametrization'], best_skill, args.alg)
+            elif args.alg == "es":
+                diayn = DIAYN_ES(params, alg_params, discriminator_hyperparams, args.env, "es", seed_dir, seed=conf.seeds[i], conf=conf, timestamp=timestamp, args=args)
+                # pretraining step
+                pretrained_policy, discriminator = diayn.pretrain()
+                # adaptation step
+                adapted_policy, best_skill = diayn.finetune()
+                # Evaluate the policy 
+                intrinsic_reward_mean, reward_beforeFinetune_mean, reward_mean, entropy_mean = evaluate(args.env, params['n_skills'], pretrained_policy, adapted_policy, discriminator, 
+                                                                                                    discriminator_hyperparams['parametrization'], best_skill, args.alg)
             seed_results.append([intrinsic_reward_mean, reward_beforeFinetune_mean, reward_mean, entropy_mean])
         save_final_results(seed_results, env_dir)
         

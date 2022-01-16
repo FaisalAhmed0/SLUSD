@@ -3,6 +3,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 
+from torch.distributions import MultivariateNormal
+
 
 class Discriminator(nn.Module):
   '''
@@ -15,7 +17,6 @@ class Discriminator(nn.Module):
   def __init__(self, n_input, n_hiddens, n_skills, dropout=None):
     super().__init__()
     layers = []
-    # layers.append(nn.Linear(n_input, n_skills))
     layers.append(nn.Linear(n_input, n_hiddens[0]))
     layers.append(nn.ReLU())
     if dropout:
@@ -23,16 +24,13 @@ class Discriminator(nn.Module):
     for i in range(len(n_hiddens)-1):
       layers.append( nn.Linear(n_hiddens[i], n_hiddens[i+1]) )
       layers.append( nn.ReLU() )
-      # TODO: Added dropout
       if dropout:
         layers.append( nn.Dropout(dropout) )
     
     self.head = nn.Sequential(*layers)
-    print(self.head)
     self.output = nn.Linear(n_hiddens[-1], n_skills)
 
   def forward(self, x):
-    # return self.head(x)
     return self.output(self.head(x))
 
 # An Encoder network for different MI critics
@@ -40,7 +38,6 @@ class Encoder(nn.Module):
     def __init__(self,  n_input, n_hiddens, n_latent, dropout=None):
         super().__init__()
         layers = []
-        # layers.append(nn.Linear(n_input, n_skills))
         layers.append(nn.Linear(n_input, n_hiddens[0]))
         layers.append(nn.ReLU())
         if dropout:
@@ -48,12 +45,12 @@ class Encoder(nn.Module):
         for i in range(len(n_hiddens)-1):
           layers.append( nn.Linear(n_hiddens[i], n_hiddens[i+1]) )
           layers.append( nn.ReLU() )
-          # TODO: Added dropout
           if dropout:
             layers.append( nn.Dropout(dropout) )
 
         layers.append(nn.Linear(n_hiddens[-1], n_latent))
         self.model = nn.Sequential(*layers)
+        
     def forward(self, x):
         return self.model(x)
 
@@ -118,7 +115,10 @@ class MLP_policy(nn.Module):
     def sample_action(self, x):
         mean, log_var = self.forward(x)
         covar = torch.exp(log_var) + 1e-3
-        self.actions_dist = MultivariateNormal(mean.squeeze(dim=0), torch.diag(covar.squeeze(dim=0)))
+        if covar.shape[1] == 1:
+            self.actions_dist = MultivariateNormal(mean, covar)
+        else:
+            self.actions_dist = MultivariateNormal(mean.squeeze(dim=0), torch.diag(covar.squeeze(dim=0)))
         action = self.actions_dist.sample()
         log = self.actions_dist.log_prob(action)
         return action

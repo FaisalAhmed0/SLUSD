@@ -50,9 +50,6 @@ num_layers_discriminator = 2,
 # size of the latent vector in CPC style discriminator
 latent_size = 64,
 
-# number of skills
-n_z = 12,
-
 # buffer size for the discriminator 
 buffer_size = int(1e6),
 
@@ -66,13 +63,13 @@ max_steps = 1000,
 barplot_figsize = (8, 6),
 
 # font scale
-font_scale = 2.0,
+font_scale = 1.2,
     
 # learning curve fig size
 learning_curve_figsize = (8, 6),
     
 # random seeds
-seeds = (0, ), #10]# 10, 1234, 5, 42 ]
+seeds = (0,),# 10),#, 1234, 5, 42), #10]# 10, 1234, 5, 42 ]
 
 # device
 device = "cuda" if torch.cuda.is_available() else "cpu",

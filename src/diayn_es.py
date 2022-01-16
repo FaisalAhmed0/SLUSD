@@ -7,6 +7,7 @@ import numpy as np
 
 import torch
 torch.set_num_threads(1) # fix the hang up bug
+torch.multiprocessing.set_sharing_strategy('file_system')
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as opt
@@ -14,10 +15,10 @@ from torch.utils.tensorboard import SummaryWriter
 
 from src.environment_wrappers.env_wrappers import RewardWrapper, SkillWrapper, SkillWrapperFinetune
 from src.utils import record_video_finetune, best_skill
-from src.models.models import Discriminator
+from src.models.models import Discriminator, MLP_policy
 from src.replayBuffers import DataBuffer
 from src.callbacks.callbacks import DiscriminatorCallback, VideoRecorderCallback, FineTuneCallback
-from src.individuals import MountainCar, Swimmer, HalfCheetah, Ant, Hopper
+from src.individuals import MountainCar, Swimmer, HalfCheetah, Ant, Walker
 from src.individuals.population import NormalPopulation
 
 from evostrat import compute_centered_ranks
@@ -27,31 +28,43 @@ from torch.distributions import MultivariateNormal
 import time
 import tqdm
 
+import os
+
 
 class DIAYN_ES():
-    
-    def __init__(self, params, es_params, discriminator_hyperparams, env="MountainCarContinuous-v0", directory="./", seed=10, device="cpu", conf=None, timestamp=None, checkpoints=False, args=None, paramerization=0):
-        ### Discriminator ###
-        # check the parametrization
-        if paramerization == 0:
-            self.d = Discriminator(gym.make(env).observation_space.shape[0], [
-                                   conf.layer_size_discriminator, conf.layer_size_discriminator], params['n_skills']).to(device)
-        elif paramerization == 1:
-            pass # TODO: add the CPC style discriminator
+    def __init__(self, params, es_params, discriminator_hyperparams, env="MountainCarContinuous-v0", alg="es", directory="./", seed=10, device="cpu", conf=None, timestamp=None, checkpoints=False, args=None, task=None):
+        # create the discirminator
+        state_dim = gym.make(env).observation_space.shape[0]
+        skill_dim = params['n_skills']
+        hidden_dims = conf.num_layers_discriminator*[conf.layer_size_discriminator]
+        latent_dim = conf.latent_size
+        temperature = discriminator_hyperparams['temperature']
+        dropout = discriminator_hyperparams['dropout']
+        if discriminator_hyperparams['parametrization'] == "MLP":
+            self.d = Discriminator(state_dim, hidden_dims, skill_dim, dropout=discriminator_hyperparams['dropout']).to(conf.device)
+        elif discriminator_hyperparams['parametrization'] == "Linear":
+            self.d = nn.Linear(state_dim, skill_dim).to(conf.device)
+        elif discriminator_hyperparams['parametrization'] == "Separable":
+            # state_dim, skill_dim, hidden_dims, latent_dim, temperature=1, dropout=None)
+            self.d = SeparableCritic(state_dim, skill_dim, hidden_dims, latent_dim, temperature, dropout).to(conf.device)
+        elif discriminator_hyperparams['parametrization'] == "Concat":
+            # state_dim, skill_dim, hidden_dims, temperature=1, dropout=None)
+            self.d = ConcatCritic(state_dim, skill_dim, hidden_dims, temperature, dropout).to(conf.device)
+        else:
+            raise ValueError(f"{discriminator_hyperparams['parametrization']} is invalid parametrization")
         # replay buffer
         self.buffer = DataBuffer(params['buffer_size'], obs_shape=gym.make(
             env).observation_space.shape[0])
+        
         self.optimizer = opt.Adam(self.d.parameters(), lr=discriminator_hyperparams['learning_rate'])
-        self.criterion =  F.cross_entropy
-        alg = "ES"
 
         # tensorboard summary writers
+        # tensorboard summary writer
         self.sw = SummaryWriter(
-            log_dir=directory, filename_suffix=f"{alg} Discriminator, env_name:{env}, weight_decay:{discriminator_hyperparams['weight_decay']}, dropout:{discriminator_hyperparams['dropout']}, label_smoothing:{discriminator_hyperparams['label_smoothing']}, gradient_penalty:{discriminator_hyperparams['gp']}, mixup:{discriminator_hyperparams['mixup']}")
+            log_dir=f"{directory}/ES_PreTrain", comment=f"{alg}, env_name:{env}, PreTrain")
+        self.sw_adapt = SummaryWriter(
+            log_dir=f"{directory}/ES_FineTune", comment=f"{alg}, env_name:{env}, FineTune")
         
-        self.sw_policy = SummaryWriter( log_dir=f"{directory}/ES", comment=f"ES, env_name:{env}" )
-        self.sw_policy_finetune = SummaryWriter( log_dir=f"{directory}/ES", comment=f"ES_finetune, env_name:{env}" )
-
         # save some attributes
         self.params = params # general shared parameters
         self.es_params = es_params # Evolution Stratigies hyperparameters
@@ -63,34 +76,70 @@ class DIAYN_ES():
         self.conf = conf # configuration
         self.checkpoints = checkpoints # if not none finetune with a fixed freq. and save the result, this for the scaling experiment
         self.args = args # cmd args
-        self.paramerization = paramerization # discriminator parametrization if 0 use MLP, else if 1 use CPC style discriminator
-        
+        # Extract the discriminator hyperparameters
+        self.weight_decay = discriminator_hyperparams['weight_decay']
+        # number of epochs
+        self.epochs = discriminator_hyperparams['n_epochs']
+        # batch size
+        self.batch_size = discriminator_hyperparams['batch_size']
+        # number of skills
+        self.n_skills = skill_dim
+        # minimum size of the buffer before training
+        self.min_buffer_size = params['min_train_size']
+        # gradient penalty
+        self.gp = discriminator_hyperparams['gp']
+        # mixup regularization
+        self.mixup = discriminator_hyperparams['mixup']
+        # parametrization 
+        self.paramerization = discriminator_hyperparams['parametrization']
+        # temperature
+        self.temperature = discriminator_hyperparams['temperature']
+        # optimizer
+        self.optimizer = opt.Adam(self.d.parameters(), lr=discriminator_hyperparams['learning_rate'], weight_decay=self.weight_decay)
+        # lower bound type
+        self.lower_bound = discriminator_hyperparams['lower_bound']
+        # label smoothing
+        self.label_smoothing = discriminator_hyperparams['label_smoothing']
+        # log baseline
+        self.log_baseline = discriminator_hyperparams['log_baseline']
+        # alpha logit
+        self.alpha_logit = discriminator_hyperparams['alpha_logit']
+        # gradient clip
+        self.gradient_clip = discriminator_hyperparams['gradient_clip']
     # pretraining step with intrinsic reward    
     def pretrain(self):
         # create the indiviual object according to the environment
         if self.env_name == "MountainCarContinuous-v0":
             MountainCar.MountainCar.d = self.d
             MountainCar.MountainCar.n_skills = self.params['n_skills']
+            MountainCar.MountainCar.skill = None
+            MountainCar.MountainCar.paramerization = self.paramerization
             env_indv = MountainCar.MountainCar()
             param_shapes = {k: v.shape for k, v in MountainCar.MountainCar().get_params().items()}
             population = NormalPopulation(param_shapes, env_indv.from_params, std=0.1)
         elif self.env_name == "Swimmer-v2":
             Swimmer.Swimmer.d = self.d
             Swimmer.Swimmer.n_skills = self.params['n_skills']
+            Swimmer.Swimmer.paramerization = self.paramerization
+            Swimmer.Swimmer.skill = None
             env_indv = Swimmer.Swimmer()
             # set up the population
             param_shapes = {k: v.shape for k, v in Swimmer.Swimmer().get_params().items()}
             population = NormalPopulation(param_shapes, env_indv.from_params, std=0.1)
-        elif self.env_name == "Hopper-v2":
-            Hopper.Hopper.d = self.d
-            Hopper.Hopper.n_skills = self.params['n_skills']
-            env_indv = Hopper.Hopper()
+        elif self.env_name == "Walker2d-v2":
+            Walker.Walker.d = self.d
+            Walker.Walker.n_skills = self.params['n_skills']
+            Walker.Walker.paramerization = self.paramerization
+            Walker.Walker.skill = None
+            env_indv = Walker.Walker()
             # set up the population
-            param_shapes = {k: v.shape for k, v in Hopper.Hopper().get_params().items()}
+            param_shapes = {k: v.shape for k, v in Walker.Walker().get_params().items()}
             population = NormalPopulation(param_shapes, env_indv.from_params, std=0.1)
         elif self.env_name == "HalfCheetah-v2":
             HalfCheetah.HalfCheetah.d = self.d
             HalfCheetah.HalfCheetah.n_skills = self.params['n_skills']
+            HalfCheetah.HalfCheetah.paramerization = self.paramerization
+            HalfCheetah.HalfCheetah.skill = None
             env_indv = HalfCheetah.HalfCheetah()
             # set up the population
             param_shapes = {k: v.shape for k, v in HalfCheetah.HalfCheetah().get_params().items()}
@@ -98,6 +147,8 @@ class DIAYN_ES():
         elif self.env_name == "Ant-v2":
             Ant.Ant.d = self.d
             Ant.Ant.n_skills = self.params['n_skills']
+            Ant.Ant.paramerization = self.paramerization
+            Ant.Ant.skill = None
             env_indv = Ant.Ant()
             # set up the population
             param_shapes = {k: v.shape for k, v in Ant.Ant().get_params().items()}
@@ -113,13 +164,15 @@ class DIAYN_ES():
         pbar = tqdm.tqdm(range(iterations))
         pool = Pool()
         log_freq = 1
-        timesteps = 0 
+        self.timesteps = 0 
         best_fit = -np.inf
+        results = []
+        timesteps = []
         for i in pbar:
             optim.zero_grad()
             # update the policy
             raw_fit, data, steps = population.fitness_grads(pop_size, pool, compute_centered_ranks)
-            timesteps += steps
+            self.timesteps += steps
             for d in data:
                 self.buffer.add(d[0], d[1])
             optim.step()
@@ -127,27 +180,31 @@ class DIAYN_ES():
             d_loss, d_grad_norm, d_weight_norm = None, None, None
             if len(self.buffer) > self.conf.min_train_size:
                 # for i in range(10):
-                d_loss, d_grad_norm, d_weight_norm = self.update_d()
+                self.update_d()
             pbar.set_description("fit avg (training): %0.3f, std: %0.3f" % (raw_fit.mean().item(), raw_fit.std().item()))
             if (i+1) % log_freq == 0:
-                eval_fit = self.evaluate_policy(env_indv, )
+                evals_path = f"{self.directory}/eval_results" 
+                os.makedirs(evals_path, exist_ok=True)
+                eval_fit = self.evaluate_policy(population, env_indv, False)
                 # Save the model if there is an improvement.
                 if eval_fit.mean().item() > best_fit:
                     best_fit = eval_fit.mean().item()
                     print(f"New best fit: {best_fit}")
-                    torch.save(env_indv.net.state_dict(), f"{self.directory}/best_model.ckpt") 
+                    torch.save(population.param_means, f"{self.directory}/best_model.ckpt") 
                     pbar.set_description("fit avg (evaluation): %0.3f, std: %0.3f" % (eval_fit.mean().item(), eval_fit.std().item()))
                 # log all values
-                self.sw_policy.add_scalar("train_reward", raw_fit.mean().item(), timesteps)
-                self.sw_policy.add_scalar("eval_reward", eval_fit.mean(), timesteps)
-                if len(self.buffer) > self.conf.min_train_size:
-                    self.sw.add_scalar("discriminator_loss", d_loss, timesteps)
-                    self.sw.add_scalar("discriminator_grad_norm", d_grad_norm, timesteps)
-                    self.sw.add_scalar("discriminator_weight_norm", d_weight_norm, timesteps)
+                timesteps.append(self.timesteps)
+                results.append(eval_fit.mean().item())
+                timesteps_np = np.array(timesteps)
+                # print(f"results: {self.results}")
+                results_np = np.array(results)
+                np.savez(f"{evals_path}/evaluations.npz", timesteps=timesteps_np, results=results_np)
+                self.sw.add_scalar("rollout/ep_rew_mean", raw_fit.mean().item(), self.timesteps)
+                self.sw.add_scalar("eval/mean_reward", eval_fit.mean(), self.timesteps)
                 # print the logs
                 printed_logs = f'''
                 Iteration: {i}
-                Timesteps: {timesteps}
+                Timesteps: {self.timesteps}
                 Training reward: {raw_fit.mean().item()}
                 Evaluation reward: {eval_fit.mean()}
                 Discriminator loss: {d_loss}
@@ -156,9 +213,10 @@ class DIAYN_ES():
                 '''
                 print(printed_logs)
         pool.close()
+        return env_indv, self.d
         
     # Finetune on a pretrained policy
-    def finetine(self):
+    def finetune(self):
         # create the indiviual object according to the environment
         if self.env_name == "MountainCarContinuous-v0":
             MountainCar.MountainCar.n_skills = self.params['n_skills']
@@ -166,37 +224,40 @@ class DIAYN_ES():
             # set up the population
             param_shapes = {k: v.shape for k, v in MountainCar.MountainCar().get_params().items()}
             population = NormalPopulation(param_shapes, env_indv.from_params, std=0.1)
-        elif self.env_name == "Swimmer-v2":
-            env_indv = Swimmer()
+        elif self.env_name == "Walker2d-v2":
+            Walker.Walker.n_skills = self.params['n_skills']
+            env_indv = Walker.Walker()
             # set up the population
-            param_shapes = {k: v.shape for k, v in Swimmer().get_params().items()}
-            population = NormalPopulation(param_shapes, env_indv.from_params, std=0.1)
-        elif self.env_name == "Hopper-v2":
-            env_indv = Hopper()
-            # set up the population
-            param_shapes = {k: v.shape for k, v in Hopper().get_params().items()}
+            param_shapes = {k: v.shape for k, v in Walker.Walker().get_params().items()}
             population = NormalPopulation(param_shapes, env_indv.from_params, std=0.1)
         elif self.env_name == "HalfCheetah-v2":
-            env_indv = HalfCheetah()
+            HalfCheetah.HalfCheetah.n_skills = self.params['n_skills']
+            env_indv = HalfCheetah.HalfCheetah()
             # set up the population
-            param_shapes = {k: v.shape for k, v in HalfCheetah().get_params().items()}
+            param_shapes = {k: v.shape for k, v in HalfCheetah.HalfCheetah().get_params().items()}
             population = NormalPopulation(param_shapes, env_indv.from_params, std=0.1)
         elif self.env_name == "Ant-v2":
-            env_indv = Ant()
+            Ant.Ant.n_skills = self.params['n_skills']
+            env_indv = Ant.Ant()
             # set up the population
-            param_shapes = {k: v.shape for k, v in Ant().get_params().items()}
+            param_shapes = {k: v.shape for k, v in Ant.Ant().get_params().items()}
             population = NormalPopulation(param_shapes, env_indv.from_params, std=0.1)
         else:
             raise ValueError(f'Environment {self.env_name} is not implemented')
         # define the model directory and load it.
         model_dir = f"{self.directory}/""best_model.ckpt"
-        env_indv.net.load_state_dict(torch.load(model_dir))
-        
+        state_dim = gym.make(self.env_name).observation_space.shape[0]
+        action_dim = gym.make(self.env_name).action_space.shape[0]
+        model = MLP_policy(state_dim + self.n_skills, [self.conf.layer_size_policy, self.conf.layer_size_policy], action_dim)
+        model.load_state_dict( torch.load(model_dir) )
+        env_indv.net = model
         # extraact the best skill
         bestskill = best_skill(env_indv, self.env_name,  self.params['n_skills'], alg_type="es")
         # set the best skill
-        MountainCar.MountainCar.skill = bestskill
-        
+        if self.env_name == "MountainCarContinuous-v0": MountainCar.MountainCar.skill = bestskill
+        if self.env_name == "Walker2d-v2": Walker.Walker.skill = bestskill
+        if self.env_name == "HalfCheetah-v2": HalfCheetah.HalfCheetah.skill = bestskill
+        if self.env_name == "Ant-v2": Ant.Ant.skill = bestskill
         # training loop
         # extract the hyperparameters
         iterations = self.es_params['iterations_finetune']
@@ -211,6 +272,8 @@ class DIAYN_ES():
         best_fit = -np.inf
         print(f"log frequncy: {log_freq}")
         timesteps = 0
+        timesteps_list = []
+        results_list = []
         for i in pbar:
             optim.zero_grad()
             # update the policy
@@ -219,16 +282,25 @@ class DIAYN_ES():
             optim.step()
             pbar.set_description("fit avg (training): %0.3f, std: %0.3f" % (raw_fit.mean().item(), raw_fit.std().item()))
             if (i+1) % log_freq == 0:
-                eval_fit = self.evaluate_policy(env_indv, )
+                eval_path = f"{self.directory}/finetune_eval_results"
+                # population, indv,finetune=False, skill=None):
+                eval_fit = self.evaluate_policy(population, env_indv, True, bestskill)
                 # Save the model if there is an improvement.
                 if eval_fit.mean().item() > best_fit:
                     best_fit = eval_fit.mean().item()
                     print(f"New best fit: {best_fit}")
-                    torch.save(env_indv.net.state_dict(), "best_model.ckpt") 
+                    os.makedirs(f"{self.directory}/best_finetuned_model_skillIndex:{bestskill}", exist_ok=True)
+                    torch.save(population.param_means, f"{self.directory}/best_finetuned_model_skillIndex:{bestskill}/best_model.ckpt") 
                     pbar.set_description("fit avg (evaluation): %0.3f, std: %0.3f" % (eval_fit.mean().item(), eval_fit.std().item()))
                 # log all values
-                self.sw_policy.add_scalar("train_reward", raw_fit.mean().item(), timesteps)
-                self.sw_policy.add_scalar("eval_reward", eval_fit.mean(), timesteps)
+                timesteps_list.append(timesteps)
+                results_list.append(eval_fit.mean().item() )
+                timesteps_np = np.array(timesteps_list)
+                results_np = np.array(results_list)
+                os.makedirs(eval_path, exist_ok=True)
+                np.savez(f"{eval_path}/evaluations.npz", timesteps=timesteps_np, results=results_np)
+                self.sw_adapt.add_scalar("rollout/ep_rew_mean", raw_fit.mean().item(), timesteps)
+                self.sw_adapt.add_scalar("eval/mean_reward", eval_fit.mean(), timesteps)
                 # print the logs
                 printed_logs = f'''
                 Iteration: {i}
@@ -238,36 +310,104 @@ class DIAYN_ES():
                 '''
                 print(printed_logs)
         pool.close()
+        return env_indv, bestskill
+        
     
-    # perform a gradient step to train the discriminator
     def update_d(self):
-        # sample data from the replay buffer
-        inputs, targets = self.buffer.sample(self.discriminator_hyperparams['batch_size'])
-        # forward pass
-        outputs = self.d(inputs)
-        # compute the loss
-        loss = self.criterion(outputs, targets.to(self.conf.device).to(torch.int64))
-        # optimize
-        self.optimizer.zero_grad()
-        loss.backward()
-        self.optimizer.step()
-        # compute the weights and gradient norms
-        grad_norm, weight_norm = self.norms(self.d)
-        return loss.item(), grad_norm, weight_norm 
+        """
+        This event is triggered before updating the policy.
+        """
+        current_buffer_size = len(self.buffer) 
+        if current_buffer_size >= self.min_buffer_size:
+            epoch_loss = 0
+            self.d.train()
+            for epoch in range(self.epochs):
+                # Extract the data
+                states, skills = self.buffer.sample(self.batch_size)
+                # Make states require grad if gradient penalty is not none
+                if self.gp:
+                    states.requires_grad_(True)
+                # forward pass
+                if self.paramerization == "MLP" or  self.paramerization == "Linear":
+                    scores = self.d(states)
+                elif self.paramerization == "Separable" or  self.paramerization == "Concat":
+                    # onehot encoding of the skills 
+                    with torch.no_grad():
+                        onehots_skills = torch.zeros(self.batch_size, self.n_skills)
+                        onehots_skills[torch.arange(self.batch_size), skills] = 1
+                    scores = self.d(states, onehots_skills)
+                # compute the loss
+                if self.lower_bound == "ba":
+                    loss = nn.CrossEntropyLoss(label_smoothing=self.label_smoothing)(scores/self.temperature, skills.to(torch.long))
+                elif self.lower_bound in ["tuba", "nwj", "nce", "interpolate"]:
+                    mi = mi_lower_bound(scores, self.lower_bound, self.log_baseline, self.alpha_logit).mean()
+                    loss = -mi
+                # check if some regularizors will be used
+                # Mixup regularization
+                if self.mixup:
+                    # sample a second batch
+                    states2, skills2 = self.buffer.sample(self.batch_size)
+                    # compute the mixed inputs/targets
+                    mixed_states, m = self.mixup_reg(states, states2)
+                    mixed_skills, _ = self.mixup_reg(skills, skills2, targets=True, m=m)
+                    scores = scores.detach()
+                    scores = self.d(mixed_states)
+                    loss = loss.detach()
+                    loss = 0
+                    if self.lower_bound == "ba":
+                        loss = torch.mean(torch.sum(- mixed_skills * torch.log_softmax(scores/self.temperature, dim=-1), dim=-1))
+                # gradient penalty
+                if self.gp:
+                    gp = self.grad_penalty(loss, states)
+                    loss += (self.gp * gp)
+                # take a gradient step
+                self.optimizer.zero_grad()
+                loss.backward()
+                if self.gradient_clip:
+                    clip_grad_norm_(self.d.parameters(), self.gradient_clip)
+                self.optimizer.step()
+                epoch_loss += loss.cpu().detach().item()
+            epoch_loss /= self.epochs
+            # logs
+            grad_norms, weights_norm = self.norms(self.d)
+            self.sw.add_scalar("discrimiator loss",
+                                        epoch_loss, self.timesteps)
+            self.sw.add_scalar("discrimiator grad norm",
+                            grad_norms, self.timesteps)
+            self.sw.add_scalar("discrimiator wights norm",
+                            weights_norm, self.timesteps)
+            torch.save(self.d.state_dict(), self.directory + "/disc.pth")
+            
+    # perform a gradient step to train the discriminator
+    # def update_d(self):
+    #     # sample data from the replay buffer
+    #     inputs, targets = self.buffer.sample(self.discriminator_hyperparams['batch_size'])
+    #     # forward pass
+    #     outputs = self.d(inputs)
+    #     # compute the loss
+    #     loss = self.criterion(outputs, targets.to(self.conf.device).to(torch.int64))
+    #     # optimize
+    #     self.optimizer.zero_grad()
+    #     loss.backward()
+    #     self.optimizer.step()
+    #     # compute the weights and gradient norms
+    #     grad_norm, weight_norm = self.norms(self.d)
+    #     return loss.item(), grad_norm, weight_norm 
     
     
-    def evaluate_policy(self, model, finetune=False, skill=None):
+    def evaluate_policy(self, population, indv,finetune=False, skill=None):
         # set the seeds
-        seeds = [0, 10, 1234, 5, 42]
+        runs = 10
+        params = population.param_means
+        model = indv.from_params(params)
         # create the environments
         if finetune:
-            env = SkillWrapperFinetune(gym.make(self.env_name), self.params['n_skills'], max_steps=self.conf.max_steps, skill=self.skill)
+            env = SkillWrapperFinetune(gym.make(self.env_name), self.params['n_skills'], max_steps=self.conf.max_steps, skill=skill)
         else:
             env = RewardWrapper(SkillWrapper(gym.make(self.env_name), self.params['n_skills'], max_steps=self.conf.max_steps), self.d, self.params['n_skills'])
         # run the evaluation loop
         final_returns = []
-        for seed in seeds:
-            env.seed(seed)
+        for run in range(runs):
             obs = env.reset()
             done = False
             total_reward = 0

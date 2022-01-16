@@ -147,7 +147,10 @@ def best_skill(model, env_name, n_skills, alg_type="rl"):
                 if alg_type == "rl":
                     action, _ = model.predict(aug_obs, deterministic=True)
                 elif alg_type == "es":
-                    action = model.action(aug_obs)
+                    action = model.action(aug_obs.unsqueeze(0))
+                elif alg_type == "pets":
+                    action_seq = agent.plan(aug_obs.numpy().reshape(-1))
+                    action = action_seq[0]
                 obs, reward, done, _ = env.step(action)
                 aug_obs = augment_obs(obs, skill, n_skills)
                 total_reward += reward
@@ -160,7 +163,8 @@ def best_skill(model, env_name, n_skills, alg_type="rl"):
 
 # State coverage
 @torch.no_grad()
-def evaluate_state_coverage(env_name, n_skills, model):
+def evaluate_state_coverage(env_name, n_skills, model, alg):
+    print("Evaluating Pretrained Policy State Coverage")
     # print(f"Number of skills: {n_skills}")
     # run the model to collect the data
     data = []
@@ -173,7 +177,13 @@ def evaluate_state_coverage(env_name, n_skills, model):
         total_reward = 0
         done = False
         while not done:
-            action, _ = model.predict(aug_obs, deterministic=False)
+            if alg in ["ppo", "sac"]:
+                action, _ = model.predict(aug_obs, deterministic=True)
+            elif alg == "es":
+                action = model.action(aug_obs.unsqueeze(0))
+            elif alg == "pets":
+                action_seq = agent.plan(aug_obs.numpy().reshape(-1))
+                action = action_seq[0]
             obs, _, done, _ = env.step(action)
             data.append(list(obs.reshape(-1).copy()))
             aug_obs = augment_obs(obs, skill, n_skills)
@@ -203,7 +213,8 @@ def extract_results(data):
 
 # extract the result of the finetuning
 @torch.no_grad()
-def evaluate_pretrained_policy_ext(env_name, n_skills, model):
+def evaluate_pretrained_policy_ext(env_name, n_skills, model, alg):
+    print("Evaluating Pretrained Policy in Extrensic reward")
     total_rewards = []
     for skill in range(n_skills):
         # print(f"Running Skill: {skill}")
@@ -213,7 +224,13 @@ def evaluate_pretrained_policy_ext(env_name, n_skills, model):
         total_reward = 0
         done = False
         while not done:
-            action, _ = model.predict(aug_obs, deterministic=True)
+            if alg in ["ppo", "sac"]:
+                action, _ = model.predict(aug_obs, deterministic=True)
+            elif alg == "es":
+                action = model.action(aug_obs.unsqueeze(0))
+            elif alg == "pets":
+                action_seq = agent.plan(aug_obs.numpy().reshape(-1))
+                action = action_seq[0]
             obs, reward, done, info = env.step(action)
             aug_obs = augment_obs(obs, skill, n_skills)
             total_reward += reward
@@ -223,28 +240,43 @@ def evaluate_pretrained_policy_ext(env_name, n_skills, model):
     return best_reward
 
 @torch.no_grad()
-def evaluate_pretrained_policy_intr(env_name, n_skills, model, d, parametrization):
+def evaluate_pretrained_policy_intr(env_name, n_skills, model, d, parametrization, alg):
+    print("Evaluating Pretrained Policy in Intrinsic reward")
     d.eval()
     env = RewardWrapper(SkillWrapper(gym.make(env_name), n_skills), d, n_skills, parametrization)
     done = False
     total_reward = 0
     obs = env.reset()
     while not done:
-        action, _ = model.predict(obs, deterministic=True)
+        if alg in ["ppo", "sac"]:
+            action, _ = model.predict(obs, deterministic=True)
+        elif alg == "es":
+            obs = torch.tensor(obs)
+            action = model.action(obs.unsqueeze(0))
+        elif alg == "pets":
+            action_seq = agent.plan(obs)
+            action = action_seq[0]
         obs, reward, done, info = env.step(action)
         total_reward += reward
     return total_reward
                         
 
 @torch.no_grad()
-def evaluate_adapted_policy(env_name, n_skills, bestskill, model):
+def evaluate_adapted_policy(env_name, n_skills, bestskill, model, alg):
+    print("Evaluating Adapted Policy")
     env = gym.make(env_name)
     done = False
     obs = env.reset()
     aug_obs = augment_obs(obs, bestskill, n_skills)
     total_reward = 0
     while not done:
-        action, _ = model.predict(aug_obs, deterministic=True)
+        if alg in ["ppo", "sac"]:
+            action, _ = model.predict(aug_obs, deterministic=True)
+        elif alg == "es":
+            action = model.action(aug_obs.unsqueeze(0))
+        elif alg == "pets":
+            action_seq = agent.plan(aug_obs.numpy().reshape(-1))
+            action = action_seq[0]
         obs, reward, done, info = env.step(action)
         aug_obs = augment_obs(obs, bestskill, n_skills)
         total_reward += reward
@@ -366,15 +398,15 @@ def softplus_inverse(x):
 
 
 #### Useful function for the adaptation expeirment ####
-def evaluate(env, n_skills, pretrained_policy, adapted_policy, discriminator, parametrization, bestskill):
+def evaluate(env, n_skills, pretrained_policy, adapted_policy, discriminator, parametrization, bestskill, alg):
     # intrinsic reward
-    intrinsic_reward_mean = np.mean([evaluate_pretrained_policy_intr(env, n_skills, pretrained_policy, discriminator, parametrization) for _ in range(10)])
+    intrinsic_reward_mean = np.mean([evaluate_pretrained_policy_intr(env, n_skills, pretrained_policy, discriminator, parametrization, alg) for _ in range(10)])
     # best skill reward before adaptation
-    reward_beforeFinetune_mean = np.mean([evaluate_pretrained_policy_ext(env, n_skills, pretrained_policy) for _ in range(10)])
+    reward_beforeFinetune_mean = np.mean([evaluate_pretrained_policy_ext(env, n_skills, pretrained_policy, alg) for _ in range(10)])
     # reward after adaptation
-    reward_mean = np.mean([evaluate_adapted_policy(env, n_skills, bestskill, adapted_policy) for _ in range(10)])
+    reward_mean = np.mean([evaluate_adapted_policy(env, n_skills, bestskill, adapted_policy, alg) for _ in range(10)])
     # entropy
-    entropy_mean = np.mean([evaluate_state_coverage(env, n_skills, pretrained_policy) for _ in range(10)])
+    entropy_mean = np.mean([evaluate_state_coverage(env, n_skills, pretrained_policy, alg) for _ in range(10)])
     return intrinsic_reward_mean, reward_beforeFinetune_mean, reward_mean, entropy_mean
 
 def save_final_results(all_results, env_dir):
@@ -396,7 +428,7 @@ def save_final_results(all_results, env_dir):
     print(df)
     return df
 
-def plot_learning_curves(env_name, algs, stamps, skills_list, pms, lbs):
+def plot_learning_curves(env_name, algs, stamps, skills_list, pms, lbs, asym):
     colors = ['b', 'r', 'g', 'b']
     xlabel = "Environment Timesteps"
     ylabel = "Reward After Adaptation"
@@ -426,15 +458,18 @@ def plot_learning_curves(env_name, algs, stamps, skills_list, pms, lbs):
             steps = files['timesteps']
             results = files['results']
             print(f"results.shape: {results.shape}")
-            seeds_list.append(results.mean(axis=1).reshape(-1))
+            if alg in ("ppo", "sac"):
+                seeds_list.append(results.mean(axis=1).reshape(-1))
+            elif alg in ("es", "pets"):
+                seeds_list.append(results)
             # data_mean = results.mean(axis=1)
             # data_std = results.std(axis=1)
             # print(f"mean: {data_mean[-1]}")
             # print(f"std: {data_std[-1]}")
-        data_mean = np.mean(seeds_list, axis=0)
+        data_mean = np.mean(seeds_list, axis=0) / asym
         print(f"seeds list shape {np.array(seeds_list).shape}")
         # input()
-        data_std = np.std(seeds_list, axis=0)
+        data_std = np.std(seeds_list, axis=0) / asym
         # data_mean = np.convolve(data_mean, np.ones(10)/10, mode='valid') 
         # data_std = np.convolve(data_std, np.ones(10)/10, mode='valid') 
         # steps = np.convolve(steps, np.ones(10)/10, mode='valid') 
@@ -478,7 +513,7 @@ def plot_learning_curves(env_name, algs, stamps, skills_list, pms, lbs):
         legend = alg
         main_exper_dir = conf.log_dir_finetune + f"cls:{pm}, lb:{lb}/"
         env_dir = main_exper_dir + f"env: {env_name}, alg:{alg}, stamp:{stamp}/"
-        seed_list = []
+        seeds_list = []
         for seed in conf.seeds:
             seed_everything(seed)
             seed_dir = env_dir + f"seed:{seed}/"
@@ -486,9 +521,12 @@ def plot_learning_curves(env_name, algs, stamps, skills_list, pms, lbs):
             files = np.load(file_dir_finetune)
             steps = files['timesteps']
             results = files['results']
-            seeds_list.append(results.mean(axis=1).reshape(-1))
-        data_mean = np.mean(seeds_list, axis=0)
-        data_std = np.std(seeds_list, axis=0)
+            if alg in ("ppo", "sac"):
+                seeds_list.append(results.mean(axis=1).reshape(-1))
+            elif alg == "es":
+                seeds_list.append(results)
+        data_mean = np.mean(seeds_list, axis=0) / asym
+        data_std = np.std(seeds_list, axis=0) / asym
         if len(algs) > 1:
             plt.plot(steps, data_mean, label=legends[i], color=plot_color)
             plt.legend()

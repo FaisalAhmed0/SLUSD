@@ -33,6 +33,7 @@ class Swimmer(Individual):
     d = None # the discriminator
     n_skills = None # the number of skills
     skill = None # skill for the case of finetuning
+    paramerization = None
     def __init__(self):
         self.net = MLP_policy(8 + conf.n_z, [conf.layer_size_policy, conf.layer_size_policy], 2)
         self.conf = conf
@@ -52,7 +53,7 @@ class Swimmer(Individual):
         if Swimmer.skill:
             env = SkillWrapperFinetune(gym.make("Swimmer-v2"), Swimmer.n_skills, max_steps=self.conf.max_steps, skill=Swimmer.skill)
         else:
-            env = RewardWrapper(SkillWrapper(gym.make("Swimmer-v2"), Swimmer.n_skills, max_steps=self.conf.max_steps), Swimmer.d, Swimmer.n_skills)
+            env = RewardWrapper(SkillWrapper(gym.make("Swimmer-v2"), Swimmer.n_skills, max_steps=self.conf.max_steps), Swimmer.d, Swimmer.n_skills, Swimmer.paramerization)
         obs = env.reset()
         done = False
         r_tot = 0
