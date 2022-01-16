@@ -337,7 +337,7 @@ def train_all(env_params, results_df_list, plots_d_list):
                 seed_dir = env_dir + f"seed:{conf.seeds[i]}"
                 os.makedirs(seed_dir, exist_ok=True)
                 if alg in ("sac", "ppo"):
-                    diayn = DIAYN(params, alg_params, discriminator_hyperparams, env, alg, seed_dir, seed=conf.seeds[i], conf=conf, timestamp=timestamp)
+                    diayn = DIAYN(params, alg_params, discriminator_hyperparams, env, alg, seed_dir, seed=conf.seeds[i], conf=conf, timestamp=timestamp, adapt_params=sac_hyperparams)
                     # pretraining step
                     pretrained_policy, discriminator = diayn.pretrain()
                     # fine-tuning step 
@@ -346,7 +346,7 @@ def train_all(env_params, results_df_list, plots_d_list):
                     intrinsic_reward_mean, reward_beforeFinetune_mean, reward_mean, entropy_mean = evaluate(env, params['n_skills'], pretrained_policy, adapted_policy, discriminator, 
                                                                                                         discriminator_hyperparams['parametrization'], best_skill, alg)
                 elif alg == "pets":
-                    diayn = DIAYN_MB(params, alg_params, discriminator_hyperparams, env, alg, seed_dir, seed=conf.seeds[i], conf=conf, timestamp=timestamp)
+                    diayn = DIAYN_MB(params, alg_params, discriminator_hyperparams, env, alg, seed_dir, seed=conf.seeds[i], conf=conf, timestamp=timestamp, adapt_params=sac_hyperparams)
                     # pretraining step
                     pretrained_model, discriminator = diayn.pretrain()
                     # fine-tune step
@@ -355,7 +355,7 @@ def train_all(env_params, results_df_list, plots_d_list):
                     intrinsic_reward_mean, reward_beforeFinetune_mean, reward_mean, entropy_mean = evaluate(env, params['n_skills'], pretrained_policy, adapted_policy, discriminator, 
                                                                                                         discriminator_hyperparams['parametrization'], best_skill, alg)
                 elif alg == "es":
-                    diayn = DIAYN_ES(params, alg_params, discriminator_hyperparams, env, "es", seed_dir, seed=conf.seeds[i], conf=conf, timestamp=timestamp)
+                    diayn = DIAYN_ES(params, alg_params, discriminator_hyperparams, env, "es", seed_dir, seed=conf.seeds[i], conf=conf, timestamp=timestamp, adapt_params=sac_hyperparams)
                     # pretraining step
                     pretrained_policy, discriminator = diayn.pretrain()
                     # adaptation step
@@ -458,11 +458,12 @@ if __name__ == "__main__":
         print(f"Experiment timestamp: {timestamp}")
         params['pretrain_steps'] = args.presteps
         params['n_skills'] = args.skills
+        alg_params = hyperparams[args.alg]
         if args.alg in ['ppo', 'sac', 'pets']:
                 params['n_skills'] = args.skills
                 params['pretrain_steps'] = args.presteps
                 print(f"stamp: {timestamp}, alg: {args.alg}, env: {args.env}, n_skills: {params['n_skills']}, pretrain_steps: {params['pretrain_steps']}")
-        elif alg == "es":
+        elif args.alg == "es":
             params['n_skills'] = args.skills
             alg_params['iterations'] = args.presteps
             alg_params['iterations_finetune'] = env_params[alg][env]['adaptation_iterations']
@@ -470,7 +471,6 @@ if __name__ == "__main__":
         env_dir = main_exper_dir + f"env: {args.env}, alg:{args.alg}, stamp:{timestamp}/"
         os.makedirs(env_dir, exist_ok=True)
         save_params(args.alg, env_dir)
-        alg_params = hyperparams[args.alg]
         seed_results = []
         for i in range(len(conf.seeds)):
             seed_everything(conf.seeds[i])
@@ -478,7 +478,7 @@ if __name__ == "__main__":
             os.makedirs(seed_dir, exist_ok=True)
             if args.alg in ("sac", "ppo"):
                 # TODO add ES, when it is ready
-                diayn = DIAYN(params, alg_params, discriminator_hyperparams, args.env, args.alg, seed_dir, seed=conf.seeds[i], conf=conf, timestamp=timestamp)
+                diayn = DIAYN(params, alg_params, discriminator_hyperparams, args.env, args.alg, seed_dir, seed=conf.seeds[i], conf=conf, timestamp=timestamp, adapt_params=sac_hyperparams)
                 # pretraining step
                 pretrained_policy, discriminator = diayn.pretrain()
                 # fine-tuning step 
@@ -487,7 +487,7 @@ if __name__ == "__main__":
                 intrinsic_reward_mean, reward_beforeFinetune_mean, reward_mean, entropy_mean = evaluate(args.env, params['n_skills'], pretrained_policy, adapted_policy, discriminator, 
                                                                                                     discriminator_hyperparams['parametrization'], best_skill, args.alg)
             elif args.alg == "pets":
-                diayn = DIAYN_MB(params, alg_params, discriminator_hyperparams, args.env, args.alg, seed_dir, seed=conf.seeds[i], conf=conf, timestamp=timestamp)
+                diayn = DIAYN_MB(params, alg_params, discriminator_hyperparams, args.env, args.alg, seed_dir, seed=conf.seeds[i], conf=conf, timestamp=timestamp, adapt_params=sac_hyperparams)
                 # pretraining step
                 pretrained_policy, discriminator = diayn.pretrain()
                 print("Finished")
@@ -498,7 +498,7 @@ if __name__ == "__main__":
                 intrinsic_reward_mean, reward_beforeFinetune_mean, reward_mean, entropy_mean = evaluate(args.env, params['n_skills'], pretrained_policy, adapted_policy, discriminator, 
                                                                                                     discriminator_hyperparams['parametrization'], best_skill, args.alg)
             elif args.alg == "es":
-                diayn = DIAYN_ES(params, alg_params, discriminator_hyperparams, args.env, "es", seed_dir, seed=conf.seeds[i], conf=conf, timestamp=timestamp, args=args)
+                diayn = DIAYN_ES(params, alg_params, discriminator_hyperparams, args.env, "es", seed_dir, seed=conf.seeds[i], conf=conf, timestamp=timestamp, args=args, adapt_params=sac_hyperparams)
                 # pretraining step
                 pretrained_policy, discriminator = diayn.pretrain()
                 # adaptation step

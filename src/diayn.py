@@ -17,6 +17,7 @@ from src.callbacks.callbacks import DiscriminatorCallback, VideoRecorderCallback
 import torch
 import torch.nn as nn
 from torch.utils.tensorboard import SummaryWriter
+import copy
 
 import time
 
@@ -24,7 +25,7 @@ from collections import namedtuple
 
 
 class DIAYN():
-    def __init__(self, params, alg_params, discriminator_hyperparams, env="MountainCarContinuous-v0", alg="ppo", directory="./", seed=10, conf=None, timestamp=None, checkpoints=False, args=None, task=None):
+    def __init__(self, params, alg_params, discriminator_hyperparams, env="MountainCarContinuous-v0", alg="ppo", directory="./", seed=10, conf=None, timestamp=None, checkpoints=False, args=None, task=None, adapt_params=None):
         # create the discirminator
         state_dim = gym.make(env).observation_space.shape[0]
         skill_dim = params['n_skills']
@@ -65,6 +66,7 @@ class DIAYN():
         self.args = args
         self.task = task
         self.parametrization = discriminator_hyperparams['parametrization']
+        self.adapt_params = adapt_params
 
     def pretrain(self):
         if self.alg == "ppo":
@@ -81,7 +83,7 @@ class DIAYN():
                         gae_lambda=self.alg_params['gae_lambda'],
                         clip_range=self.alg_params['clip_range'],
                         policy_kwargs=dict(activation_fn=nn.Tanh,
-                                           net_arch=[self.conf.layer_size_shared, self.conf.layer_size_shared,dict(pi=[self.conf.layer_size_policy], vf=[self.conf.layer_size_value])]),
+                                           net_arch=[dict(pi=[self.conf.layer_size_policy, self.conf.layer_size_policy], vf=[self.conf.layer_size_value, self.conf.layer_size_value])]),
                         tensorboard_log=self.directory,
                         seed=self.seed
                         )
@@ -156,6 +158,7 @@ class DIAYN():
 
     # finetune the pretrained policy on a specific task
     def finetune(self):
+        # For the generalization experiment
         if self.task:
             # TODO: add other environments
             if self.env_name == "HalfCheetah-v2":
@@ -166,6 +169,8 @@ class DIAYN():
                 self.env_name), self.params['n_skills'], max_steps=self.conf.max_steps)])
             
         model_dir = self.directory + "/best_model"
+
+        # Extract the model and extract the best skill
         if self.alg == "sac":
             model = SAC.load(model_dir, env=env, seed=self.seed)
         elif self.alg == "ppo":
@@ -176,70 +181,62 @@ class DIAYN():
             model, self.env_name,  self.params['n_skills'])
 
         del model
-
-        if self.alg == "sac":
-            if self.task:
-                if self.env_name == "HalfCheetah-v2":
-                    env = HalfCheetahTaskWrapper(gym.make("HalfCheetah-v2"), task=self.task)
-                    env = DummyVecEnv([lambda: SkillWrapperFinetune(Monitor(env,  f"{self.directory}/finetune_train_results"), self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, skill=best_skill_index)])
-            else:
-                env = DummyVecEnv([lambda: SkillWrapperFinetune(Monitor(gym.make(
-        self.env_name),  f"{self.directory}/finetune_train_results"), self.params['n_skills'], r_seed=None,max_steps=gym.make(self.env_name)._max_episode_steps, skill=best_skill_index)])
-                
-            model = SAC('MlpPolicy', env, verbose=1,
-                        learning_rate=self.alg_params['learning_rate'],
-                        batch_size=self.alg_params['batch_size'],
-                        gamma=self.alg_params['gamma'],
-                        buffer_size=self.alg_params['buffer_size'],
-                        tau=self.alg_params['tau'],
-                        ent_coef=self.alg_params['ent_coef'],
-                        gradient_steps=self.alg_params['gradient_steps'],
-                        learning_starts=self.alg_params['learning_starts'],
-                        policy_kwargs=dict(net_arch=dict(pi=[2*self.conf.layer_size_policy, 2*self.conf.layer_size_policy], qf=[
-                                           self.conf.layer_size_q, self.conf.layer_size_q])),
-                        tensorboard_log=self.directory,
-                        seed=self.seed
-                        )
-        elif self.alg == "ppo":
-            if self.task:
-                if self.env_name == "HalfCheetah-v2":
-                    env = HalfCheetahTaskWrapper(gym.make("HalfCheetah-v2"), task=self.task)
-                    env = DummyVecEnv([lambda: SkillWrapperFinetune(Monitor(env,  f"{self.directory}/finetune_train_results"), self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, skill=best_skill_index)]*self.alg_params['n_actors'])
-                    
-            else:
-                env = DummyVecEnv([lambda: SkillWrapperFinetune(Monitor(gym.make(
-        self.env_name),  f"{self.directory}/finetune_train_results"), self.params['n_skills'], r_seed=None,max_steps=gym.make(self.env_name)._max_episode_steps, 
-                                                                skill=best_skill_index)]*self.alg_params['n_actors'])
-            
-            model = PPO('MlpPolicy', env, verbose=1,
-                        learning_rate=self.alg_params['learning_rate'],
-                        n_steps=self.alg_params['n_steps'],
-                        batch_size=self.alg_params['batch_size'],
-                        n_epochs=self.alg_params['n_epochs'],
-                        gamma=self.alg_params['gamma'],
-                        gae_lambda=self.alg_params['gae_lambda'],
-                        clip_range=self.alg_params['clip_range'],
-                        policy_kwargs=dict(activation_fn=nn.Tanh,
-                                           net_arch=[self.conf.layer_size_shared, self.conf.layer_size_shared,dict(pi=[self.conf.layer_size_policy], vf=[self.conf.layer_size_value])]),
-                        tensorboard_log=self.directory,
-                        seed=self.seed
-                        )
+        # define the environment for the adaptation model
+        if self.task:
+            if self.env_name == "HalfCheetah-v2":
+                env = HalfCheetahTaskWrapper(gym.make("HalfCheetah-v2"), task=self.task)
+                env = DummyVecEnv([lambda: SkillWrapperFinetune(Monitor(env,  f"{self.directory}/finetune_train_results"), self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, skill=best_skill_index)])
+        else:
+            env = DummyVecEnv([lambda: SkillWrapperFinetune(Monitor(gym.make(
+    self.env_name),  f"{self.directory}/finetune_train_results"), self.params['n_skills'], r_seed=None,max_steps=gym.make(self.env_name)._max_episode_steps, skill=best_skill_index)])
+        
+        adaptation_model = SAC('MlpPolicy', env, verbose=1,
+                    learning_rate=self.adapt_params['learning_rate'],
+                    batch_size=self.adapt_params['batch_size'],
+                    gamma=self.adapt_params['gamma'],
+                    buffer_size=self.adapt_params['buffer_size'],
+                    tau=self.adapt_params['tau'],
+                    ent_coef=self.adapt_params['ent_coef'],
+                    gradient_steps=self.adapt_params['gradient_steps'],
+                    learning_starts=self.adapt_params['learning_starts'],
+                    policy_kwargs=dict(net_arch=dict(pi=[2*self.conf.layer_size_policy, 2*self.conf.layer_size_policy], qf=[
+                                       self.conf.layer_size_q, self.conf.layer_size_q])),
+                    tensorboard_log=self.directory,
+                    seed=self.seed
+                    )
 
         eval_env = SkillWrapperFinetune(gym.make(
             self.env_name), self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, r_seed=None, skill=best_skill_index)
         eval_env = Monitor(eval_env, f"{self.directory}/finetune_eval_results")
         
         eval_callback = EvalCallback(eval_env, best_model_save_path=self.directory + f"/best_finetuned_model_skillIndex:{best_skill_index}",
-                                    log_path=f"{self.directory}/finetune_eval_results", eval_freq=self.conf.eval_freq*5 if self.alg == "sac" else self.conf.eval_freq,
+                                    log_path=f"{self.directory}/finetune_eval_results", eval_freq=self.conf.eval_freq,
                                     deterministic=True, render=False)
+        # if the model for pretraining is SAC just continue
         if self.alg == "sac":
-            model = SAC.load(model_dir, env=env, tensorboard_log=self.directory)
-            model.learn(total_timesteps=self.params['finetune_steps'],
+            sac_model = SAC.load(model_dir, env=env, tensorboard_log=self.directory)
+            adaptation_model = sac_model
+            adaptation_model.learn(total_timesteps=self.params['finetune_steps'],
                         callback=eval_callback, tb_log_name="SAC_FineTune", d=None, mi_estimator=None)
-        elif self.alg == "ppo":
-            model = PPO.load(model_dir, env=env, tensorboard_log=self.directory,
-                            clip_range=get_schedule_fn(self.alg_params['clip_range']))
 
-            model.learn(total_timesteps=self.params['finetune_steps'],
-                        callback=eval_callback, tb_log_name="PPO_FineTune")
-        return model, best_skill_index
+        # if the model for the prratrining is PPO load the discrimunator and actor from ppo into sac models
+        elif self.alg == "ppo":
+            ppo_model = PPO.load(model_dir, env=env, tensorboard_log=self.directory,
+                            clip_range=get_schedule_fn(self.alg_params['clip_range']))
+            # load the policy from ppo into sac
+            ppo_actor = ppo_model.policy.mlp_extractor.policy_net
+            
+            adaptation_model.actor.latent_pi = ppo_actor
+            adaptation_model.actor.mu = nn.Linear(in_features=self.conf.layer_size_policy, out_features=gym.make(self.env_name).action_space.shape[0], bias=True)
+            adaptation_model.actor.log_std = nn.Linear(in_features=self.conf.layer_size_policy, out_features=gym.make(self.env_name).action_space.shape[0], bias=True)
+            # load the discriminator
+            self.d.layers[0] = nn.Linear(gym.make(self.env_name).observation_space.shape[0]+ self.params['n_skills']  +1, self.conf.layer_size_discriminator)
+            self.d.head = nn.Sequential(*self.d.layers)
+            self.d.output = nn.Linear(self.conf.layer_size_discriminator, 1)
+            adaptation_model.critic.qf0 = self.d
+            adaptation_model.critic.qf1 = copy.deepcopy(self.d)
+            adaptation_model.critic_target.qf0 = copy.deepcopy(self.d)
+            adaptation_model.critic_target.qf1 = copy.deepcopy(self.d)
+            adaptation_model.learn(total_timesteps=self.params['finetune_steps'],
+                        callback=eval_callback, tb_log_name="PPO_FineTune", d=None, mi_estimator=None)
+        return adaptation_model, best_skill_index

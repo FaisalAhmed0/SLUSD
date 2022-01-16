@@ -26,7 +26,7 @@ class Discriminator(nn.Module):
       layers.append( nn.ReLU() )
       if dropout:
         layers.append( nn.Dropout(dropout) )
-    
+    self.layers = layers
     self.head = nn.Sequential(*layers)
     self.output = nn.Linear(n_hiddens[-1], n_skills)
 
