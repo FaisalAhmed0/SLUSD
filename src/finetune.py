@@ -43,9 +43,9 @@ asymp_perofrmance = {
 # shared parameters
 params = dict( n_skills = 30,
            pretrain_steps = int(20e3),
-           finetune_steps = int(1e4),
-           buffer_size = int(1e6),
-           min_train_size = int(100),
+           finetune_steps = int(15e3),
+           buffer_size = int(1e7),
+           min_train_size = int(1e4),
              )
 
 
@@ -53,31 +53,29 @@ params = dict( n_skills = 30,
 envs_mp = [
     # 1
     { # 1 dof
-    #  'ppo':{
-    #     'MountainCarContinuous-v0': dict( 
-    #        pretrain_steps = int(1e4), #int(25e6),
-    #         n_skills = 10 #30
-    #          ), # 1 dof
-    #     },
-    # 'sac':{
-    #     'MountainCarContinuous-v0': dict( 
-    #        pretrain_steps = int (1e4), #int(3e5),
-    #         n_skills = 10 #30
-    #          ), # 1 dof
-    #     },
+     'ppo':{
+        'MountainCarContinuous-v0': dict( 
+           pretrain_steps = int(25e6), 
+            n_skills = 10 
+             ),
+        },
+    'sac':{
+        'MountainCarContinuous-v0': dict( 
+           pretrain_steps = int (5e5),
+            n_skills = 10 
+             ), 
+        },
     'es':{
         'MountainCarContinuous-v0': dict( 
-           pretrain_iterations = 3, #int(3e5),
-           adaptation_iterations = 3, #int(3e5),
-            n_skills = 3 #30
-             ), # 1 dof
+           pretrain_iterations = 20000,
+            n_skills = 10
+             ),
         },
     'pets':{
         'MountainCarContinuous-v0': dict( 
-           pretrain_steps = int(1000), #int(25e6),
-           finetune_steps = int(1000), #int(3e5),
-            n_skills = 3 #30
-             ), # 1 dof
+           pretrain_steps = int (3e5),
+            n_skills = 10 
+             ),
         },
     
     },
@@ -85,58 +83,54 @@ envs_mp = [
     { # 6 dof
      'ppo':{
         'HalfCheetah-v2': dict( 
-           pretrain_steps = int(1e4), #int(500e6),
+           pretrain_steps = int(500e6),
             n_skills = 30
-             ), # 2 dof
+             ), 
         },
     'sac':{
         'HalfCheetah-v2': dict( 
-           pretrain_steps = int(1e4),# int(2e6),
+           pretrain_steps = int(2e6),
             n_skills = 30
-             ), # 2 dof
+             ), 
         },
     'es':{
         'HalfCheetah-v2': dict( 
-           pretrain_iterations = 3, #int(3e5),
-           adaptation_iterations = 3, #int(3e5),
-            n_skills = 30 #30
-             ), # 1 dof
+           pretrain_iterations = 25000,
+            n_skills = 30 
+             ), 
         },
     'pets':{
         'HalfCheetah-v2': dict( 
-           pretrain_steps = int(2e5), #int(25e6),
-           finetune_steps = int(100e3), #int(3e5),
-            n_skills = 30 #30
-             ), # 1 dof
+           pretrain_steps = int (3.5e5),
+            n_skills = 30 
+             ), 
         },
     },
     # 3
     { # 6 dof
      'ppo':{
         'Walker2d-v2': dict( 
-           pretrain_steps = int(550e6),
+           pretrain_steps = int(700),
             n_skills = 30
-             ), # 2 dof
+             ),
         },
     'sac':{
         'Walker2d-v2': dict( 
-           pretrain_steps = int(2e6),
+           pretrain_steps = int(2.5e6),
             n_skills = 30
-             ), # 2 dof
+             ),
         },
     'es':{
         'Walker2d-v2': dict( 
-           pretrain_iterations = 3, #int(3e5),
-           adaptation_iterations = 3, #int(3e5),
-            n_skills = 30 #30
-             ), # 1 dof
+           pretrain_iterations = 25000,
+            n_skills = 30 
+             ),
         },
     'pets':{
         'Walker2d-v2': dict( 
-           pretrain_steps = int(3e5), #int(25e6),
-           finetune_steps = int(100e3), #int(3e5),
-            n_skills = 30 #30
-             ), # 1 dof
+           pretrain_steps = int (4e5),
+            n_skills = 30 
+             ),
         },
         
     },
@@ -156,17 +150,15 @@ envs_mp = [
         },
     'es':{
         'Ant-v2': dict( 
-           pretrain_iterations = 3, #int(3e5),
-           adaptation_iterations = 3, #int(3e5),
-            n_skills = 30 #30
-             ), # 1 dof
+           pretrain_iterations = 30000,
+            n_skills = 30 
+             ), 
         },
     'pets':{
         'Ant-v2': dict( 
-           pretrain_steps = int(3e5), #int(25e6),
-           finetune_steps = int(100e3), #int(3e5),
-            n_skills = 30 #30
-             ), # 1 dof
+           pretrain_steps = int (5e5),
+            n_skills = 30 
+             ),
         },
     },    
     
@@ -348,7 +340,7 @@ def train_all(env_params, results_df_list, plots_d_list):
                 elif alg == "pets":
                     diayn = DIAYN_MB(params, alg_params, discriminator_hyperparams, env, alg, seed_dir, seed=conf.seeds[i], conf=conf, timestamp=timestamp, adapt_params=sac_hyperparams)
                     # pretraining step
-                    pretrained_model, discriminator = diayn.pretrain()
+                    pretrained_policy, discriminator = diayn.pretrain()
                     # fine-tune step
                     adapted_policy, best_skill = diayn.finetune()
                     # Evaluate the policy 
@@ -443,10 +435,10 @@ if __name__ == "__main__":
             y_axis = col
             # ax = sns.barplot(x="Algorithm", y=y_axis, data=results_df, hue="Environment")
             if col == "Reward After Adaptation":
-                ax = sns.barplot(x="Environment", y=y_axis, data=results_df, hue="Algorithm", hue_order=['ppo'.upper(), 'sac'.upper(), 'es'.upper()])
+                ax = sns.barplot(x="Environment", y=y_axis, data=results_df, hue="Algorithm", hue_order=['ppo'.upper(), 'sac'.upper(), 'es'.upper(), 'pets'.upper()])
                 sns.move_legend(ax, "lower left", title='Algorithm')
             else:
-                ax = sns.barplot(x="Environment", y=y_axis, data=results_df, hue="Algorithm", hue_order=['ppo'.upper(), 'sac'.upper(), 'es'.upper()])
+                ax = sns.barplot(x="Environment", y=y_axis, data=results_df, hue="Algorithm", hue_order=['ppo'.upper(), 'sac'.upper(), 'es'.upper(), 'pets'.upper()])
                 ax.legend_.remove()
             filename = f"adaptation_experiment_final_{y_axis}.png"
             files_dir = f"Vis/adaptation_experiment_cls:{discriminator_hyperparams['parametrization']}, lb:{discriminator_hyperparams['lower_bound']}/"

@@ -133,7 +133,7 @@ class DIAYN():
                 eval_env = Monitor(eval_env,  f"{self.directory}/eval_results")
 
                 eval_callback = EvalCallback(eval_env, best_model_save_path=self.directory,
-                                             log_path=f"{self.directory}/eval_results", eval_freq=self.conf.eval_freq*5, deterministic=True, render=False)
+                                             log_path=f"{self.directory}/eval_results", eval_freq=self.conf.eval_freq, deterministic=True, render=False)
             elif self.parametrization in ["Separable", "Concat"]:
                 MI_estimator = namedtuple('MI_estimator', "estimator_func estimator_type log_baseline alpha_logit")
                 mi_estimate = MI_estimator(mi_lower_bound, self.discriminator_hyperparams['lower_bound'], self.discriminator_hyperparams['log_baseline'], self.discriminator_hyperparams['alpha_logit'])
@@ -216,6 +216,15 @@ class DIAYN():
         if self.alg == "sac":
             sac_model = SAC.load(model_dir, env=env, tensorboard_log=self.directory)
             adaptation_model = sac_model
+            # load the discriminator
+            d = copy.deepcopy(self.d)
+            d.layers[0] = nn.Linear(gym.make(self.env_name).observation_space.shape[0]+ self.params['n_skills']  +1, self.conf.layer_size_discriminator)
+            d.head = nn.Sequential(*d.layers)
+            d.output = nn.Linear(self.conf.layer_size_discriminator, 1)
+            adaptation_model.critic.qf0 = d
+            adaptation_model.critic.qf1 = copy.deepcopy(d)
+            adaptation_model.critic_target.qf0 = copy.deepcopy(d)
+            adaptation_model.critic_target.qf1 = copy.deepcopy(d)
             adaptation_model.learn(total_timesteps=self.params['finetune_steps'],
                         callback=eval_callback, tb_log_name="SAC_FineTune", d=None, mi_estimator=None)
 
@@ -230,13 +239,14 @@ class DIAYN():
             adaptation_model.actor.mu = nn.Linear(in_features=self.conf.layer_size_policy, out_features=gym.make(self.env_name).action_space.shape[0], bias=True)
             adaptation_model.actor.log_std = nn.Linear(in_features=self.conf.layer_size_policy, out_features=gym.make(self.env_name).action_space.shape[0], bias=True)
             # load the discriminator
-            self.d.layers[0] = nn.Linear(gym.make(self.env_name).observation_space.shape[0]+ self.params['n_skills']  +1, self.conf.layer_size_discriminator)
-            self.d.head = nn.Sequential(*self.d.layers)
-            self.d.output = nn.Linear(self.conf.layer_size_discriminator, 1)
-            adaptation_model.critic.qf0 = self.d
-            adaptation_model.critic.qf1 = copy.deepcopy(self.d)
-            adaptation_model.critic_target.qf0 = copy.deepcopy(self.d)
-            adaptation_model.critic_target.qf1 = copy.deepcopy(self.d)
+            d = copy.deepcopy(self.d)
+            d.layers[0] = nn.Linear(gym.make(self.env_name).observation_space.shape[0]+ self.params['n_skills']  +1, self.conf.layer_size_discriminator)
+            d.head = nn.Sequential(*d.layers)
+            d.output = nn.Linear(self.conf.layer_size_discriminator, 1)
+            adaptation_model.critic.qf0 = d
+            adaptation_model.critic.qf1 = copy.deepcopy(d)
+            adaptation_model.critic_target.qf0 = copy.deepcopy(d)
+            adaptation_model.critic_target.qf1 = copy.deepcopy(d)
             adaptation_model.learn(total_timesteps=self.params['finetune_steps'],
                         callback=eval_callback, tb_log_name="PPO_FineTune", d=None, mi_estimator=None)
         return adaptation_model, best_skill_index

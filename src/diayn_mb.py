@@ -21,8 +21,14 @@ import torch
 import torch.multiprocessing as mp
 torch.set_num_threads(1)
 torch.multiprocessing.set_sharing_strategy('file_system')
+import copy
 
 import gym
+
+from stable_baselines3.common.vec_env.dummy_vec_env import DummyVecEnv
+from stable_baselines3 import SAC
+from stable_baselines3.common.callbacks import EvalCallback
+from stable_baselines3.common.monitor import Monitor
 
 from src.environment_wrappers.env_wrappers import RewardWrapper, SkillWrapper, SkillWrapperFinetune
 from src.environment_wrappers.tasks_wrappers import HalfCheetahTaskWrapper
@@ -124,18 +130,6 @@ class DIAYN_MB():
         self.adapt_params = adapt_params
         
     def pretrain(self):
-        '''
-        pets_hyperparams = dict(
-        learning_rate = 1e-3,
-        batch_size = 64,
-        ensemble_size = 5,
-        trial_length = conf.max_steps/4,
-        planning_horizon = 15,
-        elite_ratio = 0.1,
-        num_particles = 20,
-        weight_decay = 5e-5
-        algorithm = "pets"
-        '''
         self.timesteps = []
         self.results = []
         # create MBRL lib gym-like env wrapper
@@ -171,7 +165,7 @@ class DIAYN_MB():
                 "device": conf.device,
                 "num_layers": 2,
                 "ensemble_size": ensemble_size,
-                "hid_size": 300,
+                "hid_size": conf.layer_size_policy,
                 "in_size": "???",
                 "out_size": "???",
                 "deterministic": False,
@@ -186,7 +180,7 @@ class DIAYN_MB():
             "algorithm": {
                 "learned_rewards": False,
                 "target_is_delta": True,
-                "normalize": True,
+                "normalize": False,
             },
             # these are experiment specific options
             "overrides": {
@@ -254,6 +248,7 @@ class DIAYN_MB():
         # number of trials is the number of iterations 
         best_eval_reward = -np.inf
         print(f"Trails: {num_trials}")
+        timesteps_list = []
         for trial in range(num_trials):
           # initilization
             obs = env.reset()    
@@ -302,7 +297,7 @@ class DIAYN_MB():
                 self.buffer.add(obs_t, skill)
                 
                 # if timesteps % (conf.eval_freq * 5) == 0:
-                if timesteps % (conf.eval_freq//2) == 0:
+                if timesteps % (conf.eval_freq) == 0:
                     print("In Evaluation")
                     rewards = self.evaluate_policy(self.env_name, model_env)
                     if rewards > best_eval_reward:
@@ -312,10 +307,10 @@ class DIAYN_MB():
                         model_env.dynamics_model.save(f"{self.directory}")
                     self.timesteps.append(timesteps)
                     self.results.append(rewards)
-                    timesteps = np.array(timesteps)
-                    results = np.array(self.results)
+                    timesteps_np = np.array(self.timesteps)
+                    results_np = np.array(self.results)
                     os.makedirs(f"{self.directory}/eval_results", exist_ok=True)
-                    np.savez(f"{self.directory}/eval_results/evaluations.npz", timesteps=timesteps, results=results)
+                    np.savez(f"{self.directory}/eval_results/evaluations.npz", timesteps=timesteps_np, results=results_np)
                     # add to tensorboard
                     self.sw.add_scalar("eval/mean_reward", rewards, timesteps)
                     print(f"TimeStep: {timesteps}, Evaluation reward: {rewards}")
@@ -343,8 +338,7 @@ class DIAYN_MB():
             env.env.seed(self.seed)
             total_reward = 0
             obs = env.reset()
-            for i in range(50):
-                print(i)
+            for i in range(self.alg_params['trial_length']):
                 action_seq = self.agent.plan(obs)
                 obs, reward, done, _ = env.step(action_seq[0])
                 total_reward += reward
@@ -352,207 +346,105 @@ class DIAYN_MB():
         return total_rewards
             
     def finetune(self):
-        '''
-        pets_hyperparams = dict(
-        learning_rate = 1e-3,
-        batch_size = 64,
-        ensemble_size = 5,
-        trial_length = conf.max_steps/4,
-        planning_horizon = 15,
-        elite_ratio = 0.1,
-        num_particles = 20,
-        weight_decay = 5e-5
-        algorithm = "pets"
-        '''
-        print("I am here1")
         self.timesteps = []
         self.results = []
         # create MBRL lib gym-like env wrapper
         env_name = self.env_name
         seed = self.seed
-        best_skill = np.argmax( np.mean([self.best_skill() for _ in range(10)], axis=0))
-        print("I am here2")
-        env = SkillWrapperFinetune(gym.make(env_name), self.params['n_skills'], best_skill)
-        env.env.seed(seed)
-        rng = np.random.default_rng(seed=seed)
-        generator = torch.Generator(device=self.conf.device)
-        generator.manual_seed(seed)
-        obs_shape = env.observation_space.shape
-        act_shape = env.action_space.shape
-        # reward_fn = AdaptationReward(env_name)
-        term_fn = Termination(env_name)
-        # load the pretrained policy
-        
-        ## Configrations
-        # TODO: replace this with the hyperparams arguments
-        trial_length = self.alg_params['trial_length'] 
-        num_trials = int(self.params['finetune_steps'] // trial_length)
-        ensemble_size = self.alg_params['ensemble_size']
-        # Everything with "???" indicates an option with a missing value.
-        # Our utility functions will fill in these details using the 
-        # environment information
-        # TODO: replace this with the hyperparams arguments
-        cfg_dict = {
-            # dynamics model configuration
-            "dynamics_model": {
-                "_target_": "mbrl.models.GaussianMLP",
-                "device": conf.device,
-                "num_layers": 2,
-                "ensemble_size": ensemble_size,
-                "hid_size": 300,
-                "in_size": "???",
-                "out_size": "???",
-                "deterministic": False,
-                "propagation_method": "fixed_model",
-                # can also configure activation function for GaussianMLP
-                "activation_fn_cfg": {
-                    "_target_": "torch.nn.LeakyReLU",
-                    "negative_slope": 0.01
-                }
-            },
-            # options for training the dynamics model
-            "algorithm": {
-                "learned_rewards": True,
-                "target_is_delta": True,
-                "normalize": True,
-            },
-            # these are experiment specific options
-            "overrides": {
-                "trial_length": trial_length,
-                "num_steps": self.params['pretrain_steps'],
-                "model_batch_size": self.alg_params['batch_size'],
-                "validation_ratio": 0.05
-            }
-        }
-        # TODO: replace this with the hyperparams arguments
-        cfg = omegaconf.OmegaConf.create(cfg_dict)
-        # Create a 1-D dynamics model for this environment
-        dynamics_model = common_util.create_one_dim_tr_model(cfg, obs_shape, act_shape)
+        best_skill = np.argmax( np.mean([self.best_skill() for _ in range(3)], axis=0))
 
-        # Create a gym-like environment to encapsulate the model
-        model_env = models.ModelEnv(env, dynamics_model, term_fn, None, generator=generator)
-        # load the pretrained model
-        model_env.dynamics_model.load(f"{self.directory}")
-        # Create the replay buffer
-        replay_buffer = common_util.create_replay_buffer(cfg, obs_shape, act_shape, rng=rng)
-        # collect a random trajectory
-        common_util.rollout_agent_trajectories(
-            env,
-            5 * trial_length, # initial exploration steps
-            planning.RandomAgent(env),
-            {}, # keyword arguments to pass to agent.act()
-            replay_buffer=replay_buffer,
-            trial_length=trial_length
-        )
-        timesteps = 5 * trial_length
-        print("# samples stored", replay_buffer.num_stored)
-        # CEM (Cross-Entropy Method) agent
-        # TODO: replace this with the hyperparams arguments
-        agent_cfg = omegaconf.OmegaConf.create({
-        # this class evaluates many trajectories and picks the best one
-        "_target_": "mbrl.planning.TrajectoryOptimizerAgent",
-        "planning_horizon": self.alg_params['planning_horizon'],
-        "replan_freq": 1,
-        "verbose": False,
-        "action_lb": "???",
-        "action_ub": "???",
-        # this is the optimizer to generate and choose a trajectory
-        "optimizer_cfg": {
-            "_target_": "mbrl.planning.CEMOptimizer",
-            "num_iterations": 5,
-            "elite_ratio": self.alg_params['elite_ratio'],
-            "population_size": self.alg_params['population_size'],
-            "alpha": 0.1,
-            "device": conf.device,
-            "lower_bound": "???",
-            "upper_bound": "???",
-            "return_mean_elites": True,
-            "clipped_normal": False
-        }
-        })
-        # TODO: replace this with the hyperparams arguments
-        agent = planning.create_trajectory_optim_agent_for_model(
-            model_env,
-            agent_cfg,
-            num_particles=self.alg_params['num_particles'],
-        )
-        # TODO: Add tensorboard
-        # Main Training loop
-        # Create a trainer for the model
-        # TODO: replace this with the hyperparams arguments
-        model_trainer = models.ModelTrainer(dynamics_model, optim_lr=self.alg_params['learning_rate'], weight_decay=self.alg_params['weight_decay'])
-        # number of trials is the number of iterations 
-        best_eval_reward = -np.inf
-        for trial in range(num_trials):
-          # initilization
-            obs = env.reset()    
-            agent.reset()
-            done = False
-            total_reward = 0.0
-            steps_trial = 0
-            while not done:
-                print(f"Trial: {trial}, step: {steps_trial}")
-                # --------------- Model Training -----------------
-                if steps_trial == 0:
-                    dynamics_model.update_normalizer(replay_buffer.get_all())  # update normalizer stats
+        env = DummyVecEnv([lambda: SkillWrapperFinetune(Monitor(gym.make(
+        self.env_name),  f"{self.directory}/finetune_train_results"), self.params['n_skills'], r_seed=None,max_steps=gym.make(self.env_name)._max_episode_steps, skill=best_skill)])
 
-                    dataset_train, dataset_val = common_util.get_basic_buffer_iterators(
-                        replay_buffer,
-                        batch_size=cfg.overrides.model_batch_size,
-                        val_ratio=cfg.overrides.validation_ratio,
-                        ensemble_size=ensemble_size,
-                        shuffle_each_epoch=True,
-                        bootstrap_permutes=False,  # build bootstrap dataset using sampling with replacement
+        adaptation_model = SAC('MlpPolicy', env, verbose=1,
+                    learning_rate=self.adapt_params['learning_rate'],
+                    batch_size=self.adapt_params['batch_size'],
+                    gamma=self.adapt_params['gamma'],
+                    buffer_size=self.adapt_params['buffer_size'],
+                    tau=self.adapt_params['tau'],
+                    ent_coef=self.adapt_params['ent_coef'],
+                    gradient_steps=self.adapt_params['gradient_steps'],
+                    learning_starts=self.adapt_params['learning_starts'],
+                    policy_kwargs=dict(net_arch=dict(pi=[2*self.conf.layer_size_policy, 2*self.conf.layer_size_policy], qf=[
+                                       self.conf.layer_size_q, self.conf.layer_size_q])),
+                    tensorboard_log=self.directory,
+                    seed=self.seed
                     )
-                    # train the model dynamics
-                    model_trainer.train(
-                        dataset_train, 
-                        dataset_val=dataset_val, 
-                        num_epochs=50, 
-                        patience=50, 
-                        # callback=train_callback,
-                        silent=True)
-                    
-                    # add data to the discriminator buffer
-                    env_obs, skill = self.split_obs(obs)
-                    obs_t = torch.tensor(env_obs)
-                    skill = torch.tensor(skill, device=conf.device)
-                    self.buffer.add(obs_t, skill)
-                    
-                    # update the discriminator
-                    # self.update_discriminator()
 
-                # --- Doing env step using the agent and adding to model dataset ---
-                next_obs, reward, done, _ = common_util.step_env_and_add_to_buffer(
-                    env, obs, agent, {}, replay_buffer)
-                
-                if timesteps % (conf.eval_freq//2) == 0:
-                    rewards = self.evaluate_policy(self.env_name, model_env)
-                    if rewards.mean() > best_eval_reward:
-                        best_eval_reward = rewards.mean()
-                        print(f"New best task reward: {best_eval_reward}")
-                        # save the model
-                        model_env.dynamics_model.save(f"{self.directory}/best_finetuned_model_skillIndex:{best_skill}")
-                    self.timesteps.append(timesteps)
-                    self.results.append(rewards)
-                    timesteps = np.array(timesteps)
-                    results = np.array(self.results)
-                    os.makedirs(f"{self.directory}/finetune_eval_results", exist_ok=True)
-                    np.savez(f"{self.directory}/finetune_eval_results/evaluations.npz", timesteps=timesteps, results=results)
-                    # add to tensorboard
-                    self.sw_adapt.add_scalar("eval/mean_reward", rewards.mean(), timesteps)
-                    print(f"TimeStep: {timesteps}, Evaluation reward: {rewards.mean()}")
-                timesteps += 1
-                
-                    
-                obs = next_obs
-                total_reward += reward
-                steps_trial += 1
+        eval_env = SkillWrapperFinetune(gym.make(
+            self.env_name), self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, r_seed=None, skill=best_skill)
+        eval_env = Monitor(eval_env, f"{self.directory}/finetune_eval_results")
 
-                if steps_trial == trial_length:
-                    self.sw_adapt.add_scalar("rollout/ep_rew_mean", total_reward, timesteps)
-                    print(f"TimeStep: {timesteps}, Rollout reward: {total_reward}")
-                    break
+        eval_callback = EvalCallback(eval_env, best_model_save_path=self.directory + f"/best_finetuned_model_skillIndex:{best_skill}",
+                                    log_path=f"{self.directory}/finetune_eval_results", eval_freq=self.conf.eval_freq,
+                                    deterministic=True, render=False)
+
+        env = DummyVecEnv([lambda: SkillWrapperFinetune(Monitor(gym.make(
+    self.env_name),  f"{self.directory}/finetune_train_results"), self.params['n_skills'], r_seed=None,max_steps=gym.make(self.env_name)._max_episode_steps, skill=best_skill)])
+
+        adaptation_model = SAC('MlpPolicy', env, verbose=1,
+                    learning_rate=self.adapt_params['learning_rate'],
+                    batch_size=self.adapt_params['batch_size'],
+                    gamma=self.adapt_params['gamma'],
+                    buffer_size=self.adapt_params['buffer_size'],
+                    tau=self.adapt_params['tau'],
+                    ent_coef=self.adapt_params['ent_coef'],
+                    gradient_steps=self.adapt_params['gradient_steps'],
+                    learning_starts=self.adapt_params['learning_starts'],
+                    policy_kwargs=dict(net_arch=dict(pi=[2*self.conf.layer_size_policy, 2*self.conf.layer_size_policy], qf=[
+                                       self.conf.layer_size_q, self.conf.layer_size_q])),
+                    tensorboard_log=self.directory,
+                    seed=self.seed
+                    )
+
+        eval_env = SkillWrapperFinetune(gym.make(
+            self.env_name), self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, r_seed=None, skill=best_skill)
+        eval_env = Monitor(eval_env, f"{self.directory}/finetune_eval_results")
+
+        eval_callback = EvalCallback(eval_env, best_model_save_path=self.directory + f"/best_finetuned_model_skillIndex:{best_skill}",
+                                    log_path=f"{self.directory}/finetune_eval_results", eval_freq=self.conf.eval_freq,
+                                    deterministic=True, render=False)
+        # load the policy weights from the environment model
+        model = self.load_env_model_for_adapt(self.model_env)
+        print(model)
+        print(adaptation_model.actor.latent_pi)
+        adaptation_model.actor.latent_pi = model
+        adaptation_model.actor.mu = nn.Linear(conf.layer_size_policy, env.action_space.shape[0])
+        adaptation_model.actor.log_std = nn.Linear(conf.layer_size_policy, env.action_space.shape[0])
+        # load the discriminator
+        d = copy.deepcopy(self.d)
+        d.layers[0] = nn.Linear(gym.make(self.env_name).observation_space.shape[0]+self.params['n_skills'] +1, self.conf.layer_size_discriminator)
+        d.head = nn.Sequential(*d.layers)
+        d.output = nn.Linear(self.conf.layer_size_discriminator, 1)
+        adaptation_model.critic.qf0 = d
+        adaptation_model.critic.qf1 = copy.deepcopy(d)
+        adaptation_model.critic_target.qf0 = copy.deepcopy(d)
+        adaptation_model.critic_target.qf1 = copy.deepcopy(d)
+        adaptation_model.learn(total_timesteps=self.params['finetune_steps'],
+                    callback=eval_callback, tb_log_name="PETS_FineTune", d=None, mi_estimator=None)
+
+        return adaptation_model, best_skill
+
+
+
+    def load_env_model_for_adapt(self, model_env):
+        # pick a model randomly from the ensamble 
+        random_model = np.random.randint(low=0, high=self.alg_params['ensemble_size'])
+        layers = []
+        act = nn.ReLU()
+        for i in range(2):
+            state_dict = {}
+            model_layer_weight = model_env.dynamics_model.model.state_dict()[f"hidden_layers.{i}.0.weight"][random_model]
+            state_dict["weight"] = model_layer_weight.T
+            model_layer_bias = model_env.dynamics_model.model.state_dict()[f"hidden_layers.{i}.0.bias"][random_model]
+            state_dict["bias"] = model_layer_bias.reshape(-1)
+            layer = nn.Linear(model_layer_weight.shape[0], model_layer_weight.shape[1])
+            layer.load_state_dict(state_dict)
+            layers.append(layer)
+            layers.append(act)
+        layers[0] = nn.Linear(gym.make(self.env_name).observation_space.shape[0]+self.params["n_skills"], conf.layer_size_policy)
+        model = nn.Sequential(*layers)
+        return model
         
     
     # common_util.rollout_model_env()

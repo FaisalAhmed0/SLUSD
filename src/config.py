@@ -33,16 +33,16 @@ total_timesteps = int(1e8),
 layer_size_shared = 512,
     
 # layer size of the actor
-layer_size_policy = 128,
+layer_size_policy = 512,
 
 # layer size of the value function critic
-layer_size_value = 128,
+layer_size_value = 512,
     
 # layer size of the Q-function critic
-layer_size_q = 500,
+layer_size_q = 1024,
 
 # layer size of the skills discriminator
-layer_size_discriminator = 1024,
+layer_size_discriminator = 512,
     
 # layer size of the skills discriminator
 num_layers_discriminator = 2,
@@ -69,7 +69,7 @@ font_scale = 1.2,
 learning_curve_figsize = (8, 6),
     
 # random seeds
-seeds = (0,),# 10),#, 1234, 5, 42), #10]# 10, 1234, 5, 42 ]
+seeds = (0,),# 10),#, 1234,
 
 # device
 device = "cuda" if torch.cuda.is_available() else "cpu",
