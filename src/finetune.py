@@ -110,7 +110,7 @@ envs_mp = [
     { # 6 dof
      'ppo':{
         'Walker2d-v2': dict( 
-           pretrain_steps = int(700),
+           pretrain_steps = int(700e6),
             n_skills = 30
              ),
         },
@@ -175,7 +175,7 @@ ppo_hyperparams = dict(
     gae_lambda = 0.95,
     clip_range = 0.1,
     ent_coef=0.5,
-    n_actors = 5,
+    n_actors = 8,
     algorithm = "ppo",
     
 )
@@ -209,22 +209,21 @@ pets_hyperparams = dict(
 
 
 # Evolution Stratigies Hyperparameters after hyperparameters search
-'''
 es_hyperparams = dict(
     lr = 1e-2, # learning rate 
     iterations = 100, # iterations 
     pop_size = 500, # population size
     algorithm = "es"
 )
-'''
-# Dummy
-es_hyperparams = dict(
-    lr = 1e-2, # learning rate 
-    iterations = 3, # iterations 
-    iterations_finetune = 3,
-    pop_size = 2, # population size
-    algorithm = "es"
-)
+
+# # Dummy
+# es_hyperparams = dict(
+#     lr = 1e-2, # learning rate 
+#     iterations = 3, # iterations 
+#     iterations_finetune = 3,
+#     pop_size = 2, # population size
+#     algorithm = "es"
+# )
 
 hyperparams = {
     'ppo': ppo_hyperparams,
@@ -317,7 +316,6 @@ def train_all(env_params, results_df_list, plots_d_list):
             elif alg == "es":
                 params['n_skills'] = env_params[alg][env]['n_skills']
                 alg_params['iterations'] = env_params[alg][env]['pretrain_iterations']
-                alg_params['iterations_finetune'] = env_params[alg][env]['adaptation_iterations']
                 print(f"stamp: {timestamp}, alg: {alg}, env: {env}, n_skills: {params['n_skills']}, pretrain_iterations: {alg_params['iterations']}")
             # save_params(alg, env_dir)
             if (env_params[alg][env]).get('clip_range'):
@@ -408,7 +406,7 @@ if __name__ == "__main__":
         manager = mp.Manager()
         results_df_list = manager.list()
         plots_d_list = manager.list()
-        n_processes = len(envs_mp[:1])
+        n_processes = len(envs_mp)
         processes_list = []
         for i in range(n_processes):
             p = mp.Process(target=train_all, args=(envs_mp[i], results_df_list, plots_d_list))

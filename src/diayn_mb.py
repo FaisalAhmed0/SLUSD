@@ -149,9 +149,9 @@ class DIAYN_MB():
         trial_length = self.alg_params['trial_length'] 
         self.trial_length = trial_length
         num_trials = int(self.params['pretrain_steps'] // trial_length)
-        print(trial_length)
-        print(self.params['pretrain_steps'])
-        print(num_trials)
+        print(f"trial_length:{trial_length}")
+        print(f"pretraining steps: {self.params['pretrain_steps']}")
+        print(f"num_trials: {num_trials}")
         # input()
         ensemble_size = self.alg_params['ensemble_size'] 
         # Everything with "???" indicates an option with a missing value.
@@ -483,7 +483,7 @@ class DIAYN_MB():
         total_reward = 0
         obs = env.reset()
         for i in range(self.trial_length):
-            print(f"Step: {i}")
+            # print(f"Step: {i}")
             action_seq = agent.plan(obs)
             obs, reward, done, _ = env.step(action_seq[0])
             total_reward += reward

@@ -24,7 +24,7 @@ generalization_exper_dir = "generalization_exper/",
 eval_runs = 5,
     
 # evaluation frequency
-eval_freq = 1000,
+eval_freq = 10000,
 
 # total time steps
 total_timesteps = int(1e8),
@@ -69,7 +69,7 @@ font_scale = 1.2,
 learning_curve_figsize = (8, 6),
     
 # random seeds
-seeds = (0,),# 10),#, 1234,
+seeds = (0, 10, 1234),
 
 # device
 device = "cuda" if torch.cuda.is_available() else "cpu",
