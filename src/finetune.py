@@ -216,15 +216,6 @@ es_hyperparams = dict(
     algorithm = "es"
 )
 
-# # Dummy
-# es_hyperparams = dict(
-#     lr = 1e-2, # learning rate 
-#     iterations = 3, # iterations 
-#     iterations_finetune = 3,
-#     pop_size = 2, # population size
-#     algorithm = "es"
-# )
-
 hyperparams = {
     'ppo': ppo_hyperparams,
     'sac': sac_hyperparams,
@@ -381,6 +372,7 @@ def train_all(env_params, results_df_list, plots_d_list):
             plots_dict[env]["skills"].append(params['n_skills'])
             plots_dict[env]["pms"].append(discriminator_hyperparams['parametrization'])
             plots_dict[env]["lbs"].append(discriminator_hyperparams['lower_bound'])
+        
         save_final_results(seed_results, env_dir)
         results_df_list.append(results_df)
         plots_d_list.append(plots_dict)

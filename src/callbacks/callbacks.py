@@ -19,7 +19,7 @@ from stable_baselines3.common.monitor import Monitor
 
 
 from src.environment_wrappers.env_wrappers import RewardWrapper, SkillWrapper, SkillWrapperFinetune
-from src.utils import record_video, best_skill, evaluate_mi
+from src.utils import record_video, best_skill, evaluate_mi, evaluate_pretrained_policy_intr, evaluate_pretrained_policy_ext
 from src.mi_lower_bounds import mi_lower_bound
 from src.config import conf
 
@@ -291,25 +291,26 @@ class DiscriminatorCallback(BaseCallback):
                 torch.save(self.d.state_dict(), self.save_dir + "/disc.pth")
 
 
-class FineTuneCallback(BaseCallback):
+class EvaluationCallback(BaseCallback):
     '''
     A callback to check the peroformance of the downstream task every N steps 
     '''
 
-    def __init__(self, args, params, alg_params, conf, seed, alg, timestamp, n_samples=100):
+    def __init__(self, env_name, alg, discriminator, params, pm, n_samples=100):
         super().__init__()
-        self.args = args
-        self.env_name = args.env
-        self.directory = None
+        self.env_name = env_name
         self.params = params
-        self.alg_params = alg_params
-        self.seed = seed
-        self.conf = conf
         self.freq = params['pretrain_steps'] // n_samples
         # print(f"freq:{self.freq}")
         # input()
-        self.timestamp = timestamp
         self.alg = alg
+        self.d = discriminator
+        self.skills = params['n_skills']
+        self.pm = pm
+        self.steps = []
+        self.intr_rewards = []
+        self.extr_rewards = []
+        
 
     def _on_step(self):
         """
@@ -323,99 +324,15 @@ class FineTuneCallback(BaseCallback):
         # print(f"timestep: {self.num_timesteps}")
         # print(f"freq: {self.freq}")
         # print(f"rem: {self.num_timesteps % self.freq }")
+        self.pretrained_policy = self.model
         if self.num_timesteps % self.freq == 0:
-            print(f"We finetune in timestep: {self.num_timesteps}")
-            # input()
-            self.finetune(self.num_timesteps)
-
+            intr_reward = np.mean( [evaluate_pretrained_policy_intr(self.env_name, self.skills, self.pretrained_policy, self.d, self.pm, self.alg) for _ in range(5) ] )
+            extr_reward = np.mean( [evaluate_pretrained_policy_ext(self.env_name, self.skills, self.pretrained_policy, self.alg) for _ in range(5)] )
+            self.steps.append(self.num_timesteps)
+            self.intr_rewards.append(intr_reward)
+            self.extr_rewards.append(extr_reward)
         return True
-
-    # finetune the pretrained policy on a specific task
-
-    def finetune(self, steps):
-        model_dir = self.conf.pretrain_steps_exper_dir + \
-            f"{self.args.env}/" + \
-            f"{self.alg}_{self.args.env}_skills:{self.params['n_skills']}_{self.timestamp}"
-        self.directory = self.conf.pretrain_steps_exper_dir + \
-            f"{self.args.env}/" + \
-            f"{self.alg}_{self.args.env}_skills:{self.params['n_skills']}_pretrain_steps:{steps}_{self.timestamp}"
-        os.makedirs(self.directory)
-        env = DummyVecEnv([lambda: SkillWrapper(gym.make(
-            self.env_name), self.params['n_skills'], max_steps=self.conf.max_steps)])
-        model_dir = model_dir + "/best_model"
-        if self.alg == "sac":
-            model = SAC.load(model_dir, env=env, seed=self.seed)
-        elif self.alg == "ppo":
-            model = PPO.load(model_dir, env=env,  clip_range=get_schedule_fn(
-                self.alg_params['clip_range']), seed=self.seed)
-
-        best_skill_index = best_skill(
-            model, self.env_name,  self.params['n_skills'])
-
-        del model
-
-        if self.alg == "sac":
-            env = DummyVecEnv([lambda: SkillWrapperFinetune(Monitor(gym.make(
-                self.env_name),  f"{self.directory}/finetune_train_results"), self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, skill=best_skill_index)])
-            model = SAC('MlpPolicy', env, verbose=1,
-                        learning_rate=self.alg_params['learning_rate'],
-                        batch_size=self.alg_params['batch_size'],
-                        gamma=self.alg_params['gamma'],
-                        buffer_size=self.alg_params['buffer_size'],
-                        tau=self.alg_params['tau'],
-                        gradient_steps=self.alg_params['gradient_steps'],
-                        learning_starts=self.alg_params['learning_starts'],
-                        policy_kwargs=dict(net_arch=dict(pi=[self.conf.layer_size_policy, self.conf.layer_size_policy], qf=[
-                                           self.conf.layer_size_value, self.conf.layer_size_value])),
-                        tensorboard_log=self.directory,
-                        )
-        elif self.alg == "ppo":
-            env = DummyVecEnv([lambda: SkillWrapperFinetune(Monitor(gym.make(
-                self.env_name),  f"{self.directory}/finetune_train_results"), self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, skill=best_skill_index),
-                lambda: SkillWrapperFinetune(Monitor(gym.make(
-                    self.env_name),  f"{self.directory}/finetune_train_results"), self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, skill=best_skill_index), lambda: SkillWrapperFinetune(Monitor(gym.make(
-                        self.env_name),  f"{self.directory}/finetune_train_results"), self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, skill=best_skill_index), lambda: SkillWrapperFinetune(Monitor(gym.make(
-                            self.env_name),  f"{self.directory}/finetune_train_results"), self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, skill=best_skill_index)])
-
-            model = PPO('MlpPolicy', env, verbose=1,
-                        learning_rate=self.alg_params['learning_rate'],
-                        n_steps=self.alg_params['n_steps'],
-                        batch_size=self.alg_params['batch_size'],
-                        n_epochs=self.alg_params['n_epochs'],
-                        gamma=self.alg_params['gamma'],
-                        gae_lambda=self.alg_params['gae_lambda'],
-                        clip_range=self.alg_params['clip_range'],
-                        policy_kwargs=dict(activation_fn=nn.Tanh,
-                                           net_arch=[dict(pi=[self.conf.layer_size_policy, self.conf.layer_size_policy], vf=[self.conf.layer_size_value, self.conf.layer_size_value])]),
-                        tensorboard_log=self.directory,
-
-                        )
-
-        # env = DummyVecEnv([lambda: SkillWrapperFinetune(Monitor(gym.make(
-        # self.env_name),  f"{self.directory}/finetune_train_results"), self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, skill=best_skill_index)])
-
-        eval_env = SkillWrapperFinetune(gym.make(
-            self.env_name), self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, skill=best_skill_index)
-        eval_env = Monitor(eval_env, f"{self.directory}/finetune_eval_results")
-
-        eval_callback = EvalCallback(eval_env, best_model_save_path=self.directory + f"/best_finetuned_model_skillIndex:{best_skill_index}",
-                                     log_path=f"{self.directory}/finetune_eval_results", eval_freq=1000,
-                                     deterministic=True, render=False)
-        if self.alg == "sac":
-            model = SAC.load(model_dir, env=env,
-                             tensorboard_log=self.directory)
-            model.learn(total_timesteps=self.params['finetune_steps'],
-                        callback=eval_callback, tb_log_name="SAC_FineTune")
-        elif self.alg == "ppo":
-            model = PPO.load(model_dir, env=env, tensorboard_log=self.directory,
-                             clip_range=get_schedule_fn(self.alg_params['clip_range']))
-
-            model.learn(total_timesteps=self.params['finetune_steps'],
-                        callback=eval_callback, tb_log_name="PPO_FineTune")
-
-        # record a video of the agent
-        # record_video_finetune(self.env_name, best_skill_index, model,
-        #                     self.params['n_skills'], video_length=1000, video_folder='videos_finetune/', alg=self.alg)
+        
 
 # Callback for evaluation 
 class MI_EvalCallback(BaseCallback):

@@ -23,7 +23,7 @@ from src.environment_wrappers.env_wrappers import RewardWrapper, SkillWrapper, S
 from src.utils import record_video_finetune, best_skill
 from src.models.models import Discriminator, MLP_policy
 from src.replayBuffers import DataBuffer
-from src.callbacks.callbacks import DiscriminatorCallback, VideoRecorderCallback, FineTuneCallback
+from src.callbacks.callbacks import DiscriminatorCallback, VideoRecorderCallback
 from src.individuals import MountainCar, Swimmer, HalfCheetah, Ant, Walker
 from src.individuals.population import NormalPopulation
 

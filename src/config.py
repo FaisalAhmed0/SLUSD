@@ -15,7 +15,7 @@ videos_dir = "videos/",
 log_dir_finetune  = "logs_finetune/",
 
 # pretrain_steps_expriment_directory
-pretrain_steps_exper_dir = "pretrain_steps_exper/",
+scalability_exper_dir = "logs_scalability_exper/",
 
 # generalization experiment directory
 generalization_exper_dir = "generalization_exper/",

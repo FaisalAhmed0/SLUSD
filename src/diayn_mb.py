@@ -36,7 +36,7 @@ from src.utils import record_video_finetune, best_skill
 from src.mi_lower_bounds import mi_lower_bound
 from src.models.models import Discriminator, SeparableCritic, ConcatCritic
 from src.replayBuffers import DataBuffer
-from src.callbacks.callbacks import DiscriminatorCallback, VideoRecorderCallback, FineTuneCallback, MI_EvalCallback
+from src.callbacks.callbacks import DiscriminatorCallback, VideoRecorderCallback, MI_EvalCallback
 from src.config import conf
 
 import torch
