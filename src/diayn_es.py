@@ -20,7 +20,7 @@ from stable_baselines3.common.callbacks import EvalCallback
 from stable_baselines3.common.monitor import Monitor
 
 from src.environment_wrappers.env_wrappers import RewardWrapper, SkillWrapper, SkillWrapperFinetune
-from src.utils import record_video_finetune, best_skill
+from src.utils import record_video_finetune, best_skill, evaluate_pretrained_policy_intr, evaluate_pretrained_policy_ext
 from src.models.models import Discriminator, MLP_policy
 from src.replayBuffers import DataBuffer
 from src.callbacks.callbacks import DiscriminatorCallback, VideoRecorderCallback
@@ -38,7 +38,7 @@ import os
 
 
 class DIAYN_ES():
-    def __init__(self, params, es_params, discriminator_hyperparams, env="MountainCarContinuous-v0", alg="es", directory="./", seed=10, device="cpu", conf=None, timestamp=None, checkpoints=False, args=None, task=None, adapt_params=None):
+    def __init__(self, params, es_params, discriminator_hyperparams, env="MountainCarContinuous-v0", alg="es", directory="./", seed=10, device="cpu", conf=None, timestamp=None, checkpoints=False, args=None, task=None, adapt_params=None, n_samples=None):
         # create the discirminator
         state_dim = gym.make(env).observation_space.shape[0]
         skill_dim = params['n_skills']
@@ -112,7 +112,12 @@ class DIAYN_ES():
         self.alpha_logit = discriminator_hyperparams['alpha_logit']
         # gradient clip
         self.gradient_clip = discriminator_hyperparams['gradient_clip']
+        # hyeperparameters for the adaptation algorithm
         self.adapt_params = adapt_params
+        # checkpoint
+        self.checkpoints = checkpoints
+        # number of checkpoints
+        self.n_samples = n_samples
     # pretraining step with intrinsic reward    
     def pretrain(self):
         # create the indiviual object according to the environment
@@ -175,6 +180,13 @@ class DIAYN_ES():
         best_fit = -np.inf
         results = []
         timesteps = []
+        # for scalability experiment
+        if self.checkpoints:
+            steps_l = []
+            intr_rewards = []
+            extr_rewards = []
+            freq = iterations // self.n_samples
+            print(f"checkpoints freq: {freq}")
         for i in pbar:
             optim.zero_grad()
             # update the policy
@@ -219,8 +231,42 @@ class DIAYN_ES():
                 Discriminator weights norm: {d_weight_norm}
                 '''
                 print(printed_logs)
+            # if checkpoints is true add to the logs
+            if self.checkpoints and (i%freq == 0):
+                indv = self.env_indv_from_name()
+                params = population.param_means
+                pretrained_policy = indv.from_params(params)
+                intr_reward = np.mean( [evaluate_pretrained_policy_intr(self.env_name, self.n_skills, pretrained_policy, self.d, self.paramerization, "es") for _ in range(10) ] )
+                extr_reward = np.mean( [evaluate_pretrained_policy_ext(self.env_name, self.n_skills, pretrained_policy, "es") for _ in range(10)] )
+                steps_l.append(self.timesteps)
+                intr_rewards.append(intr_reward)
+                extr_rewards.append(extr_reward)
         pool.close()
+        if self.checkpoints:
+            results = {
+                'steps': steps_l,
+                'intr_rewards': intr_rewards,
+                'extr_rewards': extr_rewards
+            }
+            return env_indv, self.d, results
         return env_indv, self.d
+    
+    
+    def env_indv_from_name(self):
+        if self.env_name == "MountainCarContinuous-v0":
+            env_indv = MountainCar.MountainCar()
+        elif self.env_name == "Swimmer-v2":
+            env_indv = Swimmer.Swimmer()
+        elif self.env_name == "Walker2d-v2":
+            env_indv = Walker.Walker()
+        elif self.env_name == "HalfCheetah-v2":
+            env_indv = HalfCheetah.HalfCheetah()
+        elif self.env_name == "Ant-v2":
+            env_indv = Ant.Ant()
+        else:
+            raise ValueError(f'Environment {self.env_name} is not implemented')
+        return env_indv
+        
         
     # Finetune on a pretrained policy
     def finetune(self):

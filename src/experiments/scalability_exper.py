@@ -121,7 +121,7 @@ pets_hyperparams = dict(
 es_hyperparams = dict(
     lr = 1e-2, # learning rate 
     iterations = 100, # iterations 
-    pop_size = 500, # population size
+    pop_size = 2, # population size
     algorithm = "es"
 )
 
@@ -150,9 +150,120 @@ discriminator_hyperparams = dict(
     alpha_logit = -5., # small value of alpha => reduce the variance of nwj by introduce some nce bias 
 )
 
-# save a timestamp
-timestamp = time.time()
-
+# list for multip-processing
+envs_mp = [
+    # 1
+    { # 1 dof
+     'ppo':{
+        'MountainCarContinuous-v0': dict( 
+           pretrain_steps = int(5000), 
+            n_skills = 10 
+             ),
+        },
+    'sac':{
+        'MountainCarContinuous-v0': dict( 
+           pretrain_steps = int (5000),
+            n_skills = 10 
+             ), 
+        },
+    'es':{
+        'MountainCarContinuous-v0': dict( 
+           pretrain_iterations = 500,
+            n_skills = 10
+             ),
+        },
+    # 'pets':{
+    #     'MountainCarContinuous-v0': dict( 
+    #        pretrain_steps = int (3e5),
+    #         n_skills = 10 
+    #          ),
+    #     },
+    
+    },
+    # 2
+    { # 6 dof
+     'ppo':{
+        'HalfCheetah-v2': dict( 
+           pretrain_steps = int(500e6),
+            n_skills = 30
+             ), 
+        },
+    'sac':{
+        'HalfCheetah-v2': dict( 
+           pretrain_steps = int(2e6),
+            n_skills = 30
+             ), 
+        },
+    'es':{
+        'HalfCheetah-v2': dict( 
+           pretrain_iterations = 25000,
+            n_skills = 30 
+             ), 
+        },
+    'pets':{
+        'HalfCheetah-v2': dict( 
+           pretrain_steps = int (3.5e5),
+            n_skills = 30 
+             ), 
+        },
+    },
+    # 3
+    { # 6 dof
+     'ppo':{
+        'Walker2d-v2': dict( 
+           pretrain_steps = int(700e6),
+            n_skills = 30
+             ),
+        },
+    'sac':{
+        'Walker2d-v2': dict( 
+           pretrain_steps = int(2.5e6),
+            n_skills = 30
+             ),
+        },
+    'es':{
+        'Walker2d-v2': dict( 
+           pretrain_iterations = 25000,
+            n_skills = 30 
+             ),
+        },
+    'pets':{
+        'Walker2d-v2': dict( 
+           pretrain_steps = int (4e5),
+            n_skills = 30 
+             ),
+        },
+        
+    },
+    # 4
+    { # 8 dof
+     'ppo':{
+        'Ant-v2': dict( 
+           pretrain_steps = int(700e6),
+            n_skills = 30
+             ), 
+        },
+    'sac':{
+        'Ant-v2': dict( 
+           pretrain_steps = int(3e6),
+            n_skills = 30
+             ), 
+        },
+    'es':{
+        'Ant-v2': dict( 
+           pretrain_iterations = 30000,
+            n_skills = 30 
+             ), 
+        },
+    'pets':{
+        'Ant-v2': dict( 
+           pretrain_steps = int (5e5),
+            n_skills = 30 
+             ),
+        },
+    },    
+    
+]
 
 # Extract arguments from terminal
 def cmd_args():
@@ -163,6 +274,7 @@ def cmd_args():
     parser.add_argument("--presteps", type=int, default=int(1e6))
     parser.add_argument("--pm", type=str, default="MLP")
     parser.add_argument("--lb", type=str, default="ba")
+    parser.add_argument("--samples", type=int, default=5)
     parser.add_argument("--run_all", type=bool, default=False)
     args = parser.parse_args()
     return args
@@ -213,13 +325,16 @@ def plot_curve(env_name, algs, skills, pms, lbs, asym ,x=None, y=None, y_std=Non
     plt.legend()
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
-    filename = f"{env_name}_scalability_exp_all_algs_x-axis:{xlabel}.png"
+    if len(algs) == 1:
+        filename = f"{env_name}_scalability_exp_alg:{algs[0]}_x-axis:{xlabel}.png"
+    else:
+        filename = f"{env_name}_scalability_exp_all_algs_x-axis:{xlabel}.png"
     files_dir = f"Vis/{env_name}_cls:{pm}_lb:{lb}"
     os.makedirs(files_dir, exist_ok=True)
     plt.savefig(f'{files_dir}/{filename}', dpi=150) 
     
     
-def train_all(env_params, plots_d_list):
+def train_all(env_params, plots_d_list, n_samples):
     plots_dict = {}
     print(f"{env_params}")
     for alg in env_params:
@@ -300,32 +415,22 @@ def train_all(env_params, plots_d_list):
             
         plots_d_list.append(plots_dict)
             
-            
-            
-            
-                
-                    
-                
-                
-                
-            
-                
-    
     
 if __name__ == "__main__":
     args = cmd_args()
     run_all = args.run_all
     discriminator_hyperparams['lower_bound'] = args.lb
     discriminator_hyperparams['parametrization'] = args.pm
+    n_samples = args.samples
     main_exper_dir = conf.scalability_exper_dir + f"cls:{discriminator_hyperparams['parametrization']}, lb:{discriminator_hyperparams['lower_bound']}/"
     if run_all:
         # for mp
         manager = mp.Manager()
         plots_d_list = manager.list()
-        n_processes = len(envs_mp)
+        n_processes = len(envs_mp[:1])
         processes_list = []
         for i in range(n_processes):
-            p = mp.Process(target=train_all, args=(envs_mp[i], plots_d_list))
+            p = mp.Process(target=train_all, args=(envs_mp[i], plots_d_list, n_samples))
             p.start()
             processes_list.append(p)
         for p in processes_list:
@@ -349,7 +454,7 @@ if __name__ == "__main__":
             for i in plots_d_list:
                 o.write(f"{i}\n")
     else:
-        n_samples = 5
+        n_samples = args.samples
         # save a timestamp
         timestamp = time.time()
         print(f"Experiment timestamp: {timestamp}")
@@ -376,10 +481,10 @@ if __name__ == "__main__":
             if args.alg in ("sac", "ppo"):
                 diayn = DIAYN(params, alg_params, discriminator_hyperparams, args.env, args.alg, seed_dir, seed=conf.seeds[i], conf=conf, timestamp=timestamp, adapt_params=sac_hyperparams, n_samples=n_samples, checkpoints=True)
                 pretrained_policy, discriminator, results_dict = diayn.pretrain()
-            elif alg == "pets":
+            elif args.alg == "pets":
                 diayn = DIAYN_MB(params, alg_params, discriminator_hyperparams, args.env, args.alg, seed_dir, seed=conf.seeds[i], conf=conf, timestamp=timestamp, adapt_params=sac_hyperparams, n_samples=n_samples, checkpoints=True)
                 pretrained_policy, discriminator, results_dict = diayn.pretrain()
-            elif alg == "es":
+            elif args.alg == "es":
                 diayn = DIAYN_ES(params, alg_params, discriminator_hyperparams, args.env, "es", seed_dir, seed=conf.seeds[i], conf=conf, timestamp=timestamp, adapt_params=sac_hyperparams, n_samples=n_samples, checkpoints=True)
                 pretrained_policy, discriminator, results_dict = diayn.pretrain()
             asym = asymp_perofrmance[args.env]

@@ -32,7 +32,7 @@ from stable_baselines3.common.monitor import Monitor
 
 from src.environment_wrappers.env_wrappers import RewardWrapper, SkillWrapper, SkillWrapperFinetune
 from src.environment_wrappers.tasks_wrappers import HalfCheetahTaskWrapper
-from src.utils import record_video_finetune, best_skill
+from src.utils import record_video_finetune, best_skill, evaluate_pretrained_policy_intr, evaluate_pretrained_policy_ext
 from src.mi_lower_bounds import mi_lower_bound
 from src.models.models import Discriminator, SeparableCritic, ConcatCritic
 from src.replayBuffers import DataBuffer
@@ -54,7 +54,7 @@ from collections import namedtuple
 
 
 class DIAYN_MB():
-    def __init__(self, params, alg_params, discriminator_hyperparams, env="MountainCarContinuous-v0", alg="pets", directory="./", seed=10, device="cpu", conf=None, timestamp=None, checkpoints=False, args=None, task=None, adapt_params=None):
+    def __init__(self, params, alg_params, discriminator_hyperparams, env="MountainCarContinuous-v0", alg="pets", directory="./", seed=10, device="cpu", conf=None, timestamp=None, checkpoints=False, args=None, task=None, adapt_params=None, n_samples=None):
         # create the discirminator
         state_dim = gym.make(env).observation_space.shape[0]
         skill_dim = params['n_skills']
@@ -127,7 +127,12 @@ class DIAYN_MB():
         self.alpha_logit = discriminator_hyperparams['alpha_logit']
         # gradient clip
         self.gradient_clip = discriminator_hyperparams['gradient_clip']
+        # hyperparameters for the adaptation algorithm
         self.adapt_params = adapt_params
+        # checkpoints for the scalability experiment
+        self.checkpoints = checkpoints
+        # number of checkpoints
+        self.n_samples = n_samples
         
     def pretrain(self):
         self.timesteps = []
@@ -249,6 +254,13 @@ class DIAYN_MB():
         best_eval_reward = -np.inf
         print(f"Trails: {num_trials}")
         timesteps_list = []
+        # for scalability experiment
+        if self.checkpoints:
+            steps_l = []
+            intr_rewards = []
+            extr_rewards = []
+            freq = self.params['pretrain_steps'] // self.n_samples
+            print(f"checkpoints freq: {freq}")
         for trial in range(num_trials):
           # initilization
             obs = env.reset()    
@@ -314,9 +326,17 @@ class DIAYN_MB():
                     # add to tensorboard
                     self.sw.add_scalar("eval/mean_reward", rewards, timesteps)
                     print(f"TimeStep: {timesteps}, Evaluation reward: {rewards}")
-                timesteps += 1
-                
                     
+                # if checkpoints is true add to the logs
+                if self.checkpoints and (timesteps%freq == 0):
+                    pretrained_policy = agent
+                    intr_reward = np.mean( [evaluate_pretrained_policy_intr(self.env_name, self.n_skills, pretrained_policy, self.d, self.paramerization, "pets") for _ in range(10) ] )
+                    extr_reward = np.mean( [evaluate_pretrained_policy_ext(self.env_name, self.n_skills, pretrained_policy, "pets") for _ in range(10)] )
+                    steps_l.append(self.timesteps)
+                    intr_rewards.append(intr_reward)
+                    extr_rewards.append(extr_reward)
+                    
+                timesteps += 1
                 obs = next_obs
                 total_reward += reward
                 steps_trial += 1
@@ -329,6 +349,13 @@ class DIAYN_MB():
         print("broke")        
         self.model_env = model_env
         self.agent = agent
+        if self.checkpoints:
+            results = {
+                'steps': steps_l,
+                'intr_rewards': intr_rewards,
+                'extr_rewards': extr_rewards
+            }
+            return agent, self.d, results
         return agent, self.d
     
     def best_skill(self):
