@@ -156,53 +156,53 @@ envs_mp = [
     { # 1 dof
      'ppo':{
         'MountainCarContinuous-v0': dict( 
-           pretrain_steps = int(5000), 
+           pretrain_steps = int(25e6)//3, 
             n_skills = 10 
              ),
         },
     'sac':{
         'MountainCarContinuous-v0': dict( 
-           pretrain_steps = int (5000),
+           pretrain_steps = int (5e5)//3,
             n_skills = 10 
              ), 
         },
     'es':{
         'MountainCarContinuous-v0': dict( 
-           pretrain_iterations = 500,
+           pretrain_iterations = 20000//3,
             n_skills = 10
              ),
         },
-    # 'pets':{
-    #     'MountainCarContinuous-v0': dict( 
-    #        pretrain_steps = int (3e5),
-    #         n_skills = 10 
-    #          ),
-    #     },
+    'pets':{
+        'MountainCarContinuous-v0': dict( 
+           pretrain_steps = int (3e5)//3,
+            n_skills = 10 
+             ),
+        },
     
     },
     # 2
     { # 6 dof
      'ppo':{
         'HalfCheetah-v2': dict( 
-           pretrain_steps = int(500e6),
+           pretrain_steps = int(500e6)//3,
             n_skills = 30
              ), 
         },
     'sac':{
         'HalfCheetah-v2': dict( 
-           pretrain_steps = int(2e6),
+           pretrain_steps = int(2e6)//3,
             n_skills = 30
              ), 
         },
     'es':{
         'HalfCheetah-v2': dict( 
-           pretrain_iterations = 25000,
+           pretrain_iterations = 25000//3,
             n_skills = 30 
              ), 
         },
     'pets':{
         'HalfCheetah-v2': dict( 
-           pretrain_steps = int (3.5e5),
+           pretrain_steps = int (3.5e5)//3,
             n_skills = 30 
              ), 
         },
@@ -211,25 +211,25 @@ envs_mp = [
     { # 6 dof
      'ppo':{
         'Walker2d-v2': dict( 
-           pretrain_steps = int(700e6),
+           pretrain_steps = int(700e6)//3,
             n_skills = 30
              ),
         },
     'sac':{
         'Walker2d-v2': dict( 
-           pretrain_steps = int(2.5e6),
+           pretrain_steps = int(2.5e6)//3,
             n_skills = 30
              ),
         },
     'es':{
         'Walker2d-v2': dict( 
-           pretrain_iterations = 25000,
+           pretrain_iterations = 25000//3,
             n_skills = 30 
              ),
         },
     'pets':{
         'Walker2d-v2': dict( 
-           pretrain_steps = int (4e5),
+           pretrain_steps = int (4e5)//3,
             n_skills = 30 
              ),
         },
@@ -239,25 +239,25 @@ envs_mp = [
     { # 8 dof
      'ppo':{
         'Ant-v2': dict( 
-           pretrain_steps = int(700e6),
+           pretrain_steps = int(700e6)//3,
             n_skills = 30
              ), 
         },
     'sac':{
         'Ant-v2': dict( 
-           pretrain_steps = int(3e6),
+           pretrain_steps = int(3e6)//3,
             n_skills = 30
              ), 
         },
     'es':{
         'Ant-v2': dict( 
-           pretrain_iterations = 30000,
+           pretrain_iterations = 30000//3,
             n_skills = 30 
              ), 
         },
     'pets':{
         'Ant-v2': dict( 
-           pretrain_steps = int (5e5),
+           pretrain_steps = int (5e5)//3,
             n_skills = 30 
              ),
         },
@@ -274,7 +274,7 @@ def cmd_args():
     parser.add_argument("--presteps", type=int, default=int(1e6))
     parser.add_argument("--pm", type=str, default="MLP")
     parser.add_argument("--lb", type=str, default="ba")
-    parser.add_argument("--samples", type=int, default=5)
+    parser.add_argument("--samples", type=int, default=10)
     parser.add_argument("--run_all", type=bool, default=False)
     args = parser.parse_args()
     return args
@@ -312,16 +312,17 @@ def plot_curve(env_name, algs, skills, pms, lbs, asym ,x=None, y=None, y_std=Non
     ylabel = "Extrinsic Reward"
     plt.figure(figsize=conf.learning_curve_figsize)
     plt.title(f"{env_name[: env_name.index('-')]}")
-    y /= asym
-    y_std /= asym
     for i in range(len(algs)):
         color = colors[i]
         pm = pms[i]
         lb = lbs[i]
         alg = algs[i]
         print(f"Algorithm: {alg}")
-        plt.plot(x, y, label=labels[i], color=color)
-        plt.fill_between(x, (y-y_std), (y+y_std), color=color, alpha=0.3)
+        x_i = x[i]
+        y_i = np.array(y[i])/asym
+        y_std_i = np.array(y_std[i])/asym
+        plt.plot(x_i, y_i, label=labels[i], color=color)
+        plt.fill_between(x_i, (y_i-y_std_i), (y_i+y_std_i), color=color, alpha=0.3)
     plt.legend()
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
@@ -379,10 +380,10 @@ def train_all(env_params, plots_d_list, n_samples):
                 seed_results_extr_reward.append(results_dict['extr_rewards'] )
                 
             steps = results_dict['steps'] 
-            intr_reward_mean = np.mean(seed_results_intr_reward, axis=1)
-            intr_reward_std = np.std(seed_results_intr_reward, axis=1)
-            extr_reward_mean = np.mean(seed_results_extr_reward, axis=1)
-            extr_reward_std = np.std(seed_results_extr_reward, axis=1)
+            intr_reward_mean = np.mean(seed_results_intr_reward, axis=0)
+            intr_reward_std = np.std(seed_results_intr_reward, axis=0)
+            extr_reward_mean = np.mean(seed_results_extr_reward, axis=0)
+            extr_reward_std = np.std(seed_results_extr_reward, axis=0)
             
             if "algs" not in plots_dict[env]:
                 plots_dict[env]["algs"] = []
@@ -435,7 +436,9 @@ if __name__ == "__main__":
             processes_list.append(p)
         for p in processes_list:
             p.join()
-        for plot_dict in plots_d_list:
+        for plot_dict in plots_d_list[1:]:
+            print(plot_dict)
+            input()
             env_name = list(plot_dict.keys())[0]
             algs = plot_dict[env_name]["algs"]
             skills_list = plot_dict[env_name]["skills"]
@@ -447,8 +450,8 @@ if __name__ == "__main__":
             extr_reward_std = plot_dict[env_name]["extr_reward_std"]
             steps = plot_dict[env_name]["steps"]
             asym = asymp_perofrmance[env_name]
-            plot_curve(env_name, alg, skills_list, pms, lbs, asym, x=intr_reward_mean, y=extr_reward_mean, y_std=extr_reward_std, xlabel="Intrinsic Reward")
-            plot_curve(env_name, alg, skills_list, pms, lbs, asym, x=steps, y=extr_reward_mean, y_std=extr_reward_std, xlabel="Pretraining Environment Steps")
+            plot_curve(env_name, algs, skills_list, pms, lbs, asym, x=intr_reward_mean, y=extr_reward_mean, y_std=extr_reward_std, xlabel="Intrinsic Reward")
+            plot_curve(env_name, algs, skills_list, pms, lbs, asym, x=steps, y=extr_reward_mean, y_std=extr_reward_std, xlabel="Pretraining Environment Steps")
         # save the results
         with open(f"{main_exper_dir}/results.txt", "w") as o:
             for i in plots_d_list:

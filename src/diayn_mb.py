@@ -329,9 +329,10 @@ class DIAYN_MB():
                     
                 # if checkpoints is true add to the logs
                 if self.checkpoints and (timesteps%freq == 0):
+                    print("Checkpoint")
                     pretrained_policy = agent
-                    intr_reward = np.mean( [evaluate_pretrained_policy_intr(self.env_name, self.n_skills, pretrained_policy, self.d, self.paramerization, "pets") for _ in range(10) ] )
-                    extr_reward = np.mean( [evaluate_pretrained_policy_ext(self.env_name, self.n_skills, pretrained_policy, "pets") for _ in range(10)] )
+                    intr_reward = np.mean( [evaluate_pretrained_policy_intr(self.env_name, self.n_skills, pretrained_policy, self.d, self.paramerization, "pets") for _ in range(3) ] )
+                    extr_reward = np.mean( [evaluate_pretrained_policy_ext(self.env_name, self.n_skills, pretrained_policy, "pets") for _ in range(3)] )
                     steps_l.append(self.timesteps)
                     intr_rewards.append(intr_reward)
                     extr_rewards.append(extr_reward)
@@ -346,7 +347,7 @@ class DIAYN_MB():
                     print(f"TimeStep: {timesteps}, Rollout reward: {total_reward}")
                     break
             
-        print("broke")        
+            print("broke")        
         self.model_env = model_env
         self.agent = agent
         if self.checkpoints:
