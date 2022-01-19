@@ -43,7 +43,7 @@ asymp_perofrmance = {
 # shared parameters
 params = dict( n_skills = 30,
            pretrain_steps = int(20e3),
-           finetune_steps = int(15e3),
+           finetune_steps = int(1e5),
            buffer_size = int(1e7),
            min_train_size = int(1e4),
              )
@@ -79,6 +79,21 @@ envs_mp = [
         },
     
     },
+    #
+    {
+     'es':{
+        'MountainCarContinuous-v0': dict( 
+           pretrain_iterations = 20000,
+            n_skills = 10
+             ),
+        },
+    'pets':{
+        'MountainCarContinuous-v0': dict( 
+           pretrain_steps = int (3e5),
+            n_skills = 10 
+             ),
+        },   
+    },
     # 2
     { # 6 dof
      'ppo':{
@@ -106,6 +121,21 @@ envs_mp = [
              ), 
         },
     },
+    #
+    {
+     'es':{
+        'HalfCheetah-v2': dict( 
+           pretrain_iterations = 25000,
+            n_skills = 30 
+             ), 
+        },
+     'pets':{
+        'HalfCheetah-v2': dict( 
+           pretrain_steps = int (3.5e5),
+            n_skills = 30 
+             ), 
+        },
+    },
     # 3
     { # 6 dof
      'ppo':{
@@ -114,7 +144,7 @@ envs_mp = [
             n_skills = 30
              ),
         },
-    'sac':{
+     'sac':{
         'Walker2d-v2': dict( 
            pretrain_steps = int(2.5e6),
             n_skills = 30
@@ -122,7 +152,7 @@ envs_mp = [
         },
     'es':{
         'Walker2d-v2': dict( 
-           pretrain_iterations = 25000,
+           pretrain_iterations = 25000//2,
             n_skills = 30 
              ),
         },
@@ -134,15 +164,29 @@ envs_mp = [
         },
         
     },
+    {
+      'es':{
+        'Walker2d-v2': dict( 
+           pretrain_iterations = 25000,
+            n_skills = 30 
+             ),
+        },
+      'pets':{
+        'Walker2d-v2': dict( 
+           pretrain_steps = int (4e5),
+            n_skills = 30 
+             ),
+        },
+    },
     # 4
     { # 8 dof
-     'ppo':{
+      'ppo':{
         'Ant-v2': dict( 
            pretrain_steps = int(700e6),
             n_skills = 30
              ), 
         },
-    'sac':{
+      'sac':{
         'Ant-v2': dict( 
            pretrain_steps = int(3e6),
             n_skills = 30
@@ -161,6 +205,20 @@ envs_mp = [
              ),
         },
     },    
+    {
+      'es':{
+        'Ant-v2': dict( 
+           pretrain_iterations = 30000,
+            n_skills = 30 
+             ), 
+        },
+      'pets':{
+        'Ant-v2': dict( 
+           pretrain_steps = int (5e5),
+            n_skills = 30 
+             ),
+        },
+    }
     
 ]
 
