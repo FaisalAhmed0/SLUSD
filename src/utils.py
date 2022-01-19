@@ -256,13 +256,11 @@ def evaluate_pretrained_policy_intr(env_name, n_skills, model, d, parametrizatio
             obs = torch.tensor(obs)
             action = model.action(obs.unsqueeze(0))
         elif alg == "pets":
-            print(obs)
-            print(model)
-            # input()
             action_seq = model.plan(obs)
             action = action_seq[0]
         obs, reward, done, info = env.step(action)
         total_reward += reward
+    print(f"total_reward: {total_reward}")
     return total_reward
                         
 

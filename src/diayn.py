@@ -12,7 +12,8 @@ from src.utils import record_video_finetune, best_skill
 from src.mi_lower_bounds import mi_lower_bound
 from src.models.models import Discriminator, SeparableCritic, ConcatCritic
 from src.replayBuffers import DataBuffer
-from src.callbacks.callbacks import DiscriminatorCallback, VideoRecorderCallback, FineTuneCallback, MI_EvalCallback
+from src.callbacks.callbacks import DiscriminatorCallback, VideoRecorderCallback, EvaluationCallback, MI_EvalCallback
+from src.config import conf
 
 import torch
 import torch.nn as nn
@@ -23,9 +24,14 @@ import time
 
 from collections import namedtuple
 
+import matplotlib.pyplot as plt
+import seaborn as sns
+sns.set_theme(style="darkgrid")
+sns.set(font_scale = conf.font_scale)
+
 
 class DIAYN():
-    def __init__(self, params, alg_params, discriminator_hyperparams, env="MountainCarContinuous-v0", alg="ppo", directory="./", seed=10, conf=None, timestamp=None, checkpoints=False, args=None, task=None, adapt_params=None):
+    def __init__(self, params, alg_params, discriminator_hyperparams, env="MountainCarContinuous-v0", alg="ppo", directory="./", seed=10, conf=None, timestamp=None, checkpoints=False, args=None, task=None, adapt_params=None, n_samples=None):
         # create the discirminator
         state_dim = gym.make(env).observation_space.shape[0]
         skill_dim = params['n_skills']
@@ -67,6 +73,7 @@ class DIAYN():
         self.task = task
         self.parametrization = discriminator_hyperparams['parametrization']
         self.adapt_params = adapt_params
+        self.n_samples = n_samples
 
     def pretrain(self):
         if self.alg == "ppo":
@@ -100,7 +107,8 @@ class DIAYN():
                                          deterministic=True, render=False, n_eval_episodes=self.conf.eval_runs)
             # create the callback list
             if self.checkpoints:
-                fineune_callback = FineTuneCallback(self.args, self.params, self.alg_params, self.conf, self.seed, self.alg, self.timestamp)
+                # env_name, alg, discriminator, params, pm, n_samples=100)
+                fineune_callback = EvaluationCallback(self.env_name, self.alg, self.d, self.params, self.parametrization, n_samples=self.n_samples)
                 callbacks = [discriminator_callback, eval_callback, fineune_callback]
             else:
                 callbacks = [discriminator_callback, eval_callback]
@@ -142,10 +150,12 @@ class DIAYN():
             
             # create the callback list
             if self.checkpoints:
-                fineune_callback = FineTuneCallback(self.args, self.params, self.alg_params, self.conf, self.seed, self.alg, self.timestamp)
+                # env_name, alg, discriminator, params, pm, n_samples=100)
+                fineune_callback = EvaluationCallback(self.env_name, self.alg, self.d, self.params, self.parametrization, n_samples=self.n_samples)
                 callbacks = [discriminator_callback, eval_callback, fineune_callback]
             else:
                 callbacks = [discriminator_callback, eval_callback]
+                
 
             # train the agent
             if self.parametrization in ["Separable", "Concat"]:
@@ -154,6 +164,13 @@ class DIAYN():
                 model.learn(total_timesteps=self.params['pretrain_steps'], callback=callbacks, log_interval=3, tb_log_name="SAC Pretrain")
             else:
                 raise ValueError(f"{discriminator_hyperparams['parametrization']} is invalid parametrization")
+        if self.checkpoints:
+            results = {
+                'steps': fineune_callback.steps,
+                'intr_rewards': fineune_callback.intr_rewards,
+                'extr_rewards': fineune_callback.extr_rewards,
+            }
+            return model, self.d, results
         return model, self.d
 
     # finetune the pretrained policy on a specific task
