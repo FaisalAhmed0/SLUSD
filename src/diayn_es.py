@@ -269,14 +269,16 @@ class DIAYN_ES():
     
     def env_indv_from_name(self):
         if self.env_name == "MountainCarContinuous-v0":
+            MountainCar.MountainCar.n_skills = self.params['n_skills']
             env_indv = MountainCar.MountainCar()
-        elif self.env_name == "Swimmer-v2":
-            env_indv = Swimmer.Swimmer()
         elif self.env_name == "Walker2d-v2":
+            Walker.Walker.n_skills = self.params['n_skills']
             env_indv = Walker.Walker()
         elif self.env_name == "HalfCheetah-v2":
+            HalfCheetah.HalfCheetah.n_skills = self.params['n_skills']
             env_indv = HalfCheetah.HalfCheetah()
         elif self.env_name == "Ant-v2":
+            Ant.Ant.n_skills = self.params['n_skills']
             env_indv = Ant.Ant()
         else:
             raise ValueError(f'Environment {self.env_name} is not implemented')
@@ -396,7 +398,7 @@ class DIAYN_ES():
         """
         This event is triggered before updating the policy.
         """
-        current_buffer_size = len(self.buffer) 
+        current_buffer_size = len(self.buffer)
         if current_buffer_size >= self.min_buffer_size:
             epoch_loss = 0
             self.d.train()
