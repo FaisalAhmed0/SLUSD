@@ -4,34 +4,41 @@ import torch.nn.functional as F
 import numpy as np
 
 from torch.distributions import MultivariateNormal
-
+from  torch.nn.utils.parametrizations import spectral_norm
 
 class Discriminator(nn.Module):
-  '''
-  Simple MLP classifier
-  n_input: size of the inputs (observation dimension).
-  n_hiddens: list of hidden layers sizes.
-  n_skills: Number of skills.
-  dropout: dropout probability.
-  '''
-  def __init__(self, n_input, n_hiddens, n_skills, dropout=None):
-    super().__init__()
-    layers = []
-    layers.append(nn.Linear(n_input, n_hiddens[0]))
-    layers.append(nn.ReLU())
-    if dropout:
-          layers.append( nn.Dropout(dropout) )
-    for i in range(len(n_hiddens)-1):
-      layers.append( nn.Linear(n_hiddens[i], n_hiddens[i+1]) )
-      layers.append( nn.ReLU() )
-      if dropout:
-        layers.append( nn.Dropout(dropout) )
-    self.layers = layers
-    self.head = nn.Sequential(*layers)
-    self.output = nn.Linear(n_hiddens[-1], n_skills)
+    '''
+    Simple MLP classifier
+    n_input: size of the inputs (observation dimension).
+    n_hiddens: list of hidden layers sizes.
+    n_skills: Number of skills.
+    dropout: dropout probability.
+    '''
+    def __init__(self, n_input, n_hiddens, n_skills, dropout=None, sn=None, bn=None):
+        super().__init__()
+        layers = []
+        if sn:
+            layers.append( spectral_norm(nn.Linear(n_input, n_hiddens[0])))
+        else:
+            layers.append(nn.Linear(n_input, n_hiddens[0]))
+            
+        layers.append(nn.ReLU())
+        if dropout:
+            layers.append( nn.Dropout(dropout) )
+        for i in range(len(n_hiddens)-1):
+            if sn:
+                layers.append( spectral_norm(nn.Linear(n_hiddens[i], n_hiddens[i+1]) ))
+            else:
+                layers.append( nn.Linear(n_hiddens[i], n_hiddens[i+1]) )
+            layers.append( nn.ReLU() )
+            if dropout:
+                layers.append( nn.Dropout(dropout) )
+        self.layers = layers
+        self.head = nn.Sequential(*layers)
+        self.output = nn.Linear(n_hiddens[-1], n_skills)
 
-  def forward(self, x):
-    return self.output(self.head(x))
+    def forward(self, x):
+        return self.output(self.head(x))
 
 # An Encoder network for different MI critics
 class Encoder(nn.Module):
