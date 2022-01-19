@@ -23,6 +23,11 @@ from src.utils import record_video, best_skill, evaluate_mi, evaluate_pretrained
 from src.mi_lower_bounds import mi_lower_bound
 from src.config import conf
 
+import matplotlib.pyplot as plt
+import seaborn as sns
+sns.set_theme(style="darkgrid")
+sns.set(font_scale = conf.font_scale)
+
 
 # callback to save a video while training
 class VideoRecorderCallback(BaseCallback):
@@ -331,6 +336,14 @@ class EvaluationCallback(BaseCallback):
             self.steps.append(self.num_timesteps)
             self.intr_rewards.append(intr_reward)
             self.extr_rewards.append(extr_reward)
+            plt.figure()
+            plt.plot(self.steps, self.extr_rewards, label=self.alg.upper(), xlabel="Pretraining Steps")
+            filename = f"Scalability_Experiment_realtime_env:{self.env_name}_alg:{self.alg}_xaxis:Pretraining Steps.png"
+            plt.savefig(f'{filename}', dpi=150) 
+            plt.figure()
+            plt.plot(self.intr_rewards, self.extr_rewards, label=self.alg.upper(), xlabel="Intrinsic Reward")
+            filename = f"Scalability_Experiment_realtime_env:{self.env_name}_alg:{self.alg}_xaxis:Intrinsic Reward.png"
+            plt.savefig(f'{filename}', dpi=150) 
         return True
         
 

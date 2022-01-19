@@ -333,9 +333,17 @@ class DIAYN_MB():
                     pretrained_policy = agent
                     intr_reward = np.mean( [evaluate_pretrained_policy_intr(self.env_name, self.n_skills, pretrained_policy, self.d, self.paramerization, "pets") for _ in range(3) ] )
                     extr_reward = np.mean( [evaluate_pretrained_policy_ext(self.env_name, self.n_skills, pretrained_policy, "pets") for _ in range(3)] )
-                    steps_l.append(self.timesteps)
+                    steps_l.append(timesteps)
                     intr_rewards.append(intr_reward)
                     extr_rewards.append(extr_reward)
+                    plt.figure()
+                    plt.plot(steps_l, extr_rewards, label="pets".upper(), xlabel="Pretraining Steps")
+                    filename = f"Scalability_Experiment_realtime_env:{self.env_name}_alg:pets_xaxis:Pretraining Steps.png"
+                    plt.savefig(f'{filename}', dpi=150) 
+                    plt.figure()
+                    plt.plot(intr_rewards, extr_rewards, label="es".upper(), xlabel="Intrinsic Reward")
+                    filename = f"Scalability_Experiment_realtime_env:{self.env_name}_alg:pets_xaxis:Intrinsic Reward.png"
+                    plt.savefig(f'{filename}', dpi=150) 
                     
                 timesteps += 1
                 obs = next_obs

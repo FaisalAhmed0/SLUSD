@@ -321,7 +321,7 @@ def plot_curve(env_name, algs, skills, pms, lbs, asym ,x=None, y=None, y_std=Non
         x_i = x[i]
         y_i = np.array(y[i])/asym
         y_std_i = np.array(y_std[i])/asym
-        plt.plot(x_i, y_i, label=labels[i], color=color)
+        plt.plot(x_i, y_i, label=labels[i].upper(), color=color)
         plt.fill_between(x_i, (y_i-y_std_i), (y_i+y_std_i), color=color, alpha=0.3)
     plt.legend()
     plt.xlabel(xlabel)

@@ -241,6 +241,15 @@ class DIAYN_ES():
                 steps_l.append(self.timesteps)
                 intr_rewards.append(intr_reward)
                 extr_rewards.append(extr_reward)
+                plt.figure()
+                plt.plot(steps_l, extr_rewards, label="es".upper(), xlabel="Pretraining Steps")
+                filename = f"Scalability_Experiment_realtime_env:{self.env_name}_alg:es_xaxis:Pretraining Steps.png"
+                plt.savefig(f'{filename}', dpi=150) 
+                plt.figure()
+                plt.plot(intr_rewards, extr_rewards, label="es".upper(), xlabel="Intrinsic Reward")
+                filename = f"Scalability_Experiment_realtime_env:{self.env_name}_alg:es_xaxis:Intrinsic Reward.png"
+                plt.savefig(f'{filename}', dpi=150) 
+                
         pool.close()
         if self.checkpoints:
             results = {

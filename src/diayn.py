@@ -13,6 +13,7 @@ from src.mi_lower_bounds import mi_lower_bound
 from src.models.models import Discriminator, SeparableCritic, ConcatCritic
 from src.replayBuffers import DataBuffer
 from src.callbacks.callbacks import DiscriminatorCallback, VideoRecorderCallback, EvaluationCallback, MI_EvalCallback
+from src.config import conf
 
 import torch
 import torch.nn as nn
@@ -22,6 +23,11 @@ import copy
 import time
 
 from collections import namedtuple
+
+import matplotlib.pyplot as plt
+import seaborn as sns
+sns.set_theme(style="darkgrid")
+sns.set(font_scale = conf.font_scale)
 
 
 class DIAYN():
@@ -149,6 +155,7 @@ class DIAYN():
                 callbacks = [discriminator_callback, eval_callback, fineune_callback]
             else:
                 callbacks = [discriminator_callback, eval_callback]
+                
 
             # train the agent
             if self.parametrization in ["Separable", "Concat"]:
