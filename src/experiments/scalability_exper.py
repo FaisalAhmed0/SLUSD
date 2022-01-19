@@ -326,6 +326,10 @@ def plot_curve(env_name, algs, skills, pms, lbs, asym ,x=None, y=None, y_std=Non
     plt.legend()
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
+    if env_name == "MountainCarContinuous-v0":
+        plt.title("MountainCar")
+    else:
+        plt.title(f"{env_name[: env_name.index('-')]}")
     if len(algs) == 1:
         filename = f"{env_name}_scalability_exp_alg:{algs[0]}_x-axis:{xlabel}.png"
     else:

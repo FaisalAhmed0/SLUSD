@@ -305,7 +305,7 @@ class EvaluationCallback(BaseCallback):
         super().__init__()
         self.env_name = env_name
         self.params = params
-        self.freq = params['pretrain_steps'] // n_samples
+        self.freq = round((params['pretrain_steps'] // n_samples)/8) * 8
         # print(f"freq:{self.freq}")
         # input()
         self.alg = alg
