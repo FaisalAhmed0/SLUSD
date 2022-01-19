@@ -331,6 +331,7 @@ class EvaluationCallback(BaseCallback):
         # print(f"rem: {self.num_timesteps % self.freq }")
         self.pretrained_policy = self.model
         if self.num_timesteps % self.freq == 0:
+            print(f"Time step: {self.num_timesteps}")
             intr_reward = np.mean( [evaluate_pretrained_policy_intr(self.env_name, self.skills, self.pretrained_policy, self.d, self.pm, self.alg) for _ in range(5) ] )
             extr_reward = np.mean( [evaluate_pretrained_policy_ext(self.env_name, self.skills, self.pretrained_policy, self.alg) for _ in range(5)] )
             self.steps.append(self.num_timesteps)
