@@ -224,12 +224,12 @@ envs_mp = [
     },
     #
     {
-     'es':{
-        'HalfCheetah-v2': dict( 
-           pretrain_iterations = 25000//2,
-            n_skills = 30 
-             ), 
-        },
+     # 'es':{
+     #    'HalfCheetah-v2': dict( 
+     #       pretrain_iterations = 25000//2,
+     #        n_skills = 30 
+     #         ), 
+     #    },
      'pets':{
         'HalfCheetah-v2': dict( 
            pretrain_steps = int (3.5e5)//2,
@@ -490,9 +490,9 @@ if __name__ == "__main__":
         # for mp
         manager = mp.Manager()
         plots_d_list = manager.list()
-        n_processes = len(envs_mp)
+        n_processes = len(envs_mp[3:4])
         processes_list = []
-        for i in range(n_processes):
+        for i in range(3, 4, 1):
             p = mp.Process(target=train_all, args=(envs_mp[i], plots_d_list, n_samples))
             p.start()
             processes_list.append(p)

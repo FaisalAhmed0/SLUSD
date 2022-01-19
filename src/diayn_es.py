@@ -398,7 +398,7 @@ class DIAYN_ES():
         """
         This event is triggered before updating the policy.
         """
-        current_buffer_size = len(self.buffer) 
+        current_buffer_size = len(self.buffer)
         if current_buffer_size >= self.min_buffer_size:
             epoch_loss = 0
             self.d.train()
