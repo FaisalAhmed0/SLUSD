@@ -31,7 +31,7 @@ class Ant(Individual):
     skill = None # skill for the case of finetuning
     paramerization = None
     def __init__(self):
-        self.net = MLP_policy(111 + conf.n_z, [conf.layer_size_policy, conf.layer_size_policy], 8)
+        self.net = MLP_policy(111 + Ant.n_skills, [conf.layer_size_policy, conf.layer_size_policy], 8)
         self.conf = conf
         self.t = 0
 

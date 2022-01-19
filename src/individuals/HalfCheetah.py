@@ -33,7 +33,7 @@ class HalfCheetah(Individual):
     skill = None # skill for the case of finetuning
     paramerization = None
     def __init__(self):
-        self.net = MLP_policy(17 + conf.n_z, [conf.layer_size_policy, conf.layer_size_policy], 6)
+        self.net = MLP_policy(17 + HalfCheetah.n_skills, [conf.layer_size_policy, conf.layer_size_policy], 6)
         self.conf = conf
         self.t = 0
 

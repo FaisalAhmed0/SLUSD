@@ -166,7 +166,23 @@ envs_mp = [
             n_skills = 10 
              ), 
         },
-    'es':{
+    # 'es':{
+    #     'MountainCarContinuous-v0': dict( 
+    #        pretrain_iterations = 20000//2,
+    #         n_skills = 10
+    #          ),
+    #     },
+    # 'pets':{
+    #     'MountainCarContinuous-v0': dict( 
+    #        pretrain_steps = int (3e5)//2,
+    #         n_skills = 10 
+    #          ),
+    #     },
+    
+    },
+    #
+    {
+     'es':{
         'MountainCarContinuous-v0': dict( 
            pretrain_iterations = 20000//2,
             n_skills = 10
@@ -177,8 +193,7 @@ envs_mp = [
            pretrain_steps = int (3e5)//2,
             n_skills = 10 
              ),
-        },
-    
+        },   
     },
     # 2
     { # 6 dof
@@ -194,13 +209,28 @@ envs_mp = [
             n_skills = 30
              ), 
         },
-    'es':{
+    # 'es':{
+    #     'HalfCheetah-v2': dict( 
+    #        pretrain_iterations = 25000//2,
+    #         n_skills = 30 
+    #          ), 
+    #     },
+    # 'pets':{
+    #     'HalfCheetah-v2': dict( 
+    #        pretrain_steps = int (3.5e5)//2,
+    #         n_skills = 30 
+    #          ), 
+    #     },
+    },
+    #
+    {
+     'es':{
         'HalfCheetah-v2': dict( 
            pretrain_iterations = 25000//2,
             n_skills = 30 
              ), 
         },
-    'pets':{
+     'pets':{
         'HalfCheetah-v2': dict( 
            pretrain_steps = int (3.5e5)//2,
             n_skills = 30 
@@ -215,53 +245,81 @@ envs_mp = [
             n_skills = 30
              ),
         },
-    'sac':{
+     'sac':{
         'Walker2d-v2': dict( 
            pretrain_steps = int(2.5e6)//2,
             n_skills = 30
              ),
         },
-    'es':{
+    # 'es':{
+    #     'Walker2d-v2': dict( 
+    #        pretrain_iterations = 25000//2,
+    #         n_skills = 30 
+    #          ),
+    #     },
+    # 'pets':{
+    #     'Walker2d-v2': dict( 
+    #        pretrain_steps = int (4e5)//2,
+    #         n_skills = 30 
+    #          ),
+    #     },
+        
+    },
+    {
+      'es':{
         'Walker2d-v2': dict( 
            pretrain_iterations = 25000//2,
             n_skills = 30 
              ),
         },
-    'pets':{
+      'pets':{
         'Walker2d-v2': dict( 
            pretrain_steps = int (4e5)//2,
             n_skills = 30 
              ),
         },
-        
     },
     # 4
     { # 8 dof
-     'ppo':{
+      'ppo':{
         'Ant-v2': dict( 
            pretrain_steps = int(700e6)//2,
             n_skills = 30
              ), 
         },
-    'sac':{
+      'sac':{
         'Ant-v2': dict( 
            pretrain_steps = int(3e6)//2,
             n_skills = 30
              ), 
         },
-    'es':{
+    # 'es':{
+    #     'Ant-v2': dict( 
+    #        pretrain_iterations = 30000//2,
+    #         n_skills = 30 
+    #          ), 
+    #     },
+    # 'pets':{
+    #     'Ant-v2': dict( 
+    #        pretrain_steps = int (5e5)//2,
+    #         n_skills = 30 
+    #          ),
+    #     },
+    },    
+    {
+      'es':{
         'Ant-v2': dict( 
            pretrain_iterations = 30000//2,
             n_skills = 30 
              ), 
         },
-    'pets':{
+      'pets':{
         'Ant-v2': dict( 
            pretrain_steps = int (5e5)//2,
             n_skills = 30 
              ),
         },
-    },    
+    }
     
 ]
 
