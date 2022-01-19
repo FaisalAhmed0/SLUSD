@@ -428,7 +428,7 @@ if __name__ == "__main__":
         # for mp
         manager = mp.Manager()
         plots_d_list = manager.list()
-        n_processes = len(envs_mp[:1])
+        n_processes = len(envs_mp)
         processes_list = []
         for i in range(n_processes):
             p = mp.Process(target=train_all, args=(envs_mp[i], plots_d_list, n_samples))
