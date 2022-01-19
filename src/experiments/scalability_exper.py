@@ -451,7 +451,7 @@ if __name__ == "__main__":
             p.join()
         for plot_dict in plots_d_list[1:]:
             print(plot_dict)
-            input()
+            # input()
             env_name = list(plot_dict.keys())[0]
             algs = plot_dict[env_name]["algs"]
             skills_list = plot_dict[env_name]["skills"]
@@ -516,6 +516,6 @@ if __name__ == "__main__":
         print(f"steps: {steps}")
         print(f"steps: {intr_reward_mean}")
         print(f"steps: {extr_reward_mean}")
-        input()
+        # input()
         plot_curve(args.env, [args.alg], [args.skills], [args.pm], [args.lb], asym, x=intr_reward_mean, y=extr_reward_mean, y_std=extr_reward_std, xlabel="Intrinsic Reward")
         plot_curve(args.env, [args.alg], [args.skills], [args.pm], [args.lb], asym, x=steps, y=extr_reward_mean, y_std=extr_reward_std, xlabel="Pretraining Environment Steps")
