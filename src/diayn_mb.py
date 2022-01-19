@@ -341,7 +341,7 @@ class DIAYN_MB():
                     filename = f"Scalability_Experiment_realtime_env:{self.env_name}_alg:pets_xaxis:Pretraining Steps.png"
                     plt.savefig(f'{filename}', dpi=150) 
                     plt.figure()
-                    plt.plot(intr_rewards, extr_rewards, label="es".upper(), xlabel="Intrinsic Reward")
+                    plt.plot(intr_rewards, extr_rewards, label="pets".upper(), xlabel="Intrinsic Reward")
                     filename = f"Scalability_Experiment_realtime_env:{self.env_name}_alg:pets_xaxis:Intrinsic Reward.png"
                     plt.savefig(f'{filename}', dpi=150) 
                     
