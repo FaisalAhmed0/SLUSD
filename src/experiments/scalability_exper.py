@@ -166,19 +166,6 @@ envs_mp = [
             n_skills = 10 
              ), 
         },
-    # 'es':{
-    #     'MountainCarContinuous-v0': dict( 
-    #        pretrain_iterations = 20000//2,
-    #         n_skills = 10
-    #          ),
-    #     },
-    # 'pets':{
-    #     'MountainCarContinuous-v0': dict( 
-    #        pretrain_steps = int (3e5)//2,
-    #         n_skills = 10 
-    #          ),
-    #     },
-    
     },
     #
     {
@@ -209,27 +196,15 @@ envs_mp = [
             n_skills = 30
              ), 
         },
-    # 'es':{
-    #     'HalfCheetah-v2': dict( 
-    #        pretrain_iterations = 25000//2,
-    #         n_skills = 30 
-    #          ), 
-    #     },
-    # 'pets':{
-    #     'HalfCheetah-v2': dict( 
-    #        pretrain_steps = int (3.5e5)//2,
-    #         n_skills = 30 
-    #          ), 
-    #     },
     },
     #
     {
-     # 'es':{
-     #    'HalfCheetah-v2': dict( 
-     #       pretrain_iterations = 25000//2,
-     #        n_skills = 30 
-     #         ), 
-     #    },
+     'es':{
+        'HalfCheetah-v2': dict( 
+           pretrain_iterations = 25000//2,
+            n_skills = 30 
+             ), 
+        },
      'pets':{
         'HalfCheetah-v2': dict( 
            pretrain_steps = int (3.5e5)//2,
@@ -251,18 +226,6 @@ envs_mp = [
             n_skills = 30
              ),
         },
-    # 'es':{
-    #     'Walker2d-v2': dict( 
-    #        pretrain_iterations = 25000//2,
-    #         n_skills = 30 
-    #          ),
-    #     },
-    # 'pets':{
-    #     'Walker2d-v2': dict( 
-    #        pretrain_steps = int (4e5)//2,
-    #         n_skills = 30 
-    #          ),
-    #     },
         
     },
     {
@@ -293,18 +256,6 @@ envs_mp = [
             n_skills = 30
              ), 
         },
-    # 'es':{
-    #     'Ant-v2': dict( 
-    #        pretrain_iterations = 30000//2,
-    #         n_skills = 30 
-    #          ), 
-    #     },
-    # 'pets':{
-    #     'Ant-v2': dict( 
-    #        pretrain_steps = int (5e5)//2,
-    #         n_skills = 30 
-    #          ),
-    #     },
     },    
     {
       'es':{
@@ -490,9 +441,9 @@ if __name__ == "__main__":
         # for mp
         manager = mp.Manager()
         plots_d_list = manager.list()
-        n_processes = len(envs_mp[3:4])
+        n_processes = len(envs_mp)
         processes_list = []
-        for i in range(3, 4, 1):
+        for i in range(n_processes):
             p = mp.Process(target=train_all, args=(envs_mp[i], plots_d_list, n_samples))
             p.start()
             processes_list.append(p)
