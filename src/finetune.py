@@ -55,7 +55,7 @@ envs_mp = [
     { # 1 dof
      'ppo':{
         'MountainCarContinuous-v0': dict( 
-           pretrain_steps = int(25e6), 
+           pretrain_steps = int(45e6), 
             n_skills = 10 
              ),
         },
@@ -65,11 +65,7 @@ envs_mp = [
             n_skills = 10 
              ), 
         },
-    
-    },
-    #
-    {
-     'es':{
+    'es':{
         'MountainCarContinuous-v0': dict( 
            pretrain_iterations = 20000,
             n_skills = 10
@@ -80,13 +76,14 @@ envs_mp = [
            pretrain_steps = int (3e5),
             n_skills = 10 
              ),
-        },   
+        },
+    
     },
     # 2
     { # 6 dof
      'ppo':{
         'HalfCheetah-v2': dict( 
-           pretrain_steps = int(500e6),
+           pretrain_steps = int(700e6),
             n_skills = 30
              ), 
         },
@@ -96,16 +93,13 @@ envs_mp = [
             n_skills = 30
              ), 
         },
-    },
-    #
-    {
-     'es':{
+    'es':{
         'HalfCheetah-v2': dict( 
            pretrain_iterations = 25000,
             n_skills = 30 
              ), 
         },
-     'pets':{
+    'pets':{
         'HalfCheetah-v2': dict( 
            pretrain_steps = int (3.5e5),
             n_skills = 30 
@@ -120,57 +114,53 @@ envs_mp = [
             n_skills = 30
              ),
         },
-     'sac':{
+    'sac':{
         'Walker2d-v2': dict( 
            pretrain_steps = int(2.5e6),
             n_skills = 30
              ),
         },
-        
-    },
-    {
-      'es':{
+    'es':{
         'Walker2d-v2': dict( 
            pretrain_iterations = 25000,
             n_skills = 30 
              ),
         },
-      'pets':{
+    'pets':{
         'Walker2d-v2': dict( 
            pretrain_steps = int (4e5),
             n_skills = 30 
              ),
         },
+        
     },
     # 4
     { # 8 dof
-      'ppo':{
+     'ppo':{
         'Ant-v2': dict( 
-           pretrain_steps = int(700e6),
+           pretrain_steps = int(800e6),
             n_skills = 30
              ), 
         },
-      'sac':{
+    'sac':{
         'Ant-v2': dict( 
            pretrain_steps = int(3e6),
             n_skills = 30
              ), 
         },
-    },    
-    {
-      'es':{
+    'es':{
         'Ant-v2': dict( 
            pretrain_iterations = 30000,
             n_skills = 30 
              ), 
         },
-      'pets':{
+    'pets':{
         'Ant-v2': dict( 
            pretrain_steps = int (5e5),
             n_skills = 30 
              ),
         },
-    }
+    },    
     
 ]
 
@@ -444,6 +434,11 @@ if __name__ == "__main__":
             files_dir = f"Vis/adaptation_experiment_cls:{discriminator_hyperparams['parametrization']}, lb:{discriminator_hyperparams['lower_bound']}/"
             os.makedirs(files_dir, exist_ok=True)
             plt.savefig(files_dir + filename)
+        # save the results
+        with open(f"{main_exper_dir}/results.txt", "w") as o:
+            for i in plots_d_list:
+                o.write(f"{i}\n")
+                
     else:
         # save a timestamp
         timestamp = time.time()
