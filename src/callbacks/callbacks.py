@@ -342,6 +342,7 @@ class EvaluationCallback(BaseCallback):
             plt.xlabel("Pretraining Steps")
             plt.ylabel("Extrinsic Reward")
             plt.legend()
+            plt.tight_layout()
             filename = f"Scalability_Experiment_realtime_env:{self.env_name}_alg:{self.alg}_xaxis:Pretraining Steps.png"
             plt.savefig(f'{filename}', dpi=150) 
             plt.figure()
@@ -349,6 +350,7 @@ class EvaluationCallback(BaseCallback):
             plt.xlabel("Intrinsic Reward")
             plt.ylabel("Extrinsic Reward")
             plt.legend()
+            plt.tight_layout()
             filename = f"Scalability_Experiment_realtime_env:{self.env_name}_alg:{self.alg}_xaxis:Intrinsic Reward.png"
             plt.savefig(f'{filename}', dpi=150) 
         return True

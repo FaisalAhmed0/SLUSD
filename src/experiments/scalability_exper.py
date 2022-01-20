@@ -156,83 +156,53 @@ envs_mp = [
     { # 1 dof
      'ppo':{
         'MountainCarContinuous-v0': dict( 
-           pretrain_steps = int(25e6)//2, 
+           pretrain_steps = int(25e6), 
             n_skills = 10 
              ),
         },
     'sac':{
         'MountainCarContinuous-v0': dict( 
-           pretrain_steps = int (5e5)//2,
+           pretrain_steps = int (5e5),
             n_skills = 10 
              ), 
         },
-    # 'es':{
-    #     'MountainCarContinuous-v0': dict( 
-    #        pretrain_iterations = 20000//2,
-    #         n_skills = 10
-    #          ),
-    #     },
-    # 'pets':{
-    #     'MountainCarContinuous-v0': dict( 
-    #        pretrain_steps = int (3e5)//2,
-    #         n_skills = 10 
-    #          ),
-    #     },
-    
-    },
-    #
-    {
-     'es':{
+    'es':{
         'MountainCarContinuous-v0': dict( 
-           pretrain_iterations = 20000//2,
+           pretrain_iterations = 20000,
             n_skills = 10
              ),
         },
     'pets':{
         'MountainCarContinuous-v0': dict( 
-           pretrain_steps = int (3e5)//2,
+           pretrain_steps = int (3e5),
             n_skills = 10 
              ),
-        },   
+        },
+    
     },
     # 2
     { # 6 dof
      'ppo':{
         'HalfCheetah-v2': dict( 
-           pretrain_steps = int(500e6)//2,
+           pretrain_steps = int(500e6),
             n_skills = 30
              ), 
         },
     'sac':{
         'HalfCheetah-v2': dict( 
-           pretrain_steps = int(2e6)//2,
+           pretrain_steps = int(2e6),
             n_skills = 30
              ), 
         },
-    # 'es':{
-    #     'HalfCheetah-v2': dict( 
-    #        pretrain_iterations = 25000//2,
-    #         n_skills = 30 
-    #          ), 
-    #     },
-    # 'pets':{
-    #     'HalfCheetah-v2': dict( 
-    #        pretrain_steps = int (3.5e5)//2,
-    #         n_skills = 30 
-    #          ), 
-    #     },
-    },
-    #
-    {
-     # 'es':{
-     #    'HalfCheetah-v2': dict( 
-     #       pretrain_iterations = 25000//2,
-     #        n_skills = 30 
-     #         ), 
-     #    },
-     'pets':{
+    'es':{
         'HalfCheetah-v2': dict( 
-           pretrain_steps = int (3.5e5)//2,
+           pretrain_iterations = 25000,
+            n_skills = 30 
+             ), 
+        },
+    'pets':{
+        'HalfCheetah-v2': dict( 
+           pretrain_steps = int (3.5e5),
             n_skills = 30 
              ), 
         },
@@ -241,85 +211,57 @@ envs_mp = [
     { # 6 dof
      'ppo':{
         'Walker2d-v2': dict( 
-           pretrain_steps = int(700e6)//2,
+           pretrain_steps = int(700e6),
             n_skills = 30
              ),
         },
-     'sac':{
+    'sac':{
         'Walker2d-v2': dict( 
-           pretrain_steps = int(2.5e6)//2,
+           pretrain_steps = int(2.5e6),
             n_skills = 30
              ),
         },
-    # 'es':{
-    #     'Walker2d-v2': dict( 
-    #        pretrain_iterations = 25000//2,
-    #         n_skills = 30 
-    #          ),
-    #     },
-    # 'pets':{
-    #     'Walker2d-v2': dict( 
-    #        pretrain_steps = int (4e5)//2,
-    #         n_skills = 30 
-    #          ),
-    #     },
+    'es':{
+        'Walker2d-v2': dict( 
+           pretrain_iterations = 25000,
+            n_skills = 30 
+             ),
+        },
+    'pets':{
+        'Walker2d-v2': dict( 
+           pretrain_steps = int (4e5),
+            n_skills = 30 
+             ),
+        },
         
-    },
-    {
-      'es':{
-        'Walker2d-v2': dict( 
-           pretrain_iterations = 25000//2,
-            n_skills = 30 
-             ),
-        },
-      'pets':{
-        'Walker2d-v2': dict( 
-           pretrain_steps = int (4e5)//2,
-            n_skills = 30 
-             ),
-        },
     },
     # 4
     { # 8 dof
-      'ppo':{
+     'ppo':{
         'Ant-v2': dict( 
-           pretrain_steps = int(700e6)//2,
+           pretrain_steps = int(700e6),
             n_skills = 30
              ), 
         },
-      'sac':{
+    'sac':{
         'Ant-v2': dict( 
-           pretrain_steps = int(3e6)//2,
+           pretrain_steps = int(3e6),
             n_skills = 30
              ), 
         },
-    # 'es':{
-    #     'Ant-v2': dict( 
-    #        pretrain_iterations = 30000//2,
-    #         n_skills = 30 
-    #          ), 
-    #     },
-    # 'pets':{
-    #     'Ant-v2': dict( 
-    #        pretrain_steps = int (5e5)//2,
-    #         n_skills = 30 
-    #          ),
-    #     },
-    },    
-    {
-      'es':{
+    'es':{
         'Ant-v2': dict( 
-           pretrain_iterations = 30000//2,
+           pretrain_iterations = 30000,
             n_skills = 30 
              ), 
         },
-      'pets':{
+    'pets':{
         'Ant-v2': dict( 
-           pretrain_steps = int (5e5)//2,
+           pretrain_steps = int (5e5),
             n_skills = 30 
              ),
         },
-    }
+    },    
     
 ]
 
@@ -393,6 +335,7 @@ def plot_curve(env_name, algs, skills, pms, lbs, asym ,x=None, y=None, y_std=Non
     else:
         filename = f"{env_name}_scalability_exp_all_algs_x-axis:{xlabel}.png"
     files_dir = f"Vis/{env_name}_cls:{pm}_lb:{lb}"
+    plt.tight_layout()
     os.makedirs(files_dir, exist_ok=True)
     plt.savefig(f'{files_dir}/{filename}', dpi=150) 
     
@@ -490,9 +433,9 @@ if __name__ == "__main__":
         # for mp
         manager = mp.Manager()
         plots_d_list = manager.list()
-        n_processes = len(envs_mp[3:4])
+        n_processes = len(envs_mp)
         processes_list = []
-        for i in range(3, 4, 1):
+        for i in range(n_processes):
             p = mp.Process(target=train_all, args=(envs_mp[i], plots_d_list, n_samples))
             p.start()
             processes_list.append(p)
@@ -500,7 +443,7 @@ if __name__ == "__main__":
             p.join()
         for plot_dict in plots_d_list[1:]:
             print(plot_dict)
-            input()
+            # input()
             env_name = list(plot_dict.keys())[0]
             algs = plot_dict[env_name]["algs"]
             skills_list = plot_dict[env_name]["skills"]
@@ -565,6 +508,6 @@ if __name__ == "__main__":
         print(f"steps: {steps}")
         print(f"steps: {intr_reward_mean}")
         print(f"steps: {extr_reward_mean}")
-        input()
+        # input()
         plot_curve(args.env, [args.alg], [args.skills], [args.pm], [args.lb], asym, x=intr_reward_mean, y=extr_reward_mean, y_std=extr_reward_std, xlabel="Intrinsic Reward")
         plot_curve(args.env, [args.alg], [args.skills], [args.pm], [args.lb], asym, x=steps, y=extr_reward_mean, y_std=extr_reward_std, xlabel="Pretraining Environment Steps")
