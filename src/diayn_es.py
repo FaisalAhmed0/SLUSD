@@ -337,7 +337,7 @@ class DIAYN_ES():
                     gradient_steps=self.adapt_params['gradient_steps'],
                     learning_starts=self.adapt_params['learning_starts'],
                     policy_kwargs=dict(net_arch=dict(pi=[2*self.conf.layer_size_policy, 2*self.conf.layer_size_policy], qf=[
-                                       self.conf.layer_size_q, self.conf.layer_size_q])),
+                                       self.conf.layer_size_q, self.conf.layer_size_q]), clip_mean=None),
                     tensorboard_log=self.directory,
                     seed=self.seed
                     )
