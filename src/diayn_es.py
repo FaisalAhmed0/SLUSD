@@ -246,6 +246,7 @@ class DIAYN_ES():
                 plt.xlabel("Pretraining Steps")
                 plt.ylabel("Extrinsic Reward")
                 plt.legend()
+                plt.tight_layout()
                 filename = f"Scalability_Experiment_realtime_env:{self.env_name}_alg:es_xaxis:Pretraining Steps.png"
                 plt.savefig(f'{filename}', dpi=150) 
                 plt.figure()
@@ -253,6 +254,7 @@ class DIAYN_ES():
                 plt.xlabel("Intrinsic Reward")
                 plt.ylabel("Extrinsic Reward")
                 plt.legend()
+                plt.tight_layout()
                 filename = f"Scalability_Experiment_realtime_env:{self.env_name}_alg:es_xaxis:Intrinsic Reward.png"
                 plt.savefig(f'{filename}', dpi=150) 
                 
