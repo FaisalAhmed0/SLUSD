@@ -378,9 +378,11 @@ class DIAYN_ES():
                                     log_path=f"{self.directory}/finetune_eval_results", eval_freq=self.conf.eval_freq,
                                     deterministic=True, render=False)
 
-        adaptation_model.actor.latent_pi = model.model
-        adaptation_model.actor.mu = model.mean
-        adaptation_model.actor.log_std = model.log_var
+        es_model = copy.deepcopy(model)
+        adaptation_model.actor.latent_pi = es_model.model
+        adaptation_model.actor.mu = es_model.mean
+        adaptation_model.actor.log_std = es_model.log_var
+        adaptation_model.policy.actor.optimizer = opt.Adam(adaptation_model.actor.parameters(), lr=self.adapt_params['learning_starts'])
         # load the discriminator
         d = copy.deepcopy(self.d)
         d.layers[0] = nn.Linear(gym.make(self.env_name).observation_space.shape[0]+self.params['n_skills'] +1, self.conf.layer_size_discriminator)
@@ -390,6 +392,7 @@ class DIAYN_ES():
         adaptation_model.critic.qf1 = copy.deepcopy(d)
         adaptation_model.critic_target.qf0 = copy.deepcopy(d)
         adaptation_model.critic_target.qf1 = copy.deepcopy(d)
+        adaptation_model.critic.optimizer = opt.Adam(adaptation_model.critic.parameters(), lr=self.adapt_params['learning_starts'])
         adaptation_model.learn(total_timesteps=self.params['finetune_steps'],
                     callback=eval_callback, tb_log_name="ES_FineTune", d=None, mi_estimator=None)
 

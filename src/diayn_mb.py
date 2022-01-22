@@ -455,6 +455,7 @@ class DIAYN_MB():
         adaptation_model.actor.latent_pi = model
         adaptation_model.actor.mu = nn.Linear(conf.layer_size_policy, env.action_space.shape[0])
         adaptation_model.actor.log_std = nn.Linear(conf.layer_size_policy, env.action_space.shape[0])
+        adaptation_model.policy.actor.optimizer = opt.Adam(adaptation_model.actor.parameters(), lr=self.adapt_params['learning_starts'])
         # load the discriminator
         d = copy.deepcopy(self.d)
         d.layers[0] = nn.Linear(gym.make(self.env_name).observation_space.shape[0]+self.params['n_skills'] +1, self.conf.layer_size_discriminator)
@@ -464,6 +465,7 @@ class DIAYN_MB():
         adaptation_model.critic.qf1 = copy.deepcopy(d)
         adaptation_model.critic_target.qf0 = copy.deepcopy(d)
         adaptation_model.critic_target.qf1 = copy.deepcopy(d)
+        adaptation_model.critic.optimizer = opt.Adam(adaptation_model.critic.parameters(), lr=self.adapt_params['learning_starts'])
         adaptation_model.learn(total_timesteps=self.params['finetune_steps'],
                     callback=eval_callback, tb_log_name="PETS_FineTune", d=None, mi_estimator=None)
 

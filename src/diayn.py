@@ -17,6 +17,7 @@ from src.config import conf
 
 import torch
 import torch.nn as nn
+import torch.optim as opt
 from torch.utils.tensorboard import SummaryWriter
 import copy
 
@@ -250,20 +251,22 @@ class DIAYN():
             ppo_model = PPO.load(model_dir, env=env, tensorboard_log=self.directory,
                             clip_range=get_schedule_fn(self.alg_params['clip_range']))
             # load the policy from ppo into sac
-            ppo_actor = ppo_model.policy.mlp_extractor.policy_net
+            ppo_actor = copy.deepcopy(ppo_model.policy)
             
-            adaptation_model.actor.latent_pi = ppo_actor
+            adaptation_model.actor.latent_pi = ppo_actor.mlp_extractor.policy_net
             adaptation_model.actor.mu = nn.Linear(in_features=self.conf.layer_size_policy, out_features=gym.make(self.env_name).action_space.shape[0], bias=True)
             adaptation_model.actor.log_std = nn.Linear(in_features=self.conf.layer_size_policy, out_features=gym.make(self.env_name).action_space.shape[0], bias=True)
+            adaptation_model.policy.actor.optimizer = opt.Adam(adaptation_model.actor.parameters(), lr=self.adapt_params['learning_starts'])
             # load the discriminator
             d = copy.deepcopy(self.d)
-            d.layers[0] = nn.Linear(gym.make(self.env_name).observation_space.shape[0]+ self.params['n_skills']  +1, self.conf.layer_size_discriminator)
+            d.layers[0] = nn.Linear(gym.make(self.env_name).observation_space.shape[0]+ self.params['n_skills']  + gym.make(self.env_name).action_space.shape[0], self.conf.layer_size_discriminator)
             d.head = nn.Sequential(*d.layers)
             d.output = nn.Linear(self.conf.layer_size_discriminator, 1)
             adaptation_model.critic.qf0 = d
             adaptation_model.critic.qf1 = copy.deepcopy(d)
             adaptation_model.critic_target.qf0 = copy.deepcopy(d)
             adaptation_model.critic_target.qf1 = copy.deepcopy(d)
+            adaptation_model.critic.optimizer = opt.Adam(adaptation_model.critic.parameters(), lr=self.adapt_params['learning_starts'])
             adaptation_model.learn(total_timesteps=self.params['finetune_steps'],
                         callback=eval_callback, tb_log_name="PPO_FineTune", d=None, mi_estimator=None)
         return adaptation_model, best_skill_index

@@ -189,7 +189,7 @@ sac_hyperparams = dict(
     tau = 0.005,
     gradient_steps = 1,
     ent_coef=0.5,
-    learning_starts = 1000,
+    learning_starts = 10000,
     algorithm = "sac"
 )
 

@@ -402,13 +402,13 @@ def softplus_inverse(x):
 #### Useful function for the adaptation expeirment ####
 def evaluate(env, n_skills, pretrained_policy, adapted_policy, discriminator, parametrization, bestskill, alg):
     # intrinsic reward
-    intrinsic_reward_mean = np.mean([evaluate_pretrained_policy_intr(env, n_skills, pretrained_policy, discriminator, parametrization, alg) for _ in range(5)])
+    intrinsic_reward_mean = np.mean([evaluate_pretrained_policy_intr(env, n_skills, pretrained_policy, discriminator, parametrization, alg) for _ in range(10)])
     # best skill reward before adaptation
-    reward_beforeFinetune_mean = np.mean([evaluate_pretrained_policy_ext(env, n_skills, pretrained_policy, alg) for _ in range(5)])
+    reward_beforeFinetune_mean = np.mean([evaluate_pretrained_policy_ext(env, n_skills, pretrained_policy, alg) for _ in range(10)])
     # reward after adaptation
-    reward_mean = np.mean([evaluate_adapted_policy(env, n_skills, bestskill, adapted_policy, alg) for _ in range(5)])
+    reward_mean = np.mean([evaluate_adapted_policy(env, n_skills, bestskill, adapted_policy, alg) for _ in range(10)])
     # entropy
-    entropy_mean = np.mean([evaluate_state_coverage(env, n_skills, pretrained_policy, alg) for _ in range(5)])
+    entropy_mean = np.mean([evaluate_state_coverage(env, n_skills, pretrained_policy, alg) for _ in range(10)])
     return intrinsic_reward_mean, reward_beforeFinetune_mean, reward_mean, entropy_mean
 
 def save_final_results(all_results, env_dir):
