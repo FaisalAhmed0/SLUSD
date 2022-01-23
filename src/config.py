@@ -69,7 +69,7 @@ font_scale = 1.2,
 learning_curve_figsize = (8, 6),
     
 # random seeds
-seeds = (0, ), #(0, 10, 1234),
+seeds = (0, 10, 42), #(0, 10, 1234),
 
 # device
 device = "cuda" if torch.cuda.is_available() else "cpu",

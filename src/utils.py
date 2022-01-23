@@ -234,6 +234,7 @@ def evaluate_pretrained_policy_ext(env_name, n_skills, model, alg):
             obs, reward, done, info = env.step(action)
             aug_obs = augment_obs(obs, skill, n_skills)
             total_reward += reward
+        print(f"Total reward: {total_reward}")
         total_rewards.append(total_reward)
         env.close()
     best_reward = np.max(total_rewards)

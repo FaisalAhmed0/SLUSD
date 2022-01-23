@@ -12,7 +12,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 import time
-import os
+import os 
 import random
 
 import argparse
@@ -98,7 +98,7 @@ sac_hyperparams = dict(
     tau = 0.005,
     gradient_steps = 1,
     ent_coef=0.5,
-    learning_starts = 1000,
+    learning_starts = 10000,
     algorithm = "sac"
 )
 
@@ -156,7 +156,7 @@ envs_mp = [
     { # 1 dof
      'ppo':{
         'MountainCarContinuous-v0': dict( 
-           pretrain_steps = int(25e6), 
+           pretrain_steps = int(45e6), 
             n_skills = 10 
              ),
         },
@@ -184,7 +184,7 @@ envs_mp = [
     { # 6 dof
      'ppo':{
         'HalfCheetah-v2': dict( 
-           pretrain_steps = int(500e6),
+           pretrain_steps = int(700e6),
             n_skills = 30
              ), 
         },
@@ -239,7 +239,7 @@ envs_mp = [
     { # 8 dof
      'ppo':{
         'Ant-v2': dict( 
-           pretrain_steps = int(700e6),
+           pretrain_steps = int(800e6),
             n_skills = 30
              ), 
         },
@@ -265,6 +265,8 @@ envs_mp = [
     
 ]
 
+
+
 # Extract arguments from terminal
 def cmd_args():
     parser = argparse.ArgumentParser()
@@ -274,7 +276,7 @@ def cmd_args():
     parser.add_argument("--presteps", type=int, default=int(1e6))
     parser.add_argument("--pm", type=str, default="MLP")
     parser.add_argument("--lb", type=str, default="ba")
-    parser.add_argument("--samples", type=int, default=10)
+    parser.add_argument("--samples", type=int, default=50)
     parser.add_argument("--run_all", type=bool, default=False)
     args = parser.parse_args()
     return args
@@ -360,7 +362,7 @@ def train_all(env_params, plots_d_list, n_samples):
                 params['n_skills'] = env_params[alg][env]['n_skills']
                 alg_params['iterations'] = env_params[alg][env]['pretrain_iterations']
                 print(f"stamp: {timestamp}, alg: {alg}, env: {env}, n_skills: {params['n_skills']}, pretrain_iterations: {alg_params['iterations']}")
-            # save_params(alg, env_dir)
+            save_params(alg, env_dir)
             if (env_params[alg][env]).get('clip_range'):
                 # clip_range
                 alg_params['clip_range'] = (env_params[alg][env]).get('clip_range')
