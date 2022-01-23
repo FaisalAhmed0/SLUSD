@@ -125,7 +125,7 @@ def record_skill(model, env_name, alg, n_skills):
         total_reward = 0
         done = False
         while not done:
-            if alg == ("ppo", "sac"):
+            if alg in ("ppo", "sac"):
                 action, _ = model.predict(aug_obs, deterministic=True)
             elif alg == "es":
                 action = model.action(aug_obs.unsqueeze(0))
@@ -181,23 +181,23 @@ def record_learned_agent(best_skill, env_name, alg, skills, stamp, pm, lb):
     seed_dir = env_dir + f"seed:{seed}/"
     # I stopped here
     directory =  seed_dir + f"best_finetuned_model_skillIndex:{best_skill}/" + "/best_model"
-    if alg == "sac":
-        model = SAC.load(directory, seed=seed)
-    elif alg == "ppo":
-        model = PPO.load(directory, clip_range= get_schedule_fn(ppo_hyperparams['clip_range']), seed=seed)
-    elif alg == "es":
-        env_invd = ES_env_indv(env_name, skills)
-        model_dir = f"{seed_dir}/best_finetuned_model_skillIndex:{best_skill}/best_model.ckpt"
-        env_invd.net.load_state_dict( torch.load(model_dir) ) 
-    elif alg == "pets":
-        model_dir = f"{seed_dir}/best_finetuned_model_skillIndex:{best_skill}"
-        model = pets_agent(env_name, model_dir, skills, True, best_skill)
+    # if alg == "sac":
+    model = SAC.load(directory, seed=seed)
+    # elif alg == "ppo":
+        # model = PPO.load(directory, clip_range= get_schedule_fn(ppo_hyperparams['clip_range']), seed=seed)
+    # elif alg == "es":
+        # env_invd = ES_env_indv(env_name, skills)
+        # model_dir = f"{seed_dir}/best_finetuned_model_skillIndex:{best_skill}/best_model.ckpt"
+        # env_invd.net.load_state_dict( torch.load(model_dir) ) 
+    # elif alg == "pets":
+    #     model_dir = f"{seed_dir}/best_finetuned_model_skillIndex:{best_skill}"
+    #     model = pets_agent(env_name, model_dir, skills, True, best_skill)
     obs = env.reset()
     n_skills = skills
     total_reward = 0
     done = False
     while not done:
-        if alg == ("ppo", "sac"):
+        if alg in ("ppo", "sac"):
             action, _ = model.predict(obs, deterministic=True)
         elif alg == "es":
             action = model.action(obs.unsqueeze(0))

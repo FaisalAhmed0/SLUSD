@@ -34,11 +34,13 @@ class Discriminator(nn.Module):
             if dropout:
                 layers.append( nn.Dropout(dropout) )
         self.layers = layers
-        self.head = nn.Sequential(*layers)
-        self.output = nn.Linear(n_hiddens[-1], n_skills)
+        self.layers.append(nn.Linear(n_hiddens[-1], n_skills))
+        self.model = nn.Sequential(*layers)
+        # self.output = nn.Linear(n_hiddens[-1], n_skills)
 
     def forward(self, x):
-        return self.output(self.head(x))
+        return self.model(x)
+        # return self.output(self.head(x))
 
 # An Encoder network for different MI critics
 class Encoder(nn.Module):

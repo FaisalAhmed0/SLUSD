@@ -5,10 +5,11 @@ from stable_baselines3 import PPO, SAC
 from stable_baselines3.common.callbacks import EvalCallback
 from stable_baselines3.common.utils import get_schedule_fn
 from stable_baselines3.common.monitor import Monitor
+from stable_baselines3.common.distributions import DiagGaussianDistribution
 
 from src.environment_wrappers.env_wrappers import RewardWrapper, SkillWrapper, SkillWrapperFinetune
 from src.environment_wrappers.tasks_wrappers import HalfCheetahTaskWrapper
-from src.utils import record_video_finetune, best_skill
+from src.utils import best_skill
 from src.mi_lower_bounds import mi_lower_bound
 from src.models.models import Discriminator, SeparableCritic, ConcatCritic
 from src.replayBuffers import DataBuffer
@@ -32,6 +33,9 @@ sns.set(font_scale = conf.font_scale)
 
 
 class DIAYN():
+    '''
+    An implementation of DIAYN with a model-free algorithm (PPO, SAC) as the optimization backbone
+    '''
     def __init__(self, params, alg_params, discriminator_hyperparams, env="MountainCarContinuous-v0", alg="ppo", directory="./", seed=10, conf=None, timestamp=None, checkpoints=False, args=None, task=None, adapt_params=None, n_samples=None):
         # create the discirminator
         state_dim = gym.make(env).observation_space.shape[0]
@@ -42,6 +46,7 @@ class DIAYN():
         dropout = discriminator_hyperparams['dropout']
         if discriminator_hyperparams['parametrization'] == "MLP":
             self.d = Discriminator(state_dim, hidden_dims, skill_dim, dropout=discriminator_hyperparams['dropout']).to(conf.device)
+            self.d_adapt = Discriminator(state_dim, hidden_dims, skill_dim, dropout=discriminator_hyperparams['dropout']).to(conf.device)
         elif discriminator_hyperparams['parametrization'] == "Linear":
             self.d = nn.Linear(state_dim, skill_dim).to(conf.device)
         elif discriminator_hyperparams['parametrization'] == "Separable":
@@ -77,6 +82,9 @@ class DIAYN():
         self.n_samples = n_samples
 
     def pretrain(self):
+        '''
+        Pretraining phase with an intrinsic reward
+        '''
         if self.alg == "ppo":
             env = DummyVecEnv([lambda: Monitor(RewardWrapper(SkillWrapper(gym.make(
                     self.env_name), self.params['n_skills'], max_steps=self.conf.max_steps), self.d, self.params['n_skills'], parametrization=self.parametrization),  self.directory)]*self.alg_params['n_actors'])
@@ -90,7 +98,7 @@ class DIAYN():
                         gamma=self.alg_params['gamma'],
                         gae_lambda=self.alg_params['gae_lambda'],
                         clip_range=self.alg_params['clip_range'],
-                        policy_kwargs=dict(activation_fn=nn.Tanh,
+                        policy_kwargs=dict(activation_fn=nn.ReLU,
                                            net_arch=[dict(pi=[self.conf.layer_size_policy, self.conf.layer_size_policy], vf=[self.conf.layer_size_value, self.conf.layer_size_value])]),
                         tensorboard_log=self.directory,
                         seed=self.seed
@@ -128,8 +136,8 @@ class DIAYN():
                         ent_coef=self.alg_params['ent_coef'],
                         gradient_steps=self.alg_params['gradient_steps'],
                         learning_starts=self.alg_params['learning_starts'],
-                        policy_kwargs=dict(net_arch=dict(pi=[2*self.conf.layer_size_policy, 2*self.conf.layer_size_policy], qf=[
-                                           self.conf.layer_size_q, self.conf.layer_size_q]), clip_mean=None),
+                        policy_kwargs=dict(net_arch=dict(pi=[self.conf.layer_size_policy, self.conf.layer_size_policy], qf=[
+                                           self.conf.layer_size_q, self.conf.layer_size_q]), n_critics=1),
                         tensorboard_log=self.directory,
                         seed=self.seed
                         )
@@ -176,6 +184,9 @@ class DIAYN():
 
     # finetune the pretrained policy on a specific task
     def finetune(self):
+        '''
+        Adapt the pretrained model with task reward using SAC
+        '''
         # For the generalization experiment
         if self.task:
             # TODO: add other environments
@@ -208,7 +219,7 @@ class DIAYN():
             env = DummyVecEnv([lambda: SkillWrapperFinetune(Monitor(gym.make(
     self.env_name),  f"{self.directory}/finetune_train_results"), self.params['n_skills'], r_seed=None,max_steps=gym.make(self.env_name)._max_episode_steps, skill=best_skill_index)])
         
-        adaptation_model = SAC('MlpPolicy', env, verbose=1,
+        self.adaptation_model = SAC('MlpPolicy', env, verbose=1,
                     learning_rate=self.adapt_params['learning_rate'],
                     batch_size=self.adapt_params['batch_size'],
                     gamma=self.adapt_params['gamma'],
@@ -217,8 +228,8 @@ class DIAYN():
                     ent_coef=self.adapt_params['ent_coef'],
                     gradient_steps=self.adapt_params['gradient_steps'],
                     learning_starts=self.adapt_params['learning_starts'],
-                    policy_kwargs=dict(net_arch=dict(pi=[2*self.conf.layer_size_policy, 2*self.conf.layer_size_policy], qf=[
-                                       self.conf.layer_size_q, self.conf.layer_size_q]), clip_mean=None),
+                    policy_kwargs=dict(net_arch=dict(pi=[self.conf.layer_size_policy, self.conf.layer_size_policy], qf=[
+                                       self.conf.layer_size_q, self.conf.layer_size_q]), n_critics=1),
                     tensorboard_log=self.directory,
                     seed=self.seed
                     )
@@ -230,43 +241,46 @@ class DIAYN():
         eval_callback = EvalCallback(eval_env, best_model_save_path=self.directory + f"/best_finetuned_model_skillIndex:{best_skill_index}",
                                     log_path=f"{self.directory}/finetune_eval_results", eval_freq=self.conf.eval_freq,
                                     deterministic=True, render=False)
-        # if the model for pretraining is SAC just continue
+        # if the model for pretraining is SAC just load the discriminator
         if self.alg == "sac":
             sac_model = SAC.load(model_dir, env=env, tensorboard_log=self.directory)
-            adaptation_model = sac_model
+            self.adaptation_model = sac_model
             # load the discriminator
-            d = copy.deepcopy(self.d)
-            d.layers[0] = nn.Linear(gym.make(self.env_name).observation_space.shape[0]+ self.params['n_skills']  +1, self.conf.layer_size_discriminator)
-            d.head = nn.Sequential(*d.layers)
-            d.output = nn.Linear(self.conf.layer_size_discriminator, 1)
-            adaptation_model.critic.qf0 = d
-            adaptation_model.critic.qf1 = copy.deepcopy(d)
-            adaptation_model.critic_target.qf0 = copy.deepcopy(d)
-            adaptation_model.critic_target.qf1 = copy.deepcopy(d)
-            adaptation_model.learn(total_timesteps=self.params['finetune_steps'],
+            self.d.layers[0] = nn.Linear(gym.make(self.env_name).observation_space.shape[0] + self.params['n_skills']  + gym.make(self.env_name).action_space.shape[0], self.conf.layer_size_discriminator)
+            self.d.layers[-1] = nn.Linear(self.conf.layer_size_discriminator, 1)
+            seq = nn.Sequential(*self.d.layers)
+            # print(d)
+            self.adaptation_model.critic.qf0.load_state_dict(seq.state_dict())
+            self.adaptation_model.critic_target.load_state_dict(self.adaptation_model.critic.state_dict())
+            self.adaptation_model.learn(total_timesteps=self.params['finetune_steps'],
                         callback=eval_callback, tb_log_name="SAC_FineTune", d=None, mi_estimator=None)
 
         # if the model for the prratrining is PPO load the discrimunator and actor from ppo into sac models
         elif self.alg == "ppo":
             ppo_model = PPO.load(model_dir, env=env, tensorboard_log=self.directory,
                             clip_range=get_schedule_fn(self.alg_params['clip_range']))
-            # load the policy from ppo into sac
-            ppo_actor = copy.deepcopy(ppo_model.policy)
-            
-            adaptation_model.actor.latent_pi = ppo_actor.mlp_extractor.policy_net
-            adaptation_model.actor.mu = nn.Linear(in_features=self.conf.layer_size_policy, out_features=gym.make(self.env_name).action_space.shape[0], bias=True)
-            adaptation_model.actor.log_std = nn.Linear(in_features=self.conf.layer_size_policy, out_features=gym.make(self.env_name).action_space.shape[0], bias=True)
-            adaptation_model.policy.actor.optimizer = opt.Adam(adaptation_model.actor.parameters(), lr=self.adapt_params['learning_starts'])
-            # load the discriminator
-            d = copy.deepcopy(self.d)
-            d.layers[0] = nn.Linear(gym.make(self.env_name).observation_space.shape[0]+ self.params['n_skills']  + gym.make(self.env_name).action_space.shape[0], self.conf.layer_size_discriminator)
-            d.head = nn.Sequential(*d.layers)
-            d.output = nn.Linear(self.conf.layer_size_discriminator, 1)
-            adaptation_model.critic.qf0 = d
-            adaptation_model.critic.qf1 = copy.deepcopy(d)
-            adaptation_model.critic_target.qf0 = copy.deepcopy(d)
-            adaptation_model.critic_target.qf1 = copy.deepcopy(d)
-            adaptation_model.critic.optimizer = opt.Adam(adaptation_model.critic.parameters(), lr=self.adapt_params['learning_starts'])
-            adaptation_model.learn(total_timesteps=self.params['finetune_steps'],
+            # adaptation_model.actor.action_dist = DiagGaussianDistribution(env.action_space.shape[0])
+            # load the policy ppo 
+            ppo_actor = ppo_model.policy
+            self.load_state_dicts(ppo_actor)
+            self.adaptation_model.learn(total_timesteps=self.params['finetune_steps'],
                         callback=eval_callback, tb_log_name="PPO_FineTune", d=None, mi_estimator=None)
-        return adaptation_model, best_skill_index
+        return self.adaptation_model, best_skill_index     
+    
+    def load_state_dicts(self, ppo_actor):
+        '''
+        load the pretrained model parameters into the adaptation model
+        '''
+        # initlialize the adaptation policy with the pretrained model
+        self.adaptation_model.actor.latent_pi.load_state_dict(ppo_actor.mlp_extractor.policy_net.state_dict())
+        self.adaptation_model.actor.mu.load_state_dict(ppo_actor.action_net.state_dict())
+        self.adaptation_model.actor.log_std.load_state_dict(nn.Linear(in_features=self.conf.layer_size_policy, out_features=gym.make(self.env_name).action_space.shape[0], bias=True).state_dict())
+        # initlialize the adaptation critic with the discriminator weights
+        self.d.layers[0] = nn.Linear(gym.make(self.env_name).observation_space.shape[0] + self.params['n_skills']  + gym.make(self.env_name).action_space.shape[0], self.conf.layer_size_discriminator)
+        self.d.layers[-1] = nn.Linear(self.conf.layer_size_discriminator, 1)
+        seq = nn.Sequential(*self.d.layers)
+        # print(d)
+        self.adaptation_model.critic.qf0.load_state_dict(seq.state_dict())
+        self.adaptation_model.critic_target.load_state_dict(self.adaptation_model.critic.state_dict())
+        
+        
