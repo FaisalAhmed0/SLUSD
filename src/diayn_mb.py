@@ -275,7 +275,7 @@ class DIAYN_MB():
             plt.figure()
             plt.plot(steps_l, extr_rewards, label="pets".upper())
             plt.xlabel("Pretraining Steps")
-            plt.ylabel("Extrinsic Reward")
+            plt.ylabel("Extrinsic Reward (Best Skill)")
             plt.legend()
             plt.tight_layout()
             filename = f"Scalability_Experiment_realtime_env:{self.env_name}_alg:pets_xaxis:Pretraining Steps.png"
@@ -283,7 +283,7 @@ class DIAYN_MB():
             plt.figure()
             plt.plot(intr_rewards, extr_rewards, label="pets".upper())
             plt.xlabel("Intrinsic Reward")
-            plt.ylabel("Extrinsic Reward")
+            plt.ylabel("Extrinsic Reward (Best Skill)")
             plt.legend()
             plt.tight_layout()
             filename = f"Scalability_Experiment_realtime_env:{self.env_name}_alg:pets_xaxis:Intrinsic Reward.png"
@@ -366,7 +366,7 @@ class DIAYN_MB():
                     plt.figure()
                     plt.plot(steps_l, extr_rewards, label="pets".upper())
                     plt.xlabel("Pretraining Steps")
-                    plt.ylabel("Extrinsic Reward")
+                    plt.ylabel("Extrinsic Reward (Best Skill)")
                     plt.legend()
                     plt.tight_layout()
                     filename = f"Scalability_Experiment_realtime_env:{self.env_name}_alg:pets_xaxis:Pretraining Steps.png"
@@ -374,7 +374,7 @@ class DIAYN_MB():
                     plt.figure()
                     plt.plot(intr_rewards, extr_rewards, label="pets".upper())
                     plt.xlabel("Intrinsic Reward")
-                    plt.ylabel("Extrinsic Reward")
+                    plt.ylabel("Extrinsic Reward (Best Skill)")
                     plt.legend()
                     plt.tight_layout()
                     filename = f"Scalability_Experiment_realtime_env:{self.env_name}_alg:pets_xaxis:Intrinsic Reward.png"

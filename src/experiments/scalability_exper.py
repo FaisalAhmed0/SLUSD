@@ -311,7 +311,7 @@ def plot_curve(env_name, algs, skills, pms, lbs, asym ,x=None, y=None, y_std=Non
     print("Plotting the final results")
     colors = ['b', 'r', 'g', 'b']
     labels = algs
-    ylabel = "Extrinsic Reward"
+    ylabel = "Extrinsic Reward (Best Skill)"
     plt.figure(figsize=conf.learning_curve_figsize)
     plt.title(f"{env_name[: env_name.index('-')]}")
     for i in range(len(algs)):
