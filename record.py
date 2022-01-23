@@ -125,10 +125,10 @@ def record_skill(model, env_name, alg, n_skills):
         total_reward = 0
         done = False
         while not done:
-            if alg == ("ppo", "sac"):
+            if alg in ("ppo", "sac"):
                 action, _ = model.predict(aug_obs, deterministic=True)
             elif alg == "es":
-                action = model.action(aug_obs.unsqueeze(0))
+                action = model.action(aug_obs.numpy().reshape(-1))
             elif alg == "pets":
                 print(f"obs: {aug_obs.numpy().reshape(-1)}")
                 # input()
@@ -150,7 +150,7 @@ def record_skill(model, env_name, alg, n_skills):
 
 
 def record_skills(env_name, alg, skills, stamp, pm, lb):
-    main_exper_dir = conf.log_dir_finetune + f"cls:{pm}, lb:{lb}/"
+    main_exper_dir = conf.scalability_exper_dir + f"cls:{pm}, lb:{lb}/"
     env_dir = main_exper_dir + f"env: {env_name}, alg:{alg}, stamp:{stamp}/"
     seed_dir = env_dir + f"seed:{seed}/"
     model_dir = seed_dir + "/best_model"
@@ -176,7 +176,7 @@ def record_learned_agent(best_skill, env_name, alg, skills, stamp, pm, lb):
     video_folder = f"recorded_agents/env:{env_name}_alg: {alg}_finetune_videos"
     env = SkillWrapperFinetune(gym.make(env_name), skills, max_steps=gym.make(env_name)._max_episode_steps, skill=best_skill)
     env = Monitor(env, video_folder, resume=True,force=False, uid=f"env: {env}, skill: {best_skill}")
-    main_exper_dir = conf.log_dir_finetune + f"cls:{pm}, lb:{lb}/"
+    main_exper_dir = conf.scalability_exper_dir + f"cls:{pm}, lb:{lb}/"
     env_dir = main_exper_dir + f"env: {env_name}, alg:{alg}, stamp:{stamp}/"
     seed_dir = env_dir + f"seed:{seed}/"
     # I stopped here
