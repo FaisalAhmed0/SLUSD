@@ -350,7 +350,7 @@ class EvaluationCallback(BaseCallback):
             plt.figure()
             plt.plot(self.intr_rewards, self.extr_rewards, label=self.alg.upper())
             plt.xlabel("Intrinsic Reward")
-            plt.ylabel("Extrinsic Reward (Best Skill))
+            plt.ylabel("Extrinsic Reward (Best Skill)")
             plt.legend()
             plt.tight_layout()
             filename = f"Scalability_Experiment_realtime_env:{self.env_name}_alg:{self.alg}_xaxis:Intrinsic Reward.png"
