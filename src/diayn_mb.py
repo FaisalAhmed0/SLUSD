@@ -52,6 +52,11 @@ import time
 
 from collections import namedtuple
 
+import matplotlib.pyplot as plt
+import seaborn as sns
+sns.set_theme(style="darkgrid")
+sns.set(font_scale = conf.font_scale)
+
 
 class DIAYN_MB():
     '''
@@ -266,6 +271,28 @@ class DIAYN_MB():
             extr_rewards = []
             freq = self.params['pretrain_steps'] // self.n_samples
             print(f"checkpoints freq: {freq}")
+            pretrained_policy = agent
+            intr_reward = np.mean( [evaluate_pretrained_policy_intr(self.env_name, self.n_skills, pretrained_policy, self.d, self.paramerization, "pets") for _ in range(3) ] )
+            extr_reward = np.mean( [evaluate_pretrained_policy_ext(self.env_name, self.n_skills, pretrained_policy, "pets") for _ in range(3)] )
+            steps_l.append(0)
+            intr_rewards.append(intr_reward)
+            extr_rewards.append(extr_reward)
+            plt.figure()
+            plt.plot(steps_l, extr_rewards, label="pets".upper())
+            plt.xlabel("Pretraining Steps")
+            plt.ylabel("Extrinsic Reward")
+            plt.legend()
+            plt.tight_layout()
+            filename = f"Scalability_Experiment_realtime_env:{self.env_name}_alg:pets_xaxis:Pretraining Steps.png"
+            plt.savefig(f'{filename}', dpi=150) 
+            plt.figure()
+            plt.plot(intr_rewards, extr_rewards, label="pets".upper())
+            plt.xlabel("Intrinsic Reward")
+            plt.ylabel("Extrinsic Reward")
+            plt.legend()
+            plt.tight_layout()
+            filename = f"Scalability_Experiment_realtime_env:{self.env_name}_alg:pets_xaxis:Intrinsic Reward.png"
+            plt.savefig(f'{filename}', dpi=150) 
         for trial in range(num_trials):
           # initilization
             obs = env.reset()    
