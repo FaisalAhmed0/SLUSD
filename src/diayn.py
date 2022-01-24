@@ -250,6 +250,7 @@ class DIAYN():
             self.d.layers[-1] = nn.Linear(self.conf.layer_size_discriminator, 1)
             seq = nn.Sequential(*self.d.layers)
             # print(d)
+            self.d.eval()
             self.adaptation_model.critic.qf0.load_state_dict(seq.state_dict())
             self.adaptation_model.critic_target.load_state_dict(self.adaptation_model.critic.state_dict())
             self.adaptation_model.learn(total_timesteps=self.params['finetune_steps'],
@@ -276,10 +277,12 @@ class DIAYN():
         self.adaptation_model.actor.mu.load_state_dict(ppo_actor.action_net.state_dict())
         self.adaptation_model.actor.log_std.load_state_dict(nn.Linear(in_features=self.conf.layer_size_policy, out_features=gym.make(self.env_name).action_space.shape[0], bias=True).state_dict())
         # initlialize the adaptation critic with the discriminator weights
+        self.d.eval()
+        
         self.d.layers[0] = nn.Linear(gym.make(self.env_name).observation_space.shape[0] + self.params['n_skills']  + gym.make(self.env_name).action_space.shape[0], self.conf.layer_size_discriminator)
         self.d.layers[-1] = nn.Linear(self.conf.layer_size_discriminator, 1)
-        seq = nn.Sequential(*self.d.layers)
-        # print(d)
+        layers = [l for l in self.d.layers if "linear" in f"{type(l)}" or "ReLU" in f"{type(l)}"]
+        seq = nn.Sequential(*layers)
         self.adaptation_model.critic.qf0.load_state_dict(seq.state_dict())
         self.adaptation_model.critic_target.load_state_dict(self.adaptation_model.critic.state_dict())
         

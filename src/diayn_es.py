@@ -336,6 +336,7 @@ class DIAYN_ES():
         
     # Finetune on a pretrained policy
     def finetune(self):
+        self.d.eval()
         '''
         Adapt the pretrained model with task reward using SAC
         '''

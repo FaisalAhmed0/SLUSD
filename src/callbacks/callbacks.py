@@ -193,22 +193,27 @@ class DiscriminatorCallback(BaseCallback):
         for grad in grads:
             grad_norm += torch.norm(grad)
         gradient_penalty = (grad_norm - 1).pow(2)
+        # print("grad penalty")
+        # print(gradient_penalty)
+        # input()
         return gradient_penalty
 
     # TODO: Add mixup r
     @torch.no_grad()
     def mixup_reg(self, x1, x2, targets=False, m=None):
+        # print("Mixup")
         # sample the mixing factor
         if m is None:
             m = np.random.beta(a=0.4, b=0.4)
         batch_size = self.batch_size
         if targets:
+            # print(x1, x2)
             y1 = torch.zeros((batch_size,self.n_skills))
-            y1[torch.arange(batch_size), x1] = 1
+            y1[torch.arange(batch_size), x1.to(torch.long)] = 1
             y2 = torch.zeros((batch_size,self.n_skills))
-            y2[torch.arange(batch_size), x2] = 1
-            return m*y1 + (1-m) * y2
-        return m*x1 + (1-m) * x2, m
+            y2[torch.arange(batch_size), x2.to(torch.long)] = 1
+            return m*y1 + (1-m) * y2, None
+        return m * x1 + (1-m) * x2, m
 
     def _on_rollout_end(self):
         """

@@ -83,6 +83,8 @@ sac_hyperparams = dict(
     algorithm = "sac"
 )
 
+experiments = [conf.log_dir_finetune, conf.scalability_exper_dir, conf.generalization_exper_dir, conf.regularization_exper_dir]
+
 # Extract arguments from terminal
 def cmd_args():
     parser = argparse.ArgumentParser()
@@ -93,8 +95,11 @@ def cmd_args():
     parser.add_argument("--stamps", nargs="*", type=str, required=True) # pass the timestamps as a list
     parser.add_argument("--cls", nargs="*", type=str, required=True) # pass the timestamps as a list
     parser.add_argument("--lbs", nargs="*", type=str, required=True) # pass the timestamps as a list
+    parser.add_argument("--exp", nargs="*", type=int, default=[0]) # pass the timestamps as a list
     args = parser.parse_args()
     return args
+
+
 
 # A method to augment observations with the skills reperesentation
 def augment_obs(obs, skill, n_skills):
@@ -106,7 +111,7 @@ def augment_obs(obs, skill, n_skills):
 
 # A method to return the best performing skill
 @torch.no_grad()
-def record_skill(model, env_name, alg, n_skills):
+def record_skill(model, env_name, alg, n_skills, stamp):
     print(f"skills: {n_skills}")
     display = pyglet.canvas.get_display()
     screen = display.get_screens()
@@ -118,7 +123,7 @@ def record_skill(model, env_name, alg, n_skills):
         print(f"Running Skill: {skill}")
         env = TimestepsWrapper(gym.make(env_name))
         env.seed(seed)
-        video_folder = f"recorded_agents/env:{env_name},alg: {alg}_skills_videos"
+        video_folder = f"recorded_agents/env:{env_name},alg: {alg}_skills_videos_stamp: {stamp}"
         env = Monitor(env, video_folder, resume=True,force=False, uid=f"env: {env_name}, skill: {skill}")
         obs = env.reset()
         aug_obs = augment_obs(obs, skill, n_skills)
@@ -149,8 +154,8 @@ def record_skill(model, env_name, alg, n_skills):
 
 
 
-def record_skills(env_name, alg, skills, stamp, pm, lb):
-    main_exper_dir = conf.scalability_exper_dir + f"cls:{pm}, lb:{lb}/"
+def record_skills(env_name, alg, skills, stamp, pm, lb, exper):
+    main_exper_dir = exper + f"cls:{pm}, lb:{lb}/"
     env_dir = main_exper_dir + f"env: {env_name}, alg:{alg}, stamp:{stamp}/"
     seed_dir = env_dir + f"seed:{seed}/"
     model_dir = seed_dir + "/best_model"
@@ -167,7 +172,7 @@ def record_skills(env_name, alg, skills, stamp, pm, lb):
     elif alg == "pets":
         model_dir = f"{seed_dir}/"
         model = pets_agent(env_name, model_dir, seed_dir, skills, parametrization=pm)
-    best_skill_index = record_skill(model, env_name, alg, skills)
+    best_skill_index = record_skill(model, env_name, alg, skills, stamp)
     print(f"Best skill is {best_skill_index}")
 
 
@@ -365,6 +370,7 @@ if __name__ == "__main__":
     args = cmd_args()
     n = len(args.envs)
     for i in range(n):
+        exper = experiments[args.exp[i]]
         env_name = args.envs[i]
         alg = args.algs[i]
         skills = args.skills[i]
@@ -372,7 +378,7 @@ if __name__ == "__main__":
         pm = args.cls[i]
         lb = args.lbs[i]
         best_skill = args.bestskills[i]
-        record_skills(env_name, alg, skills, stamp, pm, lb)
+        record_skills(env_name, alg, skills, stamp, pm, lb, exper)
         if best_skill != -1:    
             record_learned_agent(best_skill, env_name, alg, skills, stamp, pm, lb)
 
