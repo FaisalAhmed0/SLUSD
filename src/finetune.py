@@ -212,7 +212,7 @@ pets_hyperparams = dict(
 es_hyperparams = dict(
     lr = 1e-2, # learning rate 
     iterations = 100, # iterations 
-    pop_size = 500, # population size
+    pop_size = 400, # population size
     algorithm = "es"
 )
 

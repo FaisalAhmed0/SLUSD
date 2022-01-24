@@ -179,7 +179,7 @@ def evaluate_state_coverage(env_name, n_skills, model, alg):
             if alg in ["ppo", "sac"]:
                 action, _ = model.predict(aug_obs, deterministic=True)
             elif alg == "es":
-                action = model.action(aug_obs.numpy())
+                action = model.action(aug_obs.squeeze().numpy())
             elif alg == "pets":
                 action_seq = model.plan(aug_obs.numpy().reshape(-1))
                 action = action_seq[0]
