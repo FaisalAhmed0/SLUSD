@@ -20,6 +20,8 @@ scalability_exper_dir = "logs_scalability_exper/",
 # generalization experiment directory
 generalization_exper_dir = "generalization_exper/",
     
+regularization_exper_dir = "regularization_exper/",
+    
 # number of the runs for the agent evaluation
 eval_runs = 5,
     

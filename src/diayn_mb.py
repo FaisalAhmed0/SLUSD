@@ -422,6 +422,7 @@ class DIAYN_MB():
         return total_rewards
             
     def finetune(self):
+        self.d.eval()
         '''
         Adapt the pretrained model with task reward using SAC
         '''

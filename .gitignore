@@ -29,3 +29,4 @@ pretrain_exp_MountainCarContinuous-v0_sac.png
 generalization_exper/
 logs_scalability_exper/
 Scalability_Experiment*
+regularization_exper/
