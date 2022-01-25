@@ -59,25 +59,33 @@ envs_mp = [
             n_skills = 10 
              ),
         },
-    'sac':{
+    },
+    
+    {
+        'sac':{
         'MountainCarContinuous-v0': dict( 
            pretrain_steps = int (5e5),
             n_skills = 10 
              ), 
         },
-    'es':{
+    },
+    
+    {
+        'es':{
         'MountainCarContinuous-v0': dict( 
            pretrain_iterations = 20000,
             n_skills = 10
              ),
-        },
-    'pets':{
+        }
+    },
+    
+    {
+        'pets':{
         'MountainCarContinuous-v0': dict( 
            pretrain_steps = int (3e5),
             n_skills = 10 
              ),
         },
-    
     },
     # 2
     { # 6 dof
@@ -87,19 +95,28 @@ envs_mp = [
             n_skills = 30
              ), 
         },
-    'sac':{
+    },
+    
+    {
+      'sac':{
         'HalfCheetah-v2': dict( 
            pretrain_steps = int(2e6),
             n_skills = 30
              ), 
         },
-    'es':{
+    },
+    
+    {
+      'es':{
         'HalfCheetah-v2': dict( 
            pretrain_iterations = 25000,
             n_skills = 30 
              ), 
         },
-    'pets':{
+    },
+    
+    {
+       'pets':{
         'HalfCheetah-v2': dict( 
            pretrain_steps = int (3.5e5),
             n_skills = 30 
@@ -114,26 +131,36 @@ envs_mp = [
             n_skills = 30
              ),
         },
-    'sac':{
+        
+    },
+    
+    {
+      'sac':{
         'Walker2d-v2': dict( 
            pretrain_steps = int(2.5e6),
             n_skills = 30
              ),
         },
-    'es':{
+    },
+    
+    {
+      'es':{
         'Walker2d-v2': dict( 
            pretrain_iterations = 25000,
             n_skills = 30 
              ),
         },
-    'pets':{
+    },
+    
+    {
+     'pets':{
         'Walker2d-v2': dict( 
            pretrain_steps = int (4e5),
             n_skills = 30 
              ),
-        },
-        
+        },   
     },
+    
     # 4
     { # 8 dof
      'ppo':{
@@ -142,25 +169,37 @@ envs_mp = [
             n_skills = 30
              ), 
         },
+    
+    },
+    
+    {
     'sac':{
         'Ant-v2': dict( 
            pretrain_steps = int(3e6),
             n_skills = 30
              ), 
         },
-    'es':{
+        
+    },
+    
+    {
+     'es':{
         'Ant-v2': dict( 
            pretrain_iterations = 30000,
             n_skills = 30 
              ), 
         },
-    'pets':{
+    },
+    
+    {
+     'pets':{
         'Ant-v2': dict( 
            pretrain_steps = int (5e5),
             n_skills = 30 
              ),
-        },
-    },    
+        },   
+    },
+    
     
 ]
 
@@ -212,7 +251,7 @@ pets_hyperparams = dict(
 es_hyperparams = dict(
     lr = 1e-2, # learning rate 
     iterations = 100, # iterations 
-    pop_size = 400, # population size
+    pop_size = 52, # population size
     algorithm = "es"
 )
 
@@ -301,8 +340,6 @@ def train_all(env_params, results_df_list, plots_d_list):
             if alg in ['ppo', 'sac', 'pets']:
                 params['n_skills'] = env_params[alg][env]['n_skills']
                 params['pretrain_steps'] = env_params[alg][env]['pretrain_steps']
-                if alg == "pets":
-                    params['finetune_steps'] = env_params[alg][env]['finetune_steps']
                 print(f"stamp: {timestamp}, alg: {alg}, env: {env}, n_skills: {params['n_skills']}, pretrain_steps: {params['pretrain_steps']}")
             elif alg == "es":
                 params['n_skills'] = env_params[alg][env]['n_skills']
