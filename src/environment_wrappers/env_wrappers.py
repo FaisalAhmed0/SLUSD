@@ -214,8 +214,6 @@ class SkillWrapperFinetune(gym.Wrapper):
     onehot = self.one_hot(self.skill)
     obs = np.array(list(obs.copy()) + list(onehot)).astype(np.float32)
     self.t += 1
-    if self.t > self.env._max_episode_steps:
-      done = True
     return obs, reward, done, info
 
   def one_hot(self, index):

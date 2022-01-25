@@ -31,6 +31,8 @@ import seaborn as sns
 sns.set_theme(style="darkgrid")
 sns.set(font_scale = conf.font_scale)
 
+from copy import deepcopy
+
 # Asymptotic performance of the expert
 asymp_perofrmance = {
     'HalfCheetah-v2': 8070.205213363435,
@@ -257,7 +259,7 @@ discriminator_hyperparams = dict(
     mixup = False,
     gradient_clip = None,
     temperature = 1,
-    parametrization = "Linear", # TODO: add this as a CMD argument MLP, Linear, Separable, Concat
+    parametrization = "MLP", # TODO: add this as a CMD argument MLP, Linear, Separable, Concat
     lower_bound = "ba", # ba, tuba, nwj, nce, interpolate
     log_baseline = None, 
     alpha_logit = -5., # small value of alpha => reduce the variance of nwj by introduce some nce bias 
@@ -274,7 +276,7 @@ default_disc_params = dict(
         mixup = False,
         gradient_clip = None,
         temperature = 1,
-        parametrization = "Linear", # TODO: add this as a CMD argument MLP, Linear, Separable, Concat
+        parametrization = "MLP", # TODO: add this as a CMD argument MLP, Linear, Separable, Concat
         lower_bound = "ba", # ba, tuba, nwj, nce, interpolate
         log_baseline = None, 
         alpha_logit = -5., # small value of alpha => reduce the variance of nwj by introduce some nce bias 
@@ -295,7 +297,7 @@ def cmd_args():
     return args
 
 # save the hyperparameters
-def save_params(alg, directory):
+def save_params(alg, directory, discriminator_hyperparams):
     # save the hyperparams in a csv files
     alg_hyperparams = hyperparams[alg]
     params
@@ -321,7 +323,7 @@ def save_params(alg, directory):
     print(f"configurations: {config_d }\n" )
              
         
-def train_all(env_params, results_df_list):
+def train_all(env_params, results_df_list, seed, time, discriminator_hyperparams_copy=deepcopy(discriminator_hyperparams), default_disc_params_copy=deepcopy(default_disc_params)):
     plots_dict = {}
     columns = ['Regularization', "Environment", "Reward After Adaptation", "State Entropy", "Intrinsic Reward" , "Reward Before Adaptation (Best Skill)"]
     results_df = pd.DataFrame(columns=columns)
@@ -334,29 +336,30 @@ def train_all(env_params, results_df_list):
                 if env not in plots_dict:
                     plots_dict[env] = {}
                 # save a timestamp
-                timestamp = time.time()
+                timestamp = time
                 # Environment directory
-                env_dir = main_exper_dir + f"env: {env}, alg:{alg}, stamp:{timestamp}/"
+                env_dir = main_exper_dir + f"env: {env}, alg:{alg}, stamp:{timestamp}_reg:{reg}_{v}/"
                 os.makedirs(env_dir, exist_ok=True)
                 alg_params = hyperparams[alg]
                 params['n_skills'] = env_params[reg][env]['n_skills']
                 params['pretrain_steps'] = env_params[reg][env]['pretrain_steps']
                 print(f"stamp: {timestamp}, alg: {alg}, env: {env}, n_skills: {params['n_skills']}, pretrain_steps: {params['pretrain_steps']}")
-                discriminator_hyperparams[reg] = v
-                save_params(alg, env_dir)
+                discriminator_hyperparams_copy[reg] = v
+                save_params(alg, env_dir, discriminator_hyperparams_copy)
                 seed_results = []
-                for i in range(len(conf.seeds)):
-                    seed_everything(conf.seeds[i])
-                    seed_dir = env_dir + f"seed:{conf.seeds[i]}"
+                seeds = [seed]
+                for i in range(len(seeds)):
+                    seed_everything(seeds[i])
+                    seed_dir = env_dir + f"seed:{seeds[i]}"
                     os.makedirs(seed_dir, exist_ok=True)
-                    diayn = DIAYN(params, alg_params, discriminator_hyperparams, env, alg, seed_dir, seed=conf.seeds[i], conf=conf, timestamp=timestamp, adapt_params=sac_hyperparams)
+                    diayn = DIAYN(params, alg_params, discriminator_hyperparams_copy, env, alg, seed_dir, seed=seeds[i], conf=conf, timestamp=timestamp, adapt_params=sac_hyperparams)
                     # pretraining step
                     pretrained_policy, discriminator = diayn.pretrain()
                     # fine-tuning step 
                     adapted_policy, best_skill = diayn.finetune()
                     # Evaluate the policy 
                     intrinsic_reward_mean, reward_beforeFinetune_mean, reward_mean, entropy_mean = evaluate(env, params['n_skills'], pretrained_policy, adapted_policy, discriminator, 
-                                                                                                        discriminator_hyperparams['parametrization'], best_skill, alg)
+                                                                                                        discriminator_hyperparams_copy['parametrization'], best_skill, alg)
                     # for testing
                     # intrinsic_reward_mean, reward_beforeFinetune_mean, reward_mean, entropy_mean = [np.random.randn() + np.log(10),
                     #                                                                                 np.random.randn() + 100,
@@ -397,7 +400,7 @@ def train_all(env_params, results_df_list):
             save_final_results(seed_results, env_dir)
             results_df_list.append(results_df)
             # plots_d_list.append(plots_dict)
-            discriminator_hyperparams[reg] = default_disc_params[reg]
+            discriminator_hyperparams_copy[reg] = default_disc_params_copy[reg]
     
     
 def df_from_list(df_list, columns):
@@ -452,14 +455,18 @@ if __name__ == "__main__":
         
     if run_all:
         # for mp
+        seeds = conf.seeds
         manager = mp.Manager()
         results_df_list = manager.list()
         n_processes = len(envs_mp)
         processes_list = []
         for i in range(n_processes):
-            p = mp.Process(target=train_all, args=(envs_mp[i], results_df_list))
-            p.start()
-            processes_list.append(p)
+            print(i)
+            timestamp = time.time()
+            for seed in seeds:
+                p = mp.Process(target=train_all, args=(envs_mp[i], results_df_list, seed, timestamp, deepcopy(discriminator_hyperparams), deepcopy(default_disc_params)))
+                p.start()
+                processes_list.append(p)
         for p in processes_list:
             p.join()
         print(f"results_df_list: {results_df_list}")
@@ -520,7 +527,7 @@ if __name__ == "__main__":
             print(f"stamp: {timestamp}, alg: {args.alg}, env: {args.env}, n_skills: {params['n_skills']}, pretrain_iterations: {alg_params['iterations']}")
         env_dir = main_exper_dir + f"env: {args.env}, alg:{args.alg}, stamp:{timestamp}/"
         os.makedirs(env_dir, exist_ok=True)
-        save_params(args.alg, env_dir)
+        save_params(args.alg, env_dir, discriminator_hyperparams)
         seed_results = []
         for i in range(len(conf.seeds)):
             seed_everything(conf.seeds[i])

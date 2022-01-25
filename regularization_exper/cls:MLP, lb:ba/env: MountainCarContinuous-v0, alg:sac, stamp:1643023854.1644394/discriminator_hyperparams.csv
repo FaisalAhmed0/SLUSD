@@ -1,2 +1,0 @@
-,learning_rate,batch_size,n_epochs,weight_decay,dropout,label_smoothing,gp,mixup,gradient_clip,temperature,parametrization,lower_bound,log_baseline,alpha_logit
-0,0.0003,64,1,0.1,,0.0,,False,,1,MLP,ba,,-5.0

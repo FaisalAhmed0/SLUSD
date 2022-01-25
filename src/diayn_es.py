@@ -20,6 +20,7 @@ from stable_baselines3.common.callbacks import EvalCallback
 from stable_baselines3.common.monitor import Monitor
 
 from src.environment_wrappers.env_wrappers import RewardWrapper, SkillWrapper, SkillWrapperFinetune
+from src.environment_wrappers.tasks_wrappers import HalfCheetahTaskWrapper, WalkerTaskWrapper, AntTaskWrapper
 from src.utils import  best_skill, evaluate_pretrained_policy_intr, evaluate_pretrained_policy_ext
 from src.models.models import Discriminator, MLP_policy
 from src.replayBuffers import DataBuffer
@@ -137,6 +138,8 @@ class DIAYN_ES():
         self.checkpoints = checkpoints
         # number of checkpoints
         self.n_samples = n_samples
+        # task label
+        self.task = task
         
     # pretraining step with intrinsic reward    
     def pretrain(self):
@@ -349,18 +352,24 @@ class DIAYN_ES():
             population = NormalPopulation(param_shapes, env_indv.from_params, std=0.1)
         elif self.env_name == "Walker2d-v2":
             Walker.Walker.n_skills = self.params['n_skills']
+            if self.task:
+                Walker.Walker.task = self.task
             env_indv = Walker.Walker()
             # set up the population
             param_shapes = {k: v.shape for k, v in Walker.Walker().get_params().items()}
             population = NormalPopulation(param_shapes, env_indv.from_params, std=0.1)
         elif self.env_name == "HalfCheetah-v2":
             HalfCheetah.HalfCheetah.n_skills = self.params['n_skills']
+            if self.task:
+                HalfCheetah.HalfCheetah.task = self.task
             env_indv = HalfCheetah.HalfCheetah()
             # set up the population
             param_shapes = {k: v.shape for k, v in HalfCheetah.HalfCheetah().get_params().items()}
             population = NormalPopulation(param_shapes, env_indv.from_params, std=0.1)
         elif self.env_name == "Ant-v2":
             Ant.Ant.n_skills = self.params['n_skills']
+            if self.task:
+                Ant.Ant.task = self.task
             env_indv = Ant.Ant()
             # set up the population
             param_shapes = {k: v.shape for k, v in Ant.Ant().get_params().items()}
@@ -377,8 +386,7 @@ class DIAYN_ES():
         # extraact the best skill
         bestskill = best_skill(env_indv, self.env_name,  self.params['n_skills'], alg_type="es")
         # create the SAC adaptation model
-        env = DummyVecEnv([lambda: SkillWrapperFinetune(Monitor(gym.make(
-    self.env_name),  f"{self.directory}/finetune_train_results"), self.params['n_skills'], r_seed=None,max_steps=gym.make(self.env_name)._max_episode_steps, skill=bestskill)])
+        env, eval_env = self.adaptation_environment(bestskill)
 
         adaptation_model = SAC('MlpPolicy', env, verbose=1,
                     learning_rate=self.adapt_params['learning_rate'],
@@ -394,9 +402,7 @@ class DIAYN_ES():
                     tensorboard_log=self.directory,
                     seed=self.seed
                     )
-
-        eval_env = SkillWrapperFinetune(gym.make(
-            self.env_name), self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, r_seed=None, skill=bestskill)
+        
         eval_env = Monitor(eval_env, f"{self.directory}/finetune_eval_results")
 
         eval_callback = EvalCallback(eval_env, best_model_save_path=self.directory + f"/best_finetuned_model_skillIndex:{bestskill}",
@@ -434,6 +440,47 @@ class DIAYN_ES():
                     callback=eval_callback, tb_log_name="ES_FineTune", d=None, mi_estimator=None)
 
         return self.adaptation_model, bestskill
+    
+    def adaptation_environment(self, best_skill_index):
+        '''
+        Adaptation environment according to the task reward
+        '''
+        if self.task:
+            # print(f"There is a task which is {self.task}")
+            # input()
+            if self.env_name == "HalfCheetah-v2":
+                # print(f"environment: {self.env_name}")
+                # input()
+                env = HalfCheetahTaskWrapper(gym.make("HalfCheetah-v2"), task=self.task)
+                env = DummyVecEnv([lambda: SkillWrapperFinetune(Monitor(env,  f"{self.directory}/finetune_train_results"), self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, skill=best_skill_index)])
+                eval_env = HalfCheetahTaskWrapper(gym.make(self.env_name), task=self.task)
+                eval_env = SkillWrapperFinetune(eval_env, self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, r_seed=None, skill=best_skill_index)
+                
+            # # WalkerTaskWrapper, AntTaskWrapper
+            elif self.env_name == "Walker2d-v2":
+                # print(f"environment: {self.env_name}")
+                # input()
+                env = WalkerTaskWrapper(gym.make("Walker2d-v2"), task=self.task)
+                env = DummyVecEnv([lambda: SkillWrapperFinetune(Monitor(env,  f"{self.directory}/finetune_train_results"), self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, skill=best_skill_index)])
+                eval_env = WalkerTaskWrapper(gym.make(self.env_name), task=self.task)
+                eval_env = SkillWrapperFinetune(eval_env, self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, r_seed=None, skill=best_skill_index)
+                
+            elif self.env_name == "Ant-v2":
+                # print(f"environment: {self.env_name}")
+                # input()
+                env = AntTaskWrapper(gym.make("Ant-v2"), task=self.task)
+                env = DummyVecEnv([lambda: SkillWrapperFinetune(Monitor(env,  f"{self.directory}/finetune_train_results"), self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, skill=best_skill_index)])
+                eval_env = AntTaskWrapper(gym.make(self.env_name), task=self.task)
+                eval_env = SkillWrapperFinetune(eval_env, self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, r_seed=None, skill=best_skill_index)
+                
+        else:
+            # print(f"Just ")
+            env = DummyVecEnv([lambda: SkillWrapperFinetune(Monitor(gym.make(
+    self.env_name),  f"{self.directory}/finetune_train_results"), self.params['n_skills'], r_seed=None,max_steps=gym.make(self.env_name)._max_episode_steps, skill=best_skill_index)])
+            eval_env = SkillWrapperFinetune(gym.make(
+            self.env_name), self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, r_seed=None, skill=best_skill_index)
+            
+        return env, eval_env
     
     def load_state_dicts(self, es_model):
         '''
