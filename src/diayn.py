@@ -244,7 +244,10 @@ class DIAYN():
         # if the model for pretraining is SAC just load the discriminator
         if self.alg == "sac":
             sac_model = SAC.load(model_dir, env=env, tensorboard_log=self.directory)
-            self.adaptation_model = sac_model
+            # self.adaptation_model = sac_model
+            self.adaptation_model.actor.latent_pi.load_state_dict(sac_model.actor.latent_pi.state_dict())
+            self.adaptation_model.actor.mu.load_state_dict(sac_model.actor.mu.state_dict())
+            self.adaptation_model.actor.log_std.load_state_dict(sac_model.actor.log_std.state_dict())
             # load the discriminator
             self.d.layers[0] = nn.Linear(gym.make(self.env_name).observation_space.shape[0] + self.params['n_skills']  + gym.make(self.env_name).action_space.shape[0], self.conf.layer_size_discriminator)
             self.d.layers[-1] = nn.Linear(self.conf.layer_size_discriminator, 1)
