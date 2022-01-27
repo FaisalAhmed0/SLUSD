@@ -26,7 +26,7 @@ regularization_exper_dir = "regularization_exper/",
 eval_runs = 5,
     
 # evaluation frequency
-eval_freq = 1000,
+eval_freq = 5000,
 
 # total time steps
 total_timesteps = int(1e8),
@@ -41,10 +41,10 @@ layer_size_policy = 512,
 layer_size_value = 512,
     
 # layer size of the Q-function critic
-layer_size_q = 1024,
+layer_size_q = 512,
 
 # layer size of the skills discriminator
-layer_size_discriminator = 1024,
+layer_size_discriminator = 512,
     
 # layer size of the skills discriminator
 num_layers_discriminator = 2,

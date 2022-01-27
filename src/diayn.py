@@ -215,6 +215,7 @@ class DIAYN():
 
         best_skill_index = best_skill(
             model, self.env_name,  self.params['n_skills'])
+        # best_skill_index = 0
 
         del model
         # define the environment for the adaptation model
@@ -230,16 +231,18 @@ class DIAYN():
                     gradient_steps=self.adapt_params['gradient_steps'],
                     learning_starts=self.adapt_params['learning_starts'],
                     policy_kwargs=dict(net_arch=dict(pi=[self.conf.layer_size_policy, self.conf.layer_size_policy], qf=[
-                                       self.conf.layer_size_q, self.conf.layer_size_q]), n_critics=1),
+                                       self.conf.layer_size_q, self.conf.layer_size_q]), n_critics=2),
                     tensorboard_log=self.directory,
                     seed=self.seed
                     )
 
         eval_env = Monitor(eval_env, f"{self.directory}/finetune_eval_results")
         
+        
         eval_callback = EvalCallback(eval_env, best_model_save_path=self.directory + f"/best_finetuned_model_skillIndex:{best_skill_index}",
                                     log_path=f"{self.directory}/finetune_eval_results", eval_freq=self.conf.eval_freq,
                                     deterministic=True, render=False)
+        
         # if the model for pretraining is SAC just load the discriminator
         if self.alg == "sac":
             sac_model = SAC.load(model_dir, env=env, tensorboard_log=self.directory)
@@ -247,14 +250,17 @@ class DIAYN():
             self.adaptation_model.actor.latent_pi.load_state_dict(sac_model.actor.latent_pi.state_dict())
             self.adaptation_model.actor.mu.load_state_dict(sac_model.actor.mu.state_dict())
             self.adaptation_model.actor.log_std.load_state_dict(sac_model.actor.log_std.state_dict())
-            # load the discriminator
+            self.adaptation_model.actor.optimizer = opt.Adam(self.adaptation_model.actor.parameters(), lr=self.adapt_params['learning_rate'])
+            # # load the discriminator
             self.d.layers[0] = nn.Linear(gym.make(self.env_name).observation_space.shape[0] + self.params['n_skills']  + gym.make(self.env_name).action_space.shape[0], self.conf.layer_size_discriminator)
             self.d.layers[-1] = nn.Linear(self.conf.layer_size_discriminator, 1)
             seq = nn.Sequential(*self.d.layers)
-            # print(d)
+            # # print(d)
             self.d.eval()
             self.adaptation_model.critic.qf0.load_state_dict(seq.state_dict())
+            self.adaptation_model.critic.qf1.load_state_dict(seq.state_dict())
             self.adaptation_model.critic_target.load_state_dict(self.adaptation_model.critic.state_dict())
+            self.adaptation_model.critic.optimizer = opt.Adam(self.adaptation_model.critic.parameters(), lr=self.adapt_params['learning_rate'])
             self.adaptation_model.learn(total_timesteps=self.params['finetune_steps'],
                         callback=eval_callback, tb_log_name="SAC_FineTune", d=None, mi_estimator=None)
 
@@ -278,6 +284,7 @@ class DIAYN():
         self.adaptation_model.actor.latent_pi.load_state_dict(ppo_actor.mlp_extractor.policy_net.state_dict())
         self.adaptation_model.actor.mu.load_state_dict(ppo_actor.action_net.state_dict())
         self.adaptation_model.actor.log_std.load_state_dict(nn.Linear(in_features=self.conf.layer_size_policy, out_features=gym.make(self.env_name).action_space.shape[0], bias=True).state_dict())
+        self.adaptation_model.actor.optimizer = opt.Adam(self.adaptation_model.actor.parameters(), lr=self.adapt_params['learning_rate'])
         # initlialize the adaptation critic with the discriminator weights
         self.d.eval()
         
@@ -286,7 +293,9 @@ class DIAYN():
         layers = [l for l in self.d.layers if "linear" in f"{type(l)}" or "ReLU" in f"{type(l)}"]
         seq = nn.Sequential(*layers)
         self.adaptation_model.critic.qf0.load_state_dict(seq.state_dict())
+        self.adaptation_model.critic.qf1.load_state_dict(seq.state_dict())
         self.adaptation_model.critic_target.load_state_dict(self.adaptation_model.critic.state_dict())
+        self.adaptation_model.critic.optimizer = opt.Adam(self.adaptation_model.critic.parameters(), lr=self.adapt_params['learning_rate'])
         
     def adaptation_environment(self, best_skill_index):
         '''

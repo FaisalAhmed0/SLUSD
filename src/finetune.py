@@ -2,6 +2,8 @@ import argparse
 import pickle
 import json
 
+from copy import deepcopy
+
 from src.config import conf
 # diayn with model-free RL
 from src.diayn import DIAYN 
@@ -45,7 +47,7 @@ params = dict( n_skills = 30,
            pretrain_steps = int(20e3),
            finetune_steps = int(1e5),
            buffer_size = int(1e7),
-           min_train_size = int(1e4),
+           min_train_size = int(1e2),
              )
 
 
@@ -209,7 +211,7 @@ ppo_hyperparams = dict(
     n_steps = 2048,
     learning_rate = 3e-4,
     n_epochs = 10,
-    batch_size = 64,
+    batch_size = 256,
     gamma = 0.99,
     gae_lambda = 0.95,
     clip_range = 0.1,
@@ -223,25 +225,25 @@ ppo_hyperparams = dict(
 sac_hyperparams = dict(
     learning_rate = 3e-4,
     gamma = 0.99,
-    buffer_size = int(1e7),
-    batch_size = 128,
+    buffer_size = int(1e6),
+    batch_size = 256,
     tau = 0.005,
     gradient_steps = 1,
-    ent_coef=0.5,
-    learning_starts = 10000,
+    ent_coef='auto',
+    learning_starts = 100,
     algorithm = "sac"
 )
 
 # PETS Hyperparameters 
 pets_hyperparams = dict(
     learning_rate = 1e-3,
-    batch_size = 128,
+    batch_size = 256,
     ensemble_size = 5,
     trial_length = 200,
-    population_size = 250,
+    population_size = 150,
     planning_horizon = 10,
     elite_ratio = 0.05,
-    num_particles = 20,
+    num_particles = 5,
     weight_decay = 5e-5,
     algorithm = "pets"
 )
@@ -249,7 +251,7 @@ pets_hyperparams = dict(
 
 # Evolution Stratigies Hyperparameters after hyperparameters search
 es_hyperparams = dict(
-    lr = 1e-2, # learning rate 
+    lr = 1e-3, # learning rate 
     iterations = 100, # iterations 
     pop_size = 52, # population size
     algorithm = "es"
@@ -274,7 +276,7 @@ discriminator_hyperparams = dict(
     mixup = False,
     gradient_clip = None,
     temperature = 1,
-    parametrization = "Linear", # TODO: add this as a CMD argument MLP, Linear, Separable, Concat
+    parametrization = "MLP", # TODO: add this as a CMD argument MLP, Linear, Separable, Concat
     lower_bound = "ba", # ba, tuba, nwj, nce, interpolate
     log_baseline = None, 
     alpha_logit = -5., # small value of alpha => reduce the variance of nwj by introduce some nce bias 
@@ -295,10 +297,9 @@ def cmd_args():
     return args
 
 # save the hyperparameters
-def save_params(alg, directory):
+def save_params(alg, directory, params_copy, algo_params):
     # save the hyperparams in a csv files
-    alg_hyperparams = hyperparams[alg]
-    params
+    alg_hyperparams = algo_params
     alg_hyperparams_df = pd.DataFrame(alg_hyperparams, index=[0])
     alg_hyperparams_df.to_csv(f"{directory}/{alg}_hyperparams.csv")
     
@@ -306,7 +307,7 @@ def save_params(alg, directory):
     discriminator_hyperparams_df.to_csv(f"{directory}/discriminator_hyperparams.csv")
     
     # convert the config namespace to a dictionary
-    exp_params_df = pd.DataFrame(params, index=[0])
+    exp_params_df = pd.DataFrame(params_copy, index=[0])
     exp_params_df.to_csv(f"{directory}/params.csv")
     
     # general configrations
@@ -321,7 +322,7 @@ def save_params(alg, directory):
     print(f"configurations: {config_d }\n" )
              
         
-def train_all(env_params, results_df_list, plots_d_list):
+def train_all(env_params, results_df_list, plots_d_list, seed , time, params_copy=deepcopy(params)):
     plots_dict = {}
     columns = ['Algorithm', "Reward After Adaptation", "State Entropy", "Intrinsic Reward" , "Reward Before Adaptation", "Environment"]
     results_df = pd.DataFrame(columns=columns)
@@ -332,54 +333,55 @@ def train_all(env_params, results_df_list, plots_d_list):
             if env not in plots_dict:
                 plots_dict[env] = {}
             # save a timestamp
-            timestamp = time.time()
+            timestamp = time
             # Environment directory
             env_dir = main_exper_dir + f"env: {env}, alg:{alg}, stamp:{timestamp}/"
             os.makedirs(env_dir, exist_ok=True)
-            alg_params = hyperparams[alg]
+            alg_params = deepcopy(hyperparams[alg])
             if alg in ['ppo', 'sac', 'pets']:
-                params['n_skills'] = env_params[alg][env]['n_skills']
-                params['pretrain_steps'] = env_params[alg][env]['pretrain_steps']
-                print(f"stamp: {timestamp}, alg: {alg}, env: {env}, n_skills: {params['n_skills']}, pretrain_steps: {params['pretrain_steps']}")
+                params_copy['n_skills'] = env_params[alg][env]['n_skills']
+                params_copy['pretrain_steps'] = env_params[alg][env]['pretrain_steps']
+                print(f"stamp: {timestamp}, alg: {alg}, env: {env}, n_skills: {params_copy['n_skills']}, pretrain_steps: {params_copy['pretrain_steps']}")
             elif alg == "es":
-                params['n_skills'] = env_params[alg][env]['n_skills']
+                params_copy['n_skills'] = env_params[alg][env]['n_skills']
                 alg_params['iterations'] = env_params[alg][env]['pretrain_iterations']
-                print(f"stamp: {timestamp}, alg: {alg}, env: {env}, n_skills: {params['n_skills']}, pretrain_iterations: {alg_params['iterations']}")
-            # save_params(alg, env_dir)
+                print(f"stamp: {timestamp}, alg: {alg}, env: {env}, n_skills: {params_copy['n_skills']}, pretrain_iterations: {alg_params['iterations']}")
+            save_params(alg, env_dir, params_copy, alg_params)
             if (env_params[alg][env]).get('clip_range'):
                 # clip_range
                 alg_params['clip_range'] = (env_params[alg][env]).get('clip_range')
             seed_results = []
-            for i in range(len(conf.seeds)):
-                seed_everything(conf.seeds[i])
-                seed_dir = env_dir + f"seed:{conf.seeds[i]}"
+            seeds = [seed]
+            for i in range(len(seeds)):
+                seed_everything(seeds[i])
+                seed_dir = env_dir + f"seed:{seeds[i]}"
                 os.makedirs(seed_dir, exist_ok=True)
                 if alg in ("sac", "ppo"):
-                    diayn = DIAYN(params, alg_params, discriminator_hyperparams, env, alg, seed_dir, seed=conf.seeds[i], conf=conf, timestamp=timestamp, adapt_params=sac_hyperparams)
+                    diayn = DIAYN(params_copy, alg_params, discriminator_hyperparams, env, alg, seed_dir, seed=seeds[i], conf=conf, timestamp=timestamp, adapt_params=sac_hyperparams)
                     # pretraining step
                     pretrained_policy, discriminator = diayn.pretrain()
                     # fine-tuning step 
                     adapted_policy, best_skill = diayn.finetune()
                     # Evaluate the policy 
-                    intrinsic_reward_mean, reward_beforeFinetune_mean, reward_mean, entropy_mean = evaluate(env, params['n_skills'], pretrained_policy, adapted_policy, discriminator, 
+                    intrinsic_reward_mean, reward_beforeFinetune_mean, reward_mean, entropy_mean = evaluate(env, params_copy['n_skills'], pretrained_policy, adapted_policy, discriminator, 
                                                                                                         discriminator_hyperparams['parametrization'], best_skill, alg)
                 elif alg == "pets":
-                    diayn = DIAYN_MB(params, alg_params, discriminator_hyperparams, env, alg, seed_dir, seed=conf.seeds[i], conf=conf, timestamp=timestamp, adapt_params=sac_hyperparams)
+                    diayn = DIAYN_MB(params_copy, alg_params, discriminator_hyperparams, env, alg, seed_dir, seed=seeds[i], conf=conf, timestamp=timestamp, adapt_params=sac_hyperparams)
                     # pretraining step
                     pretrained_policy, discriminator = diayn.pretrain()
                     # fine-tune step
                     adapted_policy, best_skill = diayn.finetune()
                     # Evaluate the policy 
-                    intrinsic_reward_mean, reward_beforeFinetune_mean, reward_mean, entropy_mean = evaluate(env, params['n_skills'], pretrained_policy, adapted_policy, discriminator, 
+                    intrinsic_reward_mean, reward_beforeFinetune_mean, reward_mean, entropy_mean = evaluate(env, params_copy['n_skills'], pretrained_policy, adapted_policy, discriminator, 
                                                                                                         discriminator_hyperparams['parametrization'], best_skill, alg)
                 elif alg == "es":
-                    diayn = DIAYN_ES(params, alg_params, discriminator_hyperparams, env, "es", seed_dir, seed=conf.seeds[i], conf=conf, timestamp=timestamp, adapt_params=sac_hyperparams)
+                    diayn = DIAYN_ES(params_copy, alg_params, discriminator_hyperparams, env, "es", seed_dir, seed=seeds[i], conf=conf, timestamp=timestamp, adapt_params=sac_hyperparams)
                     # pretraining step
                     pretrained_policy, discriminator = diayn.pretrain()
                     # adaptation step
                     adapted_policy, best_skill = diayn.finetune()
                     # Evaluate the policy 
-                    intrinsic_reward_mean, reward_beforeFinetune_mean, reward_mean, entropy_mean = evaluate(env, params['n_skills'], pretrained_policy, adapted_policy, discriminator, 
+                    intrinsic_reward_mean, reward_beforeFinetune_mean, reward_mean, entropy_mean = evaluate(env, params_copy['n_skills'], pretrained_policy, adapted_policy, discriminator, 
                                                                                                         discriminator_hyperparams['parametrization'], best_skill, alg)
                 asym = asymp_perofrmance[env]
                 # save results
@@ -406,7 +408,7 @@ def train_all(env_params, results_df_list, plots_d_list):
                 
             plots_dict[env]["algs"].append(alg)
             plots_dict[env]["stamps"].append(timestamp)
-            plots_dict[env]["skills"].append(params['n_skills'])
+            plots_dict[env]["skills"].append(params_copy['n_skills'])
             plots_dict[env]["pms"].append(discriminator_hyperparams['parametrization'])
             plots_dict[env]["lbs"].append(discriminator_hyperparams['lower_bound'])
         
@@ -437,10 +439,13 @@ if __name__ == "__main__":
         plots_d_list = manager.list()
         n_processes = len(envs_mp)
         processes_list = []
+        seeds = conf.seeds
         for i in range(n_processes):
-            p = mp.Process(target=train_all, args=(envs_mp[i], results_df_list, plots_d_list))
-            p.start()
-            processes_list.append(p)
+            timestamp = time.time()
+            for seed in seeds:
+                p = mp.Process(target=train_all, args=(envs_mp[i], results_df_list, plots_d_list, seed, timestamp))
+                p.start()
+                processes_list.append(p)
         for p in processes_list:
             p.join()
         print(f"results_df_list: {results_df_list}")
@@ -494,7 +499,7 @@ if __name__ == "__main__":
             print(f"stamp: {timestamp}, alg: {args.alg}, env: {args.env}, n_skills: {params['n_skills']}, pretrain_iterations: {alg_params['iterations']}")
         env_dir = main_exper_dir + f"env: {args.env}, alg:{args.alg}, stamp:{timestamp}/"
         os.makedirs(env_dir, exist_ok=True)
-        save_params(args.alg, env_dir)
+        save_params(args.alg, env_dir, params, alg_params)
         seed_results = []
         for i in range(len(conf.seeds)):
             seed_everything(conf.seeds[i])

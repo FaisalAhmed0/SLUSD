@@ -28,7 +28,12 @@ class DataBuffer():
       self.size += 1
     
   def sample(self, sample_size):
-    assert sample_size <= self.size, "Sample size is larger than the buffer size"
+    if sample_size > self.size:
+        indinces = np.random.randint(0, self.size, self.size)
+        inputs = torch.FloatTensor(self.observations[indinces], device=conf.device)
+        outputs = torch.tensor(self.skills[indinces], device=conf.device)
+        return outputs
+    # assert sample_size <= self.size, "Sample size is larger than the buffer size"
     indinces = np.random.randint(0, self.size, sample_size)
     inputs = torch.FloatTensor(self.observations[indinces], device=conf.device)
     outputs = torch.tensor(self.skills[indinces], device=conf.device)
