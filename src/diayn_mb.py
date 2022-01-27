@@ -32,7 +32,7 @@ from stable_baselines3.common.monitor import Monitor
 
 from src.environment_wrappers.env_wrappers import RewardWrapper, SkillWrapper, SkillWrapperFinetune
 from src.environment_wrappers.tasks_wrappers import HalfCheetahTaskWrapper
-from src.utils import record_video_finetune, best_skill, evaluate_pretrained_policy_intr, evaluate_pretrained_policy_ext
+from src.utils import  best_skill, evaluate_pretrained_policy_intr, evaluate_pretrained_policy_ext
 from src.mi_lower_bounds import mi_lower_bound
 from src.models.models import Discriminator, SeparableCritic, ConcatCritic
 from src.replayBuffers import DataBuffer
@@ -59,6 +59,9 @@ sns.set(font_scale = conf.font_scale)
 
 
 class DIAYN_MB():
+    '''
+    An implementation of DIAYN with a black-box optimization algorithm (Evolution Stratigies) as the optimization backbone
+    '''
     def __init__(self, params, alg_params, discriminator_hyperparams, env="MountainCarContinuous-v0", alg="pets", directory="./", seed=10, device="cpu", conf=None, timestamp=None, checkpoints=False, args=None, task=None, adapt_params=None, n_samples=None):
         # create the discirminator
         state_dim = gym.make(env).observation_space.shape[0]
@@ -140,6 +143,9 @@ class DIAYN_MB():
         self.n_samples = n_samples
         
     def pretrain(self):
+        '''
+        Pretraining phase with an intrinsic reward
+        '''
         self.timesteps = []
         self.results = []
         # create MBRL lib gym-like env wrapper
@@ -182,8 +188,7 @@ class DIAYN_MB():
                 "propagation_method": "fixed_model",
                 # can also configure activation function for GaussianMLP
                 "activation_fn_cfg": {
-                    "_target_": "torch.nn.LeakyReLU",
-                    "negative_slope": 0.01
+                    "_target_": "torch.nn.ReLU",
                 }
             },
             # options for training the dynamics model
@@ -275,7 +280,7 @@ class DIAYN_MB():
             plt.figure()
             plt.plot(steps_l, extr_rewards, label="pets".upper())
             plt.xlabel("Pretraining Steps")
-            plt.ylabel("Extrinsic Reward (Best Skill)")
+            plt.ylabel("Extrinsic Reward")
             plt.legend()
             plt.tight_layout()
             filename = f"Scalability_Experiment_realtime_env:{self.env_name}_alg:pets_xaxis:Pretraining Steps.png"
@@ -283,7 +288,7 @@ class DIAYN_MB():
             plt.figure()
             plt.plot(intr_rewards, extr_rewards, label="pets".upper())
             plt.xlabel("Intrinsic Reward")
-            plt.ylabel("Extrinsic Reward (Best Skill)")
+            plt.ylabel("Extrinsic Reward")
             plt.legend()
             plt.tight_layout()
             filename = f"Scalability_Experiment_realtime_env:{self.env_name}_alg:pets_xaxis:Intrinsic Reward.png"
@@ -366,7 +371,7 @@ class DIAYN_MB():
                     plt.figure()
                     plt.plot(steps_l, extr_rewards, label="pets".upper())
                     plt.xlabel("Pretraining Steps")
-                    plt.ylabel("Extrinsic Reward (Best Skill)")
+                    plt.ylabel("Extrinsic Reward")
                     plt.legend()
                     plt.tight_layout()
                     filename = f"Scalability_Experiment_realtime_env:{self.env_name}_alg:pets_xaxis:Pretraining Steps.png"
@@ -374,7 +379,7 @@ class DIAYN_MB():
                     plt.figure()
                     plt.plot(intr_rewards, extr_rewards, label="pets".upper())
                     plt.xlabel("Intrinsic Reward")
-                    plt.ylabel("Extrinsic Reward (Best Skill)")
+                    plt.ylabel("Extrinsic Reward")
                     plt.legend()
                     plt.tight_layout()
                     filename = f"Scalability_Experiment_realtime_env:{self.env_name}_alg:pets_xaxis:Intrinsic Reward.png"
@@ -417,17 +422,21 @@ class DIAYN_MB():
         return total_rewards
             
     def finetune(self):
+        self.d.eval()
+        '''
+        Adapt the pretrained model with task reward using SAC
+        '''
         self.timesteps = []
         self.results = []
         # create MBRL lib gym-like env wrapper
         env_name = self.env_name
         seed = self.seed
         best_skill = np.argmax( np.mean([self.best_skill() for _ in range(3)], axis=0))
+        # best_skill = 0
+        
+        env, eval_env = self.adaptation_environment(best_skill)
 
-        env = DummyVecEnv([lambda: SkillWrapperFinetune(Monitor(gym.make(
-        self.env_name),  f"{self.directory}/finetune_train_results"), self.params['n_skills'], r_seed=None,max_steps=gym.make(self.env_name)._max_episode_steps, skill=best_skill)])
-
-        adaptation_model = SAC('MlpPolicy', env, verbose=1,
+        self.adaptation_model = SAC('MlpPolicy', env, verbose=1,
                     learning_rate=self.adapt_params['learning_rate'],
                     batch_size=self.adapt_params['batch_size'],
                     gamma=self.adapt_params['gamma'],
@@ -436,40 +445,12 @@ class DIAYN_MB():
                     ent_coef=self.adapt_params['ent_coef'],
                     gradient_steps=self.adapt_params['gradient_steps'],
                     learning_starts=self.adapt_params['learning_starts'],
-                    policy_kwargs=dict(net_arch=dict(pi=[2*self.conf.layer_size_policy, 2*self.conf.layer_size_policy], qf=[
+                    policy_kwargs=dict(net_arch=dict(pi=[self.conf.layer_size_policy, self.conf.layer_size_policy], qf=[
                                        self.conf.layer_size_q, self.conf.layer_size_q])),
                     tensorboard_log=self.directory,
                     seed=self.seed
                     )
 
-        eval_env = SkillWrapperFinetune(gym.make(
-            self.env_name), self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, r_seed=None, skill=best_skill)
-        eval_env = Monitor(eval_env, f"{self.directory}/finetune_eval_results")
-
-        eval_callback = EvalCallback(eval_env, best_model_save_path=self.directory + f"/best_finetuned_model_skillIndex:{best_skill}",
-                                    log_path=f"{self.directory}/finetune_eval_results", eval_freq=self.conf.eval_freq,
-                                    deterministic=True, render=False)
-
-        env = DummyVecEnv([lambda: SkillWrapperFinetune(Monitor(gym.make(
-    self.env_name),  f"{self.directory}/finetune_train_results"), self.params['n_skills'], r_seed=None,max_steps=gym.make(self.env_name)._max_episode_steps, skill=best_skill)])
-
-        adaptation_model = SAC('MlpPolicy', env, verbose=1,
-                    learning_rate=self.adapt_params['learning_rate'],
-                    batch_size=self.adapt_params['batch_size'],
-                    gamma=self.adapt_params['gamma'],
-                    buffer_size=self.adapt_params['buffer_size'],
-                    tau=self.adapt_params['tau'],
-                    ent_coef=self.adapt_params['ent_coef'],
-                    gradient_steps=self.adapt_params['gradient_steps'],
-                    learning_starts=self.adapt_params['learning_starts'],
-                    policy_kwargs=dict(net_arch=dict(pi=[2*self.conf.layer_size_policy, 2*self.conf.layer_size_policy], qf=[
-                                       self.conf.layer_size_q, self.conf.layer_size_q])),
-                    tensorboard_log=self.directory,
-                    seed=self.seed
-                    )
-
-        eval_env = SkillWrapperFinetune(gym.make(
-            self.env_name), self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, r_seed=None, skill=best_skill)
         eval_env = Monitor(eval_env, f"{self.directory}/finetune_eval_results")
 
         eval_callback = EvalCallback(eval_env, best_model_save_path=self.directory + f"/best_finetuned_model_skillIndex:{best_skill}",
@@ -477,26 +458,76 @@ class DIAYN_MB():
                                     deterministic=True, render=False)
         # load the policy weights from the environment model
         model = self.load_env_model_for_adapt(self.model_env)
+        print("model")
         print(model)
-        print(adaptation_model.actor.latent_pi)
-        adaptation_model.actor.latent_pi = model
-        adaptation_model.actor.mu = nn.Linear(conf.layer_size_policy, env.action_space.shape[0])
-        adaptation_model.actor.log_std = nn.Linear(conf.layer_size_policy, env.action_space.shape[0])
-        # load the discriminator
-        d = copy.deepcopy(self.d)
-        d.layers[0] = nn.Linear(gym.make(self.env_name).observation_space.shape[0]+self.params['n_skills'] +1, self.conf.layer_size_discriminator)
-        d.head = nn.Sequential(*d.layers)
-        d.output = nn.Linear(self.conf.layer_size_discriminator, 1)
-        adaptation_model.critic.qf0 = d
-        adaptation_model.critic.qf1 = copy.deepcopy(d)
-        adaptation_model.critic_target.qf0 = copy.deepcopy(d)
-        adaptation_model.critic_target.qf1 = copy.deepcopy(d)
-        adaptation_model.learn(total_timesteps=self.params['finetune_steps'],
+        print("Actor")
+        print(self.adaptation_model.actor)
+        self.load_state_dicts(model)
+        self.adaptation_model.learn(total_timesteps=self.params['finetune_steps'],
                     callback=eval_callback, tb_log_name="PETS_FineTune", d=None, mi_estimator=None)
 
-        return adaptation_model, best_skill
-
-
+        return self.adaptation_model, best_skill
+    
+    
+    def adaptation_environment(self, best_skill_index):
+        '''
+        Adaptation environment according to the task reward
+        '''
+        if self.task:
+            # print(f"There is a task which is {self.task}")
+            # input()
+            if self.env_name == "HalfCheetah-v2":
+                # print(f"environment: {self.env_name}")
+                # input()
+                env = HalfCheetahTaskWrapper(gym.make("HalfCheetah-v2"), task=self.task)
+                env = DummyVecEnv([lambda: SkillWrapperFinetune(Monitor(env,  f"{self.directory}/finetune_train_results"), self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, skill=best_skill_index)])
+                eval_env = HalfCheetahTaskWrapper(gym.make(self.env_name), task=self.task)
+                eval_env = SkillWrapperFinetune(eval_env, self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, r_seed=None, skill=best_skill_index)
+                
+            # # WalkerTaskWrapper, AntTaskWrapper
+            elif self.env_name == "Walker2d-v2":
+                # print(f"environment: {self.env_name}")
+                # input()
+                env = WalkerTaskWrapper(gym.make("Walker2d-v2"), task=self.task)
+                env = DummyVecEnv([lambda: SkillWrapperFinetune(Monitor(env,  f"{self.directory}/finetune_train_results"), self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, skill=best_skill_index)])
+                eval_env = WalkerTaskWrapper(gym.make(self.env_name), task=self.task)
+                eval_env = SkillWrapperFinetune(eval_env, self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, r_seed=None, skill=best_skill_index)
+                
+            elif self.env_name == "Ant-v2":
+                # print(f"environment: {self.env_name}")
+                # input()
+                env = AntTaskWrapper(gym.make("Ant-v2"), task=self.task)
+                env = DummyVecEnv([lambda: SkillWrapperFinetune(Monitor(env,  f"{self.directory}/finetune_train_results"), self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, skill=best_skill_index)])
+                eval_env = AntTaskWrapper(gym.make(self.env_name), task=self.task)
+                eval_env = SkillWrapperFinetune(eval_env, self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, r_seed=None, skill=best_skill_index)
+                
+        else:
+            # print(f"Just ")
+            env = DummyVecEnv([lambda: SkillWrapperFinetune(Monitor(gym.make(
+    self.env_name),  f"{self.directory}/finetune_train_results"), self.params['n_skills'], r_seed=None,max_steps=gym.make(self.env_name)._max_episode_steps, skill=best_skill_index)])
+            eval_env = SkillWrapperFinetune(gym.make(
+            self.env_name), self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, r_seed=None, skill=best_skill_index)
+            
+        return env, eval_env
+    
+    def load_state_dicts(self, model):
+        '''
+        load the pretrained model parameters into the adaptation model
+        '''
+        # initlialize the adaptation policy with the pretrained model
+        self.adaptation_model.actor.latent_pi.load_state_dict(model.state_dict())
+        self.adaptation_model.actor.mu.load_state_dict(nn.Linear(conf.layer_size_policy, gym.make(self.env_name).action_space.shape[0]).state_dict())
+        self.adaptation_model.actor.log_std.load_state_dict(nn.Linear(conf.layer_size_policy, gym.make(self.env_name).action_space.shape[0]).state_dict())
+        self.adaptation_model.actor.optimizer = opt.Adam(self.adaptation_model.actor.parameters(), lr=self.adapt_params['learning_rate'])
+        # initlialize the adaptation critic with the discriminator weights
+        self.d.layers[0] = nn.Linear(gym.make(self.env_name).observation_space.shape[0] + self.params['n_skills']  + gym.make(self.env_name).action_space.shape[0], self.conf.layer_size_discriminator)
+        self.d.layers[-1] = nn.Linear(self.conf.layer_size_discriminator, 1)
+        seq = nn.Sequential(*self.d.layers)
+        # print(d)
+        self.adaptation_model.critic.qf0.load_state_dict(seq.state_dict())
+        self.adaptation_model.critic.qf1.load_state_dict(seq.state_dict())
+        self.adaptation_model.critic_target.load_state_dict(self.adaptation_model.critic.state_dict())
+        self.adaptation_model.critic.optimizer = opt.Adam(self.adaptation_model.critic.parameters(), lr=self.adapt_params['learning_rate'])
 
     def load_env_model_for_adapt(self, model_env):
         # pick a model randomly from the ensamble 
@@ -517,7 +548,6 @@ class DIAYN_MB():
         model = nn.Sequential(*layers)
         return model
         
-    
     # common_util.rollout_model_env()
     def evaluate_policy(self, env_name, model_env):
         print("In evaluate_policy")
@@ -561,9 +591,6 @@ class DIAYN_MB():
         print("Finished evaluate_policy")
         return total_reward
     
-
-        
-        
     def split_obs(self, obs):
         obs = obs
         env_obs = obs[: -self.n_skills]
@@ -678,17 +705,14 @@ class DIAYN_MB():
             self.sw.add_scalar("discrimiator wights norm",
                             weights_norm, timesteps)
             torch.save(self.d.state_dict(), self.directory + "/disc.pth")
-                
-                
-                
-                
+                           
 class Reward_func():
     def __init__(self, d, skills,parametrization="MLP"):
         self.d = d
         self.n_skills = skills
         self.parametrization = parametrization
         
-    @ torch.no_grad()
+    @torch.no_grad()
     def __call__(self, action, next_obs):
         self.d.eval()
         self.batch_size = action.shape[0]
@@ -707,8 +731,6 @@ class Reward_func():
             reward = self.d( env_obs, skills_onehot )
             return reward.reshape(-1, 1)
             
-            
-            
     def one_hot(self, skills):
         onehot = torch.zeros(self.batch_size, self.n_skills)
         onehot[torch.arange(self.batch_size), skills] = 1
@@ -717,63 +739,7 @@ class Reward_func():
     def split_obs(self, obs):
         env_obs = obs[:, :-self.n_skills]
         skills = np.argmax(obs[:, -self.n_skills:].cpu().numpy(), axis=-1)
-        return env_obs, skills
-    
-    
-# class AdaptationReward():
-#     def __init__(self, env_name):
-#         self.env_name = env_name
-        
-#     def __call__(self, action, next_obs):
-#         if env_name == "MountainCarContinuous-v0":
-#             return self.MC_reward(action, next_obs)
-#         elif env_name == "Reacher-v2":
-#             return self.Reacher_reward(action, next_obs)
-#         elif env_name == "Swimmer-v2":
-#             return self.Swimmer_reward(action, next_obs)
-#         elif env_name == "Hopper-v2":
-#             return self.Hopper_reward(action, next_obs)
-#         elif env_name == "HalfCheetah-v2":
-#             return self.HalfCheetah_reward(action, next_obs)
-#         elif env_name == "Walker2d-v2":
-#             return self.Walker_reward(action, next_obs)
-#         elif env_name == "Ant-v2":
-#             return self.Ant_reward(action, next_obs)
-#         elif env_name == "Humanoid-v2":
-#             return self.Humanoid_reward(action, next_obs)
-    
-#     def MC_reward(self, action, next_obs):
-#         position = next_obs[0]
-#         velocity = next_obs[1]
-#         goal_position =  0.45
-#         goal_velocity = 0
-#         # Convert a possible numpy bool to a Python bool.
-#         done = bool(position >= goal_position and velocity >= goal_velocity)
-#         reward = 0
-#         if done:
-#             reward = 100.0
-#         reward -= math.pow(action[0], 2) * 0.1
-#         return reward
-
-#     def Reacher_reward(self, action, next_obs):
-#         pass
-#     def Swimmer_reward(self, action, next_obs):
-#         pass
-#     def Hopper_reward(self, action, next_obs):
-#         pass
-#     def HalfCheetah_reward(self, action, next_obs):
-#         pass
-#     def Walker_reward(self, action, next_obs):
-#         pass
-#     def Ant_reward(self, action, next_obs):
-#         pass
-#     def Humanoid_reward(self, action, next_obs):
-#         pass
-    
-    
-    
-    
-    
+        return env_obs, skills    
 
 # Termination Functions
 class Termination():
@@ -797,10 +763,13 @@ class Termination():
         goal_velocity = 0
         done = (torch.logical_and(position >= goal_position, velocity >= goal_velocity))
         return done.reshape(-1, 1)
+    
     def HalfCheetah(self, action, next_obs):
         return termination_fns.no_termination
+    
     def Walker(self, action, next_obs):
         return termination_fns.walker2d
+    
     def Ant(self, action, next_obs):
         return termination_fns.ant
 

@@ -20,7 +20,8 @@ from stable_baselines3.common.callbacks import EvalCallback
 from stable_baselines3.common.monitor import Monitor
 
 from src.environment_wrappers.env_wrappers import RewardWrapper, SkillWrapper, SkillWrapperFinetune
-from src.utils import record_video_finetune, best_skill, evaluate_pretrained_policy_intr, evaluate_pretrained_policy_ext
+from src.environment_wrappers.tasks_wrappers import HalfCheetahTaskWrapper, WalkerTaskWrapper, AntTaskWrapper
+from src.utils import  best_skill, evaluate_pretrained_policy_intr, evaluate_pretrained_policy_ext
 from src.models.models import Discriminator, MLP_policy
 from src.replayBuffers import DataBuffer
 from src.callbacks.callbacks import DiscriminatorCallback, VideoRecorderCallback
@@ -44,6 +45,9 @@ sns.set(font_scale = conf.font_scale)
 
 
 class DIAYN_ES():
+    '''
+    An implementation of DIAYN with a black-box optimization algorithm (Evolution Stratigies) as the optimization backbone
+    '''
     def __init__(self, params, es_params, discriminator_hyperparams, env="MountainCarContinuous-v0", alg="es", directory="./", seed=10, device="cpu", conf=None, timestamp=None, checkpoints=False, args=None, task=None, adapt_params=None, n_samples=None):
         # create the discirminator
         state_dim = gym.make(env).observation_space.shape[0]
@@ -78,16 +82,26 @@ class DIAYN_ES():
             log_dir=f"{directory}/ES_FineTune", comment=f"{alg}, env_name:{env}, FineTune")
         
         # save some attributes
-        self.params = params # general shared parameters
-        self.es_params = es_params # Evolution Stratigies hyperparameters
-        self.discriminator_hyperparams = discriminator_hyperparams # Discriminator hyperparameters
-        self.env_name = env # gym environment name
-        self.directory = directory # experiment directory
-        self.seed = seed # random seed
-        self.timestamp = timestamp # unique timesamp
-        self.conf = conf # configuration
-        self.checkpoints = checkpoints # if not none finetune with a fixed freq. and save the result, this for the scaling experiment
-        self.args = args # cmd args
+        # general shared parameters
+        self.params = params 
+        # Evolution Stratigies hyperparameters
+        self.es_params = es_params 
+        # Discriminator hyperparameters
+        self.discriminator_hyperparams = discriminator_hyperparams 
+        # gym environment name
+        self.env_name = env 
+        # experiment directory
+        self.directory = directory 
+        # random seed
+        self.seed = seed 
+        # unique timesamp
+        self.timestamp = timestamp 
+        # configuration
+        self.conf = conf 
+        # if not none finetune with a fixed freq. and save the result, this for the scaling experiment
+        self.checkpoints = checkpoints 
+        # cmd args
+        self.args = args 
         # Extract the discriminator hyperparameters
         self.weight_decay = discriminator_hyperparams['weight_decay']
         # number of epochs
@@ -124,8 +138,14 @@ class DIAYN_ES():
         self.checkpoints = checkpoints
         # number of checkpoints
         self.n_samples = n_samples
+        # task label
+        self.task = task
+        
     # pretraining step with intrinsic reward    
     def pretrain(self):
+        '''
+        Pretraining phase with an intrinsic reward
+        '''
         # create the indiviual object according to the environment
         if self.env_name == "MountainCarContinuous-v0":
             MountainCar.MountainCar.d = self.d
@@ -204,7 +224,7 @@ class DIAYN_ES():
             plt.figure()
             plt.plot(steps_l, extr_rewards, label="es".upper())
             plt.xlabel("Pretraining Steps")
-            plt.ylabel("Extrinsic Reward (Best Skill)")
+            plt.ylabel("Extrinsic Reward")
             plt.legend()
             plt.tight_layout()
             filename = f"Scalability_Experiment_realtime_env:{self.env_name}_alg:es_xaxis:Pretraining Steps.png"
@@ -212,7 +232,7 @@ class DIAYN_ES():
             plt.figure()
             plt.plot(intr_rewards, extr_rewards, label="es".upper())
             plt.xlabel("Intrinsic Reward")
-            plt.ylabel("Extrinsic Reward (Best Skill)")
+            plt.ylabel("Extrinsic Reward")
             plt.legend()
             plt.tight_layout()
             filename = f"Scalability_Experiment_realtime_env:{self.env_name}_alg:es_xaxis:Intrinsic Reward.png"
@@ -229,7 +249,7 @@ class DIAYN_ES():
             d_loss, d_grad_norm, d_weight_norm = None, None, None
             if len(self.buffer) > self.conf.min_train_size:
                 # for i in range(10):
-                self.update_d()
+                d_loss, d_grad_norm, d_weight_norm = self.update_d()
             pbar.set_description("fit avg (training): %0.3f, std: %0.3f" % (raw_fit.mean().item(), raw_fit.std().item()))
             if (i+1) % log_freq == 0:
                 evals_path = f"{self.directory}/eval_results" 
@@ -274,7 +294,7 @@ class DIAYN_ES():
                 plt.figure()
                 plt.plot(steps_l, extr_rewards, label="es".upper())
                 plt.xlabel("Pretraining Steps")
-                plt.ylabel("Extrinsic Reward (Best Skill)")
+                plt.ylabel("Extrinsic Reward")
                 plt.legend()
                 plt.tight_layout()
                 filename = f"Scalability_Experiment_realtime_env:{self.env_name}_alg:es_xaxis:Pretraining Steps.png"
@@ -282,7 +302,7 @@ class DIAYN_ES():
                 plt.figure()
                 plt.plot(intr_rewards, extr_rewards, label="es".upper())
                 plt.xlabel("Intrinsic Reward")
-                plt.ylabel("Extrinsic Reward (Best Skill)")
+                plt.ylabel("Extrinsic Reward")
                 plt.legend()
                 plt.tight_layout()
                 filename = f"Scalability_Experiment_realtime_env:{self.env_name}_alg:es_xaxis:Intrinsic Reward.png"
@@ -319,6 +339,10 @@ class DIAYN_ES():
         
     # Finetune on a pretrained policy
     def finetune(self):
+        self.d.eval()
+        '''
+        Adapt the pretrained model with task reward using SAC
+        '''
         # create the indiviual object according to the environment
         if self.env_name == "MountainCarContinuous-v0":
             MountainCar.MountainCar.n_skills = self.params['n_skills']
@@ -328,18 +352,24 @@ class DIAYN_ES():
             population = NormalPopulation(param_shapes, env_indv.from_params, std=0.1)
         elif self.env_name == "Walker2d-v2":
             Walker.Walker.n_skills = self.params['n_skills']
+            if self.task:
+                Walker.Walker.task = self.task
             env_indv = Walker.Walker()
             # set up the population
             param_shapes = {k: v.shape for k, v in Walker.Walker().get_params().items()}
             population = NormalPopulation(param_shapes, env_indv.from_params, std=0.1)
         elif self.env_name == "HalfCheetah-v2":
             HalfCheetah.HalfCheetah.n_skills = self.params['n_skills']
+            if self.task:
+                HalfCheetah.HalfCheetah.task = self.task
             env_indv = HalfCheetah.HalfCheetah()
             # set up the population
             param_shapes = {k: v.shape for k, v in HalfCheetah.HalfCheetah().get_params().items()}
             population = NormalPopulation(param_shapes, env_indv.from_params, std=0.1)
         elif self.env_name == "Ant-v2":
             Ant.Ant.n_skills = self.params['n_skills']
+            if self.task:
+                Ant.Ant.task = self.task
             env_indv = Ant.Ant()
             # set up the population
             param_shapes = {k: v.shape for k, v in Ant.Ant().get_params().items()}
@@ -356,8 +386,7 @@ class DIAYN_ES():
         # extraact the best skill
         bestskill = best_skill(env_indv, self.env_name,  self.params['n_skills'], alg_type="es")
         # create the SAC adaptation model
-        env = DummyVecEnv([lambda: SkillWrapperFinetune(Monitor(gym.make(
-    self.env_name),  f"{self.directory}/finetune_train_results"), self.params['n_skills'], r_seed=None,max_steps=gym.make(self.env_name)._max_episode_steps, skill=bestskill)])
+        env, eval_env = self.adaptation_environment(bestskill)
 
         adaptation_model = SAC('MlpPolicy', env, verbose=1,
                     learning_rate=self.adapt_params['learning_rate'],
@@ -369,6 +398,30 @@ class DIAYN_ES():
                     gradient_steps=self.adapt_params['gradient_steps'],
                     learning_starts=self.adapt_params['learning_starts'],
                     policy_kwargs=dict(net_arch=dict(pi=[2*self.conf.layer_size_policy, 2*self.conf.layer_size_policy], qf=[
+                                       self.conf.layer_size_q, self.conf.layer_size_q]), clip_mean=None),
+                    tensorboard_log=self.directory,
+                    seed=self.seed
+                    )
+        
+        eval_env = Monitor(eval_env, f"{self.directory}/finetune_eval_results")
+
+        eval_callback = EvalCallback(eval_env, best_model_save_path=self.directory + f"/best_finetuned_model_skillIndex:{bestskill}",
+                                    log_path=f"{self.directory}/finetune_eval_results", eval_freq=self.conf.eval_freq,
+                                    deterministic=True, render=False)
+
+        env = DummyVecEnv([lambda: SkillWrapperFinetune(Monitor(gym.make(
+    self.env_name),  f"{self.directory}/finetune_train_results"), self.params['n_skills'], r_seed=None,max_steps=gym.make(self.env_name)._max_episode_steps, skill=bestskill)])
+
+        self.adaptation_model = SAC('MlpPolicy', env, verbose=1,
+                    learning_rate=self.adapt_params['learning_rate'],
+                    batch_size=self.adapt_params['batch_size'],
+                    gamma=self.adapt_params['gamma'],
+                    buffer_size=self.adapt_params['buffer_size'],
+                    tau=self.adapt_params['tau'],
+                    ent_coef=self.adapt_params['ent_coef'],
+                    gradient_steps=self.adapt_params['gradient_steps'],
+                    learning_starts=self.adapt_params['learning_starts'],
+                    policy_kwargs=dict(net_arch=dict(pi=[self.conf.layer_size_policy, self.conf.layer_size_policy], qf=[
                                        self.conf.layer_size_q, self.conf.layer_size_q])),
                     tensorboard_log=self.directory,
                     seed=self.seed
@@ -382,49 +435,71 @@ class DIAYN_ES():
                                     log_path=f"{self.directory}/finetune_eval_results", eval_freq=self.conf.eval_freq,
                                     deterministic=True, render=False)
 
-        env = DummyVecEnv([lambda: SkillWrapperFinetune(Monitor(gym.make(
-    self.env_name),  f"{self.directory}/finetune_train_results"), self.params['n_skills'], r_seed=None,max_steps=gym.make(self.env_name)._max_episode_steps, skill=bestskill)])
-
-        adaptation_model = SAC('MlpPolicy', env, verbose=1,
-                    learning_rate=self.adapt_params['learning_rate'],
-                    batch_size=self.adapt_params['batch_size'],
-                    gamma=self.adapt_params['gamma'],
-                    buffer_size=self.adapt_params['buffer_size'],
-                    tau=self.adapt_params['tau'],
-                    ent_coef=self.adapt_params['ent_coef'],
-                    gradient_steps=self.adapt_params['gradient_steps'],
-                    learning_starts=self.adapt_params['learning_starts'],
-                    policy_kwargs=dict(net_arch=dict(pi=[2*self.conf.layer_size_policy, 2*self.conf.layer_size_policy], qf=[
-                                       self.conf.layer_size_q, self.conf.layer_size_q])),
-                    tensorboard_log=self.directory,
-                    seed=self.seed
-                    )
-
-        eval_env = SkillWrapperFinetune(gym.make(
-            self.env_name), self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, r_seed=None, skill=bestskill)
-        eval_env = Monitor(eval_env, f"{self.directory}/finetune_eval_results")
-
-        eval_callback = EvalCallback(eval_env, best_model_save_path=self.directory + f"/best_finetuned_model_skillIndex:{bestskill}",
-                                    log_path=f"{self.directory}/finetune_eval_results", eval_freq=self.conf.eval_freq,
-                                    deterministic=True, render=False)
-
-        adaptation_model.actor.latent_pi = model.model
-        adaptation_model.actor.mu = model.mean
-        adaptation_model.actor.log_std = model.log_var
-        # load the discriminator
-        d = copy.deepcopy(self.d)
-        d.layers[0] = nn.Linear(gym.make(self.env_name).observation_space.shape[0]+self.params['n_skills'] +1, self.conf.layer_size_discriminator)
-        d.head = nn.Sequential(*d.layers)
-        d.output = nn.Linear(self.conf.layer_size_discriminator, 1)
-        adaptation_model.critic.qf0 = d
-        adaptation_model.critic.qf1 = copy.deepcopy(d)
-        adaptation_model.critic_target.qf0 = copy.deepcopy(d)
-        adaptation_model.critic_target.qf1 = copy.deepcopy(d)
-        adaptation_model.learn(total_timesteps=self.params['finetune_steps'],
+        self.load_state_dicts(model)
+        self.adaptation_model.learn(total_timesteps=self.params['finetune_steps'],
                     callback=eval_callback, tb_log_name="ES_FineTune", d=None, mi_estimator=None)
 
-        return adaptation_model, bestskill
-        
+        return self.adaptation_model, bestskill
+    
+    def adaptation_environment(self, best_skill_index):
+        '''
+        Adaptation environment according to the task reward
+        '''
+        if self.task:
+            # print(f"There is a task which is {self.task}")
+            # input()
+            if self.env_name == "HalfCheetah-v2":
+                # print(f"environment: {self.env_name}")
+                # input()
+                env = HalfCheetahTaskWrapper(gym.make("HalfCheetah-v2"), task=self.task)
+                env = DummyVecEnv([lambda: SkillWrapperFinetune(Monitor(env,  f"{self.directory}/finetune_train_results"), self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, skill=best_skill_index)])
+                eval_env = HalfCheetahTaskWrapper(gym.make(self.env_name), task=self.task)
+                eval_env = SkillWrapperFinetune(eval_env, self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, r_seed=None, skill=best_skill_index)
+                
+            # # WalkerTaskWrapper, AntTaskWrapper
+            elif self.env_name == "Walker2d-v2":
+                # print(f"environment: {self.env_name}")
+                # input()
+                env = WalkerTaskWrapper(gym.make("Walker2d-v2"), task=self.task)
+                env = DummyVecEnv([lambda: SkillWrapperFinetune(Monitor(env,  f"{self.directory}/finetune_train_results"), self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, skill=best_skill_index)])
+                eval_env = WalkerTaskWrapper(gym.make(self.env_name), task=self.task)
+                eval_env = SkillWrapperFinetune(eval_env, self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, r_seed=None, skill=best_skill_index)
+                
+            elif self.env_name == "Ant-v2":
+                # print(f"environment: {self.env_name}")
+                # input()
+                env = AntTaskWrapper(gym.make("Ant-v2"), task=self.task)
+                env = DummyVecEnv([lambda: SkillWrapperFinetune(Monitor(env,  f"{self.directory}/finetune_train_results"), self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, skill=best_skill_index)])
+                eval_env = AntTaskWrapper(gym.make(self.env_name), task=self.task)
+                eval_env = SkillWrapperFinetune(eval_env, self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, r_seed=None, skill=best_skill_index)
+                
+        else:
+            # print(f"Just ")
+            env = DummyVecEnv([lambda: SkillWrapperFinetune(Monitor(gym.make(
+    self.env_name),  f"{self.directory}/finetune_train_results"), self.params['n_skills'], r_seed=None,max_steps=gym.make(self.env_name)._max_episode_steps, skill=best_skill_index)])
+            eval_env = SkillWrapperFinetune(gym.make(
+            self.env_name), self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, r_seed=None, skill=best_skill_index)
+            
+        return env, eval_env
+    
+    def load_state_dicts(self, es_model):
+        '''
+        load the pretrained model parameters into the adaptation model
+        '''
+        # initlialize the adaptation policy with the pretrained model
+        self.adaptation_model.actor.latent_pi.load_state_dict(es_model.model.state_dict())
+        self.adaptation_model.actor.mu.load_state_dict(es_model.mean.state_dict())
+        self.adaptation_model.actor.log_std.load_state_dict(es_model.log_var.state_dict())
+        self.adaptation_model.actor.optimizer = opt.Adam(self.adaptation_model.actor.parameters(), lr=self.adapt_params['learning_rate'])
+        # initlialize the adaptation critic with the discriminator weights
+        self.d.layers[0] = nn.Linear(gym.make(self.env_name).observation_space.shape[0] + self.params['n_skills']  + gym.make(self.env_name).action_space.shape[0], self.conf.layer_size_discriminator)
+        self.d.layers[-1] = nn.Linear(self.conf.layer_size_discriminator, 1)
+        seq = nn.Sequential(*self.d.layers)
+        # print(d)
+        self.adaptation_model.critic.qf0.load_state_dict(seq.state_dict())
+        self.adaptation_model.critic.qf1.load_state_dict(seq.state_dict())
+        self.adaptation_model.critic_target.load_state_dict(self.adaptation_model.critic.state_dict())
+        self.adaptation_model.critic.optimizer = opt.Adam(self.adaptation_model.critic.parameters(), lr=self.adapt_params['learning_rate'])
     
     def update_d(self):
         """
@@ -490,23 +565,7 @@ class DIAYN_ES():
             self.sw.add_scalar("discrimiator wights norm",
                             weights_norm, self.timesteps)
             torch.save(self.d.state_dict(), self.directory + "/disc.pth")
-            
-    # perform a gradient step to train the discriminator
-    # def update_d(self):
-    #     # sample data from the replay buffer
-    #     inputs, targets = self.buffer.sample(self.discriminator_hyperparams['batch_size'])
-    #     # forward pass
-    #     outputs = self.d(inputs)
-    #     # compute the loss
-    #     loss = self.criterion(outputs, targets.to(self.conf.device).to(torch.int64))
-    #     # optimize
-    #     self.optimizer.zero_grad()
-    #     loss.backward()
-    #     self.optimizer.step()
-    #     # compute the weights and gradient norms
-    #     grad_norm, weight_norm = self.norms(self.d)
-    #     return loss.item(), grad_norm, weight_norm 
-    
+        return epoch_loss, grad_norms, weights_norm
     
     def evaluate_policy(self, population, indv,finetune=False, skill=None):
         # set the seeds
@@ -531,8 +590,6 @@ class DIAYN_ES():
             final_returns.append(total_reward)
         return np.array(final_returns)
         
-
-    
     def norms(self, net):
         '''
         norms(net)
