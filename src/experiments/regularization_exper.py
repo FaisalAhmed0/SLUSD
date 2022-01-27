@@ -57,12 +57,12 @@ envs_mp = [
     {   # 1
         'weight_decay':{
             'MountainCarContinuous-v0': dict(
-                pretrain_steps = int(3.5e5),
+                pretrain_steps = int(4.5e5),
                 n_skills = 10,
                 value = [1e-1, 1e-3, 1e-5]
             ),
             'HalfCheetah-v2': dict(
-                pretrain_steps = int(5e5),
+                pretrain_steps = int(6e5),
                 n_skills = 30,
                 value = [1e-1, 1e-3, 1e-5]
             ),
@@ -84,12 +84,12 @@ envs_mp = [
     {   # 2
         'dropout':{
             'MountainCarContinuous-v0': dict(
-                pretrain_steps = int(3.5e5),
+                pretrain_steps = int(4.5e5),
                 n_skills = 10,
                 value = [0.1, 0.5, 0.9]
             ),
             'HalfCheetah-v2': dict(
-                pretrain_steps = int(5e5),
+                pretrain_steps = int(6e5),
                 n_skills = 30,
                 value = [0.1, 0.5, 0.9]
             ),
@@ -110,12 +110,12 @@ envs_mp = [
     {   # 3
         'gp':{
             'MountainCarContinuous-v0': dict(
-                pretrain_steps = int(3.5e5),
+                pretrain_steps = int(4.5e5),
                 n_skills = 10,
                 value = [1, 5, 10]
             ),
             'HalfCheetah-v2': dict(
-                pretrain_steps = int(5e5),
+                pretrain_steps = int(6e5),
                 n_skills = 30,
                 value = [1, 5, 10]
             ),
@@ -136,12 +136,12 @@ envs_mp = [
     {   # 4
         'label_smoothing':{
             'MountainCarContinuous-v0': dict(
-                pretrain_steps = int(3.5e5),
+                pretrain_steps = int(4.5e5),
                 n_skills = 10,
                 value = [0.2]
             ),
             'HalfCheetah-v2': dict(
-                pretrain_steps = int(5e5),
+                pretrain_steps = int(6e5),
                 n_skills = 30,
                 value = [0.2]
             ),
@@ -162,12 +162,12 @@ envs_mp = [
     {   # 5
         'mixup':{
             'MountainCarContinuous-v0': dict(
-                pretrain_steps = int(3.5e5),
+                pretrain_steps = int(4.5e5),
                 n_skills = 10,
                 value = [True]
             ),
             'HalfCheetah-v2': dict(
-                pretrain_steps = int(5e5),
+                pretrain_steps = int(6e5),
                 n_skills = 30,
                 value = [True]
             ),
@@ -323,7 +323,8 @@ def save_params(alg, directory, discriminator_hyperparams):
     print(f"configurations: {config_d }\n" )
              
         
-def train_all(env_params, results_df_list, seed, time, discriminator_hyperparams_copy=deepcopy(discriminator_hyperparams), default_disc_params_copy=deepcopy(default_disc_params)):
+def train_all(env_params, results_df_list, seed, time, discriminator_hyperparams_copy=deepcopy(discriminator_hyperparams), default_disc_params_copy=deepcopy(default_disc_params), 
+              params_copy=deepcopy(params)):
     plots_dict = {}
     columns = ['Regularization', "Environment", "Reward After Adaptation", "State Entropy", "Intrinsic Reward" , "Reward Before Adaptation (Best Skill)"]
     results_df = pd.DataFrame(columns=columns)
@@ -341,9 +342,9 @@ def train_all(env_params, results_df_list, seed, time, discriminator_hyperparams
                 env_dir = main_exper_dir + f"env: {env}, alg:{alg}, stamp:{timestamp}_reg:{reg}_{v}/"
                 os.makedirs(env_dir, exist_ok=True)
                 alg_params = hyperparams[alg]
-                params['n_skills'] = env_params[reg][env]['n_skills']
-                params['pretrain_steps'] = env_params[reg][env]['pretrain_steps']
-                print(f"stamp: {timestamp}, alg: {alg}, env: {env}, n_skills: {params['n_skills']}, pretrain_steps: {params['pretrain_steps']}")
+                params_copy['n_skills'] = env_params[reg][env]['n_skills']
+                params_copy['pretrain_steps'] = env_params[reg][env]['pretrain_steps']
+                print(f"stamp: {timestamp}, alg: {alg}, env: {env}, n_skills: {params_copy['n_skills']}, pretrain_steps: {params_copy['pretrain_steps']}")
                 discriminator_hyperparams_copy[reg] = v
                 save_params(alg, env_dir, discriminator_hyperparams_copy)
                 seed_results = []
@@ -352,13 +353,13 @@ def train_all(env_params, results_df_list, seed, time, discriminator_hyperparams
                     seed_everything(seeds[i])
                     seed_dir = env_dir + f"seed:{seeds[i]}"
                     os.makedirs(seed_dir, exist_ok=True)
-                    diayn = DIAYN(params, alg_params, discriminator_hyperparams_copy, env, alg, seed_dir, seed=seeds[i], conf=conf, timestamp=timestamp, adapt_params=sac_hyperparams)
+                    diayn = DIAYN(params_copy, alg_params, discriminator_hyperparams_copy, env, alg, seed_dir, seed=seeds[i], conf=conf, timestamp=timestamp, adapt_params=sac_hyperparams)
                     # pretraining step
                     pretrained_policy, discriminator = diayn.pretrain()
                     # fine-tuning step 
                     adapted_policy, best_skill = diayn.finetune()
                     # Evaluate the policy 
-                    intrinsic_reward_mean, reward_beforeFinetune_mean, reward_mean, entropy_mean = evaluate(env, params['n_skills'], pretrained_policy, adapted_policy, discriminator, 
+                    intrinsic_reward_mean, reward_beforeFinetune_mean, reward_mean, entropy_mean = evaluate(env, params_copy['n_skills'], pretrained_policy, adapted_policy, discriminator, 
                                                                                                         discriminator_hyperparams_copy['parametrization'], best_skill, alg)
                     # for testing
                     # intrinsic_reward_mean, reward_beforeFinetune_mean, reward_mean, entropy_mean = [np.random.randn() + np.log(10),

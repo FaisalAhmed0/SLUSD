@@ -446,7 +446,7 @@ class DIAYN_MB():
                     gradient_steps=self.adapt_params['gradient_steps'],
                     learning_starts=self.adapt_params['learning_starts'],
                     policy_kwargs=dict(net_arch=dict(pi=[self.conf.layer_size_policy, self.conf.layer_size_policy], qf=[
-                                       self.conf.layer_size_q, self.conf.layer_size_q]), clip_mean=None),
+                                       self.conf.layer_size_q, self.conf.layer_size_q])),
                     tensorboard_log=self.directory,
                     seed=self.seed
                     )
@@ -518,13 +518,16 @@ class DIAYN_MB():
         self.adaptation_model.actor.latent_pi.load_state_dict(model.state_dict())
         self.adaptation_model.actor.mu.load_state_dict(nn.Linear(conf.layer_size_policy, gym.make(self.env_name).action_space.shape[0]).state_dict())
         self.adaptation_model.actor.log_std.load_state_dict(nn.Linear(conf.layer_size_policy, gym.make(self.env_name).action_space.shape[0]).state_dict())
+        self.adaptation_model.actor.optimizer = opt.Adam(self.adaptation_model.actor.parameters(), lr=self.adapt_params['learning_rate'])
         # initlialize the adaptation critic with the discriminator weights
         self.d.layers[0] = nn.Linear(gym.make(self.env_name).observation_space.shape[0] + self.params['n_skills']  + gym.make(self.env_name).action_space.shape[0], self.conf.layer_size_discriminator)
         self.d.layers[-1] = nn.Linear(self.conf.layer_size_discriminator, 1)
         seq = nn.Sequential(*self.d.layers)
         # print(d)
         self.adaptation_model.critic.qf0.load_state_dict(seq.state_dict())
+        self.adaptation_model.critic.qf1.load_state_dict(seq.state_dict())
         self.adaptation_model.critic_target.load_state_dict(self.adaptation_model.critic.state_dict())
+        self.adaptation_model.critic.optimizer = opt.Adam(self.adaptation_model.critic.parameters(), lr=self.adapt_params['learning_rate'])
 
     def load_env_model_for_adapt(self, model_env):
         # pick a model randomly from the ensamble 
