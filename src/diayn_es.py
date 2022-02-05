@@ -200,6 +200,8 @@ class DIAYN_ES():
         # set up the training loop
         optim = opt.Adam(population.parameters(), lr=lr)
         pbar = tqdm.tqdm(range(iterations))
+        # testing
+        # pbar = tqdm.tqdm(range(2))
         pool = Pool()
         log_freq = 1
         self.timesteps = 0 
@@ -567,6 +569,7 @@ class DIAYN_ES():
             torch.save(self.d.state_dict(), self.directory + "/disc.pth")
         return epoch_loss, grad_norms, weights_norm
     
+    @torch.no_grad()
     def evaluate_policy(self, population, indv,finetune=False, skill=None):
         # set the seeds
         runs = 10

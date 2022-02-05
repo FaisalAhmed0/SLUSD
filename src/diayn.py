@@ -123,6 +123,8 @@ class DIAYN():
                 callbacks = [discriminator_callback, eval_callback]
             # train the agent
             model.learn(total_timesteps=self.params['pretrain_steps'], callback=callbacks, log_interval=3, tb_log_name="PPO Pretrain")
+            # for testing
+            # model.learn(total_timesteps=4500, callback=callbacks, log_interval=3, tb_log_name="PPO Pretrain")
         elif self.alg == "sac":
             env = DummyVecEnv([lambda: Monitor(RewardWrapper(SkillWrapper(gym.make(self.env_name), self.params['n_skills'], max_steps=self.conf.max_steps),
                                                              self.d, self.params['n_skills'], parametrization=self.parametrization), self.directory)])
@@ -137,7 +139,7 @@ class DIAYN():
                         gradient_steps=self.alg_params['gradient_steps'],
                         learning_starts=self.alg_params['learning_starts'],
                         policy_kwargs=dict(net_arch=dict(pi=[self.conf.layer_size_policy, self.conf.layer_size_policy], qf=[
-                                           self.conf.layer_size_q, self.conf.layer_size_q]), n_critics=1),
+                                           self.conf.layer_size_q, self.conf.layer_size_q]), n_critics=2),
                         tensorboard_log=self.directory,
                         seed=self.seed
                         )
@@ -171,6 +173,8 @@ class DIAYN():
                 model.learn(total_timesteps=self.params['pretrain_steps'], callback=callbacks, log_interval=3, tb_log_name="SAC Pretrain", d=self.d, mi_estimator=mi_estimate)
             elif self.parametrization in ["MLP", "Linear"]:
                 model.learn(total_timesteps=self.params['pretrain_steps'], callback=callbacks, log_interval=3, tb_log_name="SAC Pretrain")
+                 # for testing
+                # model.learn(total_timesteps=2000, callback=callbacks, log_interval=3, tb_log_name="SAC Pretrain")
             else:
                 raise ValueError(f"{discriminator_hyperparams['parametrization']} is invalid parametrization")
         if self.checkpoints:

@@ -123,7 +123,7 @@ class MLP_policy(nn.Module):
   
     def sample_action(self, x):
         mean, log_var = self.forward(x)
-        covar = torch.exp(log_var) + 1e-3
+        covar = torch.exp(torch.clip(log_var, -1, 5))
         # print(covar.shape[1] == 1)
         if covar.shape[1] == 1:
             self.actions_dist = MultivariateNormal(mean, covar)

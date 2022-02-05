@@ -62,6 +62,7 @@ class HalfCheetah(Individual):
             skill = torch.tensor(skill.numpy())
             data.append((env_obs.numpy(), skill.item()))
             action = self.action(obs)
+            # print(f"action: {action}")
             obs, r, done, _ = env.step(action)
             r_tot += r
         env.close()

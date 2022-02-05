@@ -26,7 +26,7 @@ regularization_exper_dir = "regularization_exper/",
 eval_runs = 5,
     
 # evaluation frequency
-eval_freq = 5000,
+eval_freq = 10000,
 
 # total time steps
 total_timesteps = int(1e8),
