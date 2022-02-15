@@ -30,8 +30,9 @@ from collections import defaultdict
 
 import matplotlib.pyplot as plt
 import seaborn as sns
-sns.set_theme(style="darkgrid")
-sns.set(font_scale = conf.font_scale)
+sns.set()
+sns.set_style('whitegrid')
+sns.set_context("paper", font_scale = conf.font_scale
 
 # Asymptotic performance of the expert
 asymp_perofrmance = {
@@ -211,11 +212,11 @@ ppo_hyperparams = dict(
     n_steps = 2048,
     learning_rate = 3e-4,
     n_epochs = 10,
-    batch_size = 256,
+    batch_size = 64,
     gamma = 0.99,
     gae_lambda = 0.95,
     clip_range = 0.1,
-    ent_coef=0.5,
+    ent_coef='auto',
     n_actors = 8,
     algorithm = "ppo",
     
