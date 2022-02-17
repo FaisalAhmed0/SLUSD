@@ -44,6 +44,26 @@ random_performance = {
     'Ant-v2': 0.39107815,
     "MountainCarContinuous-v0": -0.04685473, 
 }
+# across all seeds
+random_init = [
+    {"Environment": 'HalfCheetah', "Normalized Extrinsic Return After Adaptation (%)": 3.977155901244182132e+03/asymp_perofrmance['HalfCheetah-v2']*100, "Algorithm": "Random init"},
+    {"Environment": 'HalfCheetah', "Normalized Extrinsic Return After Adaptation (%)": 3.661330217032705150e+03/asymp_perofrmance['HalfCheetah-v2']*100, "Algorithm": "Random init"},
+    {"Environment": 'HalfCheetah', "Normalized Extrinsic Return After Adaptation (%)": 3.777719310452177979e+03/asymp_perofrmance['HalfCheetah-v2']*100, "Algorithm": "Random init"},
+    
+    {"Environment": 'Walker2d', "Normalized Extrinsic Return After Adaptation (%)": 4.950961607268399121e+02/asymp_perofrmance['Walker2d-v2']*100, "Algorithm": "Random init"},
+    {"Environment": 'Walker2d', "Normalized Extrinsic Return After Adaptation (%)": 5.050660942998074461e+02/asymp_perofrmance['Walker2d-v2']*100, "Algorithm": "Random init"},
+    {"Environment": 'Walker2d', "Normalized Extrinsic Return After Adaptation (%)": 2.915505078088318669e+02/asymp_perofrmance['Walker2d-v2']*100, "Algorithm": "Random init"},
+    
+    {"Environment": 'Ant', "Normalized Extrinsic Return After Adaptation (%)": 4.935468207680875139e+02/asymp_perofrmance['Ant-v2']*100, "Algorithm": "Random init"},
+    {"Environment": 'Ant', "Normalized Extrinsic Return After Adaptation (%)": 2.522865492915514665e+02/asymp_perofrmance['Ant-v2']*100, "Algorithm": "Random init"},
+    {"Environment": 'Ant', "Normalized Extrinsic Return After Adaptation (%)": 7.162829405419695377e+02/asymp_perofrmance['Ant-v2']*100, "Algorithm": "Random init"},
+    
+    {"Environment": 'MountainCarContinuous', "Normalized Extrinsic Return After Adaptation (%)": -1.697574145149261080e-04/asymp_perofrmance['MountainCarContinuous-v0']*100, "Algorithm": "Random init"},
+    {"Environment": 'MountainCarContinuous', "Normalized Extrinsic Return After Adaptation (%)": -3.889756080078754464e-04/asymp_perofrmance['MountainCarContinuous-v0']*100, "Algorithm": "Random init"},
+    {"Environment": 'MountainCarContinuous', "Normalized Extrinsic Return After Adaptation (%)": -3.093423134238547888e-04/asymp_perofrmance['MountainCarContinuous-v0']*100, "Algorithm": "Random init"},
+    
+]
+
 
 seeds = [0, 10, 42 ]#, 1234, 5]#, 42]
 columns = ['Algorithm', "Environment", "Normalized Extrinsic Return After Adaptation (%)", "State Entropy", "Intrinsic Return" , "Normalized Extrinsic Return Before Adaptation (%)"]
@@ -146,7 +166,16 @@ def barplot(env_names, n_skills_list, lbs, pms, algs, stamps, colors):
         # ax = sns.barplot(x="Algorithm", y=y_axis, data=results_df, hue="Environment")
         if col == "Normalized Extrinsic Return After Adaptation (%)":
             print(algs)
-            ax = sns.barplot(x="Environment", y=y_axis, data=results_df, hue="Algorithm", hue_order=[a.upper() for a in algs], palette=colors)
+            results_copy = results_df.copy()
+            envs = set(results_df["Environment"].to_list())
+            for e in envs:
+                print(e)
+                d = [ r for r in random_init if r['Environment'] == e  ]
+                print(d)
+                results_copy = results_copy.append(d)
+            print(results_copy)
+            input()
+            ax = sns.barplot(x="Environment", y=y_axis, data=results_copy, hue="Algorithm", hue_order=[a.upper() for a in algs] + ["Random init"], palette=colors)
             sns.move_legend(ax, "lower left", title='Algorithm')
         else:
             ax = sns.barplot(x="Environment", y=y_axis, data=results_df, hue="Algorithm", hue_order=[a.upper() for a in algs], palette=colors)

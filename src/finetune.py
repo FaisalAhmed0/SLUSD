@@ -32,7 +32,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 sns.set()
 sns.set_style('whitegrid')
-sns.set_context("paper", font_scale = conf.font_scale
+sns.set_context("paper", font_scale = conf.font_scale)
 
 # Asymptotic performance of the expert
 asymp_perofrmance = {
@@ -73,23 +73,23 @@ envs_mp = [
         },
     },
     
-    {
-        'es':{
-        'MountainCarContinuous-v0': dict( 
-           pretrain_iterations = 20000,
-            n_skills = 10
-             ),
-        }
-    },
+#     {
+#         'es':{
+#         'MountainCarContinuous-v0': dict( 
+#            pretrain_iterations = 20000,
+#             n_skills = 10
+#              ),
+#         }
+#     },
     
-    {
-        'pets':{
-        'MountainCarContinuous-v0': dict( 
-           pretrain_steps = int (3e4),
-            n_skills = 10 
-             ),
-        },
-    },
+#     {
+#         'pets':{
+#         'MountainCarContinuous-v0': dict( 
+#            pretrain_steps = int (3e4),
+#             n_skills = 10 
+#              ),
+#         },
+#     },
     # 2
     { # 6 dof
      'ppo':{
@@ -109,23 +109,23 @@ envs_mp = [
         },
     },
     
-    {
-      'es':{
-        'HalfCheetah-v2': dict( 
-           pretrain_iterations = 25000,
-            n_skills = 30 
-             ), 
-        },
-    },
+#     {
+#       'es':{
+#         'HalfCheetah-v2': dict( 
+#            pretrain_iterations = 25000,
+#             n_skills = 30 
+#              ), 
+#         },
+#     },
     
-    {
-       'pets':{
-        'HalfCheetah-v2': dict( 
-           pretrain_steps = int (3.5e4),
-            n_skills = 30 
-             ), 
-        },
-    },
+#     {
+#        'pets':{
+#         'HalfCheetah-v2': dict( 
+#            pretrain_steps = int (3.5e4),
+#             n_skills = 30 
+#              ), 
+#         },
+#     },
     # 3
     { # 6 dof
      'ppo':{
@@ -146,23 +146,23 @@ envs_mp = [
         },
     },
     
-    {
-      'es':{
-        'Walker2d-v2': dict( 
-           pretrain_iterations = 25000,
-            n_skills = 30 
-             ),
-        },
-    },
+#     {
+#       'es':{
+#         'Walker2d-v2': dict( 
+#            pretrain_iterations = 25000,
+#             n_skills = 30 
+#              ),
+#         },
+#     },
     
-    {
-     'pets':{
-        'Walker2d-v2': dict( 
-           pretrain_steps = int (4e4),
-            n_skills = 30 
-             ),
-        },   
-    },
+#     {
+#      'pets':{
+#         'Walker2d-v2': dict( 
+#            pretrain_steps = int (4e4),
+#             n_skills = 30 
+#              ),
+#         },   
+#     },
     
     # 4
     { # 8 dof
@@ -185,23 +185,23 @@ envs_mp = [
         
     },
     
-    {
-     'es':{
-        'Ant-v2': dict( 
-           pretrain_iterations = 30000,
-            n_skills = 30 
-             ), 
-        },
-    },
+#     {
+#      'es':{
+#         'Ant-v2': dict( 
+#            pretrain_iterations = 30000,
+#             n_skills = 30 
+#              ), 
+#         },
+#     },
     
-    {
-     'pets':{
-        'Ant-v2': dict( 
-           pretrain_steps = int (5e4),
-            n_skills = 30 
-             ),
-        },   
-    },
+#     {
+#      'pets':{
+#         'Ant-v2': dict( 
+#            pretrain_steps = int (5e4),
+#             n_skills = 30 
+#              ),
+#         },   
+#     },
     
     
 ]
@@ -212,12 +212,12 @@ ppo_hyperparams = dict(
     n_steps = 2048,
     learning_rate = 3e-4,
     n_epochs = 10,
-    batch_size = 64,
+    batch_size = 4096,
     gamma = 0.99,
     gae_lambda = 0.95,
-    clip_range = 0.1,
+    clip_range = 0.2,
     ent_coef='auto',
-    n_actors = 8,
+    n_actors = 32,
     algorithm = "ppo",
     
 )
