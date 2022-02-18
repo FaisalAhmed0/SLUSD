@@ -31,7 +31,7 @@ from stable_baselines3.common.callbacks import EvalCallback
 from stable_baselines3.common.monitor import Monitor
 
 from src.environment_wrappers.env_wrappers import RewardWrapper, SkillWrapper, SkillWrapperFinetune
-from src.environment_wrappers.tasks_wrappers import HalfCheetahTaskWrapper
+# from src.environment_wrappers.tasks_wrappers import HalfCheetahTaskWrapper
 from src.utils import  best_skill, evaluate_pretrained_policy_intr, evaluate_pretrained_policy_ext
 from src.mi_lower_bounds import mi_lower_bound
 from src.models.models import Discriminator, SeparableCritic, ConcatCritic

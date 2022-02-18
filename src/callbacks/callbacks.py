@@ -23,10 +23,13 @@ from src.utils import record_video, best_skill, evaluate_mi, evaluate_pretrained
 from src.mi_lower_bounds import mi_lower_bound
 from src.config import conf
 
+import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-sns.set_theme(style="darkgrid")
-sns.set(font_scale = conf.font_scale)
+import pandas as pd
+sns.set()
+sns.set_style('whitegrid')
+sns.set_context("paper", font_scale = conf.font_scale)
 
 
 # callback to save a video while training
@@ -301,7 +304,7 @@ class EvaluationCallback(BaseCallback):
     A callback to check the peroformance of the downstream task every N steps 
     '''
 
-    def __init__(self, env_name, alg, discriminator, params, pm, n_samples=100):
+    def __init__(self, env_name, alg, discriminator, params, pm, seed, directory, tb, n_samples=100):
         super().__init__()
         self.env_name = env_name
         self.params = params
@@ -315,8 +318,10 @@ class EvaluationCallback(BaseCallback):
         self.steps = []
         self.intr_rewards = []
         self.extr_rewards = []
+        self.seed = seed
+        self.directory = directory
+        self.tb = tb
         
-
     def _on_step(self):
         """
         This method will be called by the model after each call to `env.step()`.
@@ -339,22 +344,33 @@ class EvaluationCallback(BaseCallback):
             self.steps.append(self.num_timesteps)
             self.intr_rewards.append(intr_reward)
             self.extr_rewards.append(extr_reward)
+            self.tb.add_scalar("Extrinsic Reward (Best Skill)", extr_reward, self.num_timesteps)
+            
+            #####
+            timesteps = np.array(self.steps)
+            # print(f"results: {self.results}")
+            intr_rewards = np.array(self.intr_rewards)
+            extr_rewards = np.array(self.extr_rewards)
+            np.savez(f"{self.directory}/scalability_evaluations.npz", timesteps=timesteps, intr_rewards=intr_rewards, extr_rewards=extr_rewards)
+            #####
+            
             plt.figure()
             plt.plot(self.steps, self.extr_rewards, label=self.alg.upper())
             plt.xlabel("Pretraining Steps")
             plt.ylabel("Extrinsic Reward (Best Skill)")
             plt.legend()
             plt.tight_layout()
-            filename = f"Scalability_Experiment_realtime_env:{self.env_name}_alg:{self.alg}_xaxis:Pretraining Steps.png"
+            filename = f"{self.directory}/Scalability_Experiment_realtime_env:{self.env_name}_alg:{self.alg}_xaxis:Pretraining Steps, seed:{self.seed}.png"
             plt.savefig(f'{filename}', dpi=150) 
             plt.figure()
-            plt.plot(self.intr_rewards, self.extr_rewards, label=self.alg.upper())
+            plt.scatter(self.intr_rewards, self.extr_rewards, label=self.alg.upper())
             plt.xlabel("Intrinsic Reward")
             plt.ylabel("Extrinsic Reward (Best Skill)")
             plt.legend()
             plt.tight_layout()
-            filename = f"Scalability_Experiment_realtime_env:{self.env_name}_alg:{self.alg}_xaxis:Intrinsic Reward.png"
+            filename = f"{self.directory}/Scalability_Experiment_realtime_env:{self.env_name}_alg:{self.alg}_xaxis:Intrinsic Reward, seed:{self.seed}.png"
             plt.savefig(f'{filename}', dpi=150) 
+            
         return True
         
 

@@ -39,7 +39,7 @@ layer_size_policy = 512,
 layer_size_value = 512,
     
 # layer size of the Q-function critic
-layer_size_q = 1024,
+layer_size_q = 512,
 
 # layer size of the skills discriminator
 layer_size_discriminator = 512,

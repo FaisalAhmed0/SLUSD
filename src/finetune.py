@@ -55,112 +55,151 @@ envs_mp = [
     { # 1 dof
      'ppo':{
         'MountainCarContinuous-v0': dict( 
-           pretrain_steps = int(25e6), 
+           pretrain_steps = int(45e6), 
             n_skills = 10 
              ),
         },
-    'sac':{
+    },
+    
+    {
+        'sac':{
         'MountainCarContinuous-v0': dict( 
-           pretrain_steps = int (5e5),
+           pretrain_steps = int (4e5),
             n_skills = 10 
              ), 
         },
-    'es':{
-        'MountainCarContinuous-v0': dict( 
-           pretrain_iterations = 20000,
-            n_skills = 10
-             ),
-        },
-    'pets':{
-        'MountainCarContinuous-v0': dict( 
-           pretrain_steps = int (3e5),
-            n_skills = 10 
-             ),
-        },
-    
     },
+    
+#     {
+#         'es':{
+#         'MountainCarContinuous-v0': dict( 
+#            pretrain_iterations = 20000,
+#             n_skills = 10
+#              ),
+#         }
+#     },
+    
+#     {
+#         'pets':{
+#         'MountainCarContinuous-v0': dict( 
+#            pretrain_steps = int (3e4),
+#             n_skills = 10 
+#              ),
+#         },
+#     },
     # 2
     { # 6 dof
      'ppo':{
         'HalfCheetah-v2': dict( 
-           pretrain_steps = int(500e6),
+           pretrain_steps = int(50e6),
             n_skills = 30
-             ), 
-        },
-    'sac':{
-        'HalfCheetah-v2': dict( 
-           pretrain_steps = int(2e6),
-            n_skills = 30
-             ), 
-        },
-    'es':{
-        'HalfCheetah-v2': dict( 
-           pretrain_iterations = 25000,
-            n_skills = 30 
-             ), 
-        },
-    'pets':{
-        'HalfCheetah-v2': dict( 
-           pretrain_steps = int (3.5e5),
-            n_skills = 30 
              ), 
         },
     },
+    
+    {
+      'sac':{
+        'HalfCheetah-v2': dict( 
+           pretrain_steps = int(5e5),
+            n_skills = 30
+             ), 
+        },
+    },
+    
+#     {
+#       'es':{
+#         'HalfCheetah-v2': dict( 
+#            pretrain_iterations = 25000,
+#             n_skills = 30 
+#              ), 
+#         },
+#     },
+    
+#     {
+#        'pets':{
+#         'HalfCheetah-v2': dict( 
+#            pretrain_steps = int (3.5e4),
+#             n_skills = 30 
+#              ), 
+#         },
+#     },
     # 3
     { # 6 dof
      'ppo':{
         'Walker2d-v2': dict( 
-           pretrain_steps = int(700e6),
+           pretrain_steps = int(70e6),
             n_skills = 30
-             ),
-        },
-    'sac':{
-        'Walker2d-v2': dict( 
-           pretrain_steps = int(2.5e6),
-            n_skills = 30
-             ),
-        },
-    'es':{
-        'Walker2d-v2': dict( 
-           pretrain_iterations = 25000,
-            n_skills = 30 
-             ),
-        },
-    'pets':{
-        'Walker2d-v2': dict( 
-           pretrain_steps = int (4e5),
-            n_skills = 30 
              ),
         },
         
     },
+    
+    {
+      'sac':{
+        'Walker2d-v2': dict( 
+           pretrain_steps = int(7e5),
+            n_skills = 30
+             ),
+        },
+    },
+    
+#     {
+#       'es':{
+#         'Walker2d-v2': dict( 
+#            pretrain_iterations = 25000,
+#             n_skills = 30 
+#              ),
+#         },
+#     },
+    
+#     {
+#      'pets':{
+#         'Walker2d-v2': dict( 
+#            pretrain_steps = int (4e4),
+#             n_skills = 30 
+#              ),
+#         },   
+#     },
+    
     # 4
     { # 8 dof
      'ppo':{
         'Ant-v2': dict( 
-           pretrain_steps = int(700e6),
+           pretrain_steps = int(100e6),
             n_skills = 30
              ), 
         },
+    
+    },
+    
+    {
     'sac':{
         'Ant-v2': dict( 
-           pretrain_steps = int(3e6),
+           pretrain_steps = int(1e6),
             n_skills = 30
              ), 
         },
-    'es':{
-        'Ant-v2': dict( 
-           pretrain_iterations = 30000,
-            n_skills = 30 
-             ), 
-        },
-    'pets':{
-        'Ant-v2': dict( 
-           pretrain_steps = int (5e5),
-            n_skills = 30 
-             ),
-        },
-    },    
+        
+    },
+    
+#     {
+#      'es':{
+#         'Ant-v2': dict( 
+#            pretrain_iterations = 30000,
+#             n_skills = 30 
+#              ), 
+#         },
+#     },
+    
+#     {
+#      'pets':{
+#         'Ant-v2': dict( 
+#            pretrain_steps = int (5e4),
+#             n_skills = 30 
+#              ),
+#         },   
+#     },
+    
     
 ]
 
@@ -322,25 +361,29 @@ def train_all(env_params, results_df_list, plots_d_list):
                     # pretraining step
                     pretrained_policy, discriminator = diayn.pretrain()
                     # fine-tuning step 
-                    adapted_policy, best_skill = diayn.finetune()
+                    # adapted_policy, best_skill = diayn.finetune()
                     # Evaluate the policy 
-                    intrinsic_reward_mean, reward_beforeFinetune_mean, reward_mean, entropy_mean = evaluate(env, params['n_skills'], pretrained_policy, adapted_policy, discriminator, 
-                                                                                                        discriminator_hyperparams['parametrization'], best_skill, alg)
+                    # intrinsic_reward_mean, reward_beforeFinetune_mean, reward_mean, entropy_mean = evaluate(env, params['n_skills'], pretrained_policy, adapted_policy, discriminator, 
+                    #                                                                                     discriminator_hyperparams['parametrization'], best_skill, alg)
+                    
+                    # for testing
+                    intrinsic_reward_mean, reward_beforeFinetune_mean, reward_mean, entropy_mean = (1 + np.random.randn()*0.25,1 + np.random.randn()*0.25, 1 + np.random.randn()*0.25, 1 + np.random.randn()*0.25)
+                    
                 elif alg == "pets":
                     diayn = DIAYN_MB(params, alg_params, discriminator_hyperparams, env, alg, seed_dir, seed=conf.seeds[i], conf=conf, timestamp=timestamp, adapt_params=sac_hyperparams)
                     # pretraining step
                     pretrained_policy, discriminator = diayn.pretrain()
                     # fine-tune step
-                    adapted_policy, best_skill = diayn.finetune()
+                    # adapted_policy, best_skill = diayn.finetune()
                     # Evaluate the policy 
-                    intrinsic_reward_mean, reward_beforeFinetune_mean, reward_mean, entropy_mean = evaluate(env, params['n_skills'], pretrained_policy, adapted_policy, discriminator, 
-                                                                                                        discriminator_hyperparams['parametrization'], best_skill, alg)
+                    # intrinsic_reward_mean, reward_beforeFinetune_mean, reward_mean, entropy_mean = evaluate(env, params['n_skills'], pretrained_policy, adapted_policy, discriminator, 
+                                                                                                        # discriminator_hyperparams['parametrization'], best_skill, alg)
                 elif alg == "es":
                     diayn = DIAYN_ES(params, alg_params, discriminator_hyperparams, env, "es", seed_dir, seed=conf.seeds[i], conf=conf, timestamp=timestamp, adapt_params=sac_hyperparams)
                     # pretraining step
                     pretrained_policy, discriminator = diayn.pretrain()
                     # adaptation step
-                    adapted_policy, best_skill = diayn.finetune()
+                    # adapted_policy, best_skill = diayn.finetune()
                     # Evaluate the policy 
                     intrinsic_reward_mean, reward_beforeFinetune_mean, reward_mean, entropy_mean = evaluate(env, params['n_skills'], pretrained_policy, adapted_policy, discriminator, 
                                                                                                         discriminator_hyperparams['parametrization'], best_skill, alg)
@@ -420,20 +463,20 @@ if __name__ == "__main__":
         results_df.to_csv(f"{main_exper_dir}/results_df.csv")
         print("results df")
         print(f"{results_df}")
-        for col in columns[2:]:
-            plt.figure(figsize=conf.barplot_figsize)
-            y_axis = col
-            # ax = sns.barplot(x="Algorithm", y=y_axis, data=results_df, hue="Environment")
-            if col == "Reward After Adaptation":
-                ax = sns.barplot(x="Environment", y=y_axis, data=results_df, hue="Algorithm", hue_order=['ppo'.upper(), 'sac'.upper(), 'es'.upper(), 'pets'.upper()])
-                sns.move_legend(ax, "lower left", title='Algorithm')
-            else:
-                ax = sns.barplot(x="Environment", y=y_axis, data=results_df, hue="Algorithm", hue_order=['ppo'.upper(), 'sac'.upper(), 'es'.upper(), 'pets'.upper()])
-                ax.legend_.remove()
-            filename = f"adaptation_experiment_final_{y_axis}.png"
-            files_dir = f"Vis/adaptation_experiment_cls:{discriminator_hyperparams['parametrization']}, lb:{discriminator_hyperparams['lower_bound']}/"
-            os.makedirs(files_dir, exist_ok=True)
-            plt.savefig(files_dir + filename)
+        # for col in columns[2:]:
+        #     plt.figure(figsize=conf.barplot_figsize)
+        #     y_axis = col
+        #     # ax = sns.barplot(x="Algorithm", y=y_axis, data=results_df, hue="Environment")
+        #     if col == "Reward After Adaptation":
+        #         ax = sns.barplot(x="Environment", y=y_axis, data=results_df, hue="Algorithm", hue_order=['ppo'.upper(), 'sac'.upper(), 'es'.upper(), 'pets'.upper()])
+        #         sns.move_legend(ax, "lower left", title='Algorithm')
+        #     else:
+        #         ax = sns.barplot(x="Environment", y=y_axis, data=results_df, hue="Algorithm", hue_order=['ppo'.upper(), 'sac'.upper(), 'es'.upper(), 'pets'.upper()])
+        #         ax.legend_.remove()
+        #     filename = f"adaptation_experiment_final_{y_axis}.png"
+        #     files_dir = f"Vis/adaptation_experiment_cls:{discriminator_hyperparams['parametrization']}, lb:{discriminator_hyperparams['lower_bound']}/"
+        #     os.makedirs(files_dir, exist_ok=True)
+        #     plt.savefig(files_dir + filename)
     else:
         # save a timestamp
         timestamp = time.time()

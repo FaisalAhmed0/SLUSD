@@ -8,7 +8,7 @@ from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.distributions import DiagGaussianDistribution
 
 from src.environment_wrappers.env_wrappers import RewardWrapper, SkillWrapper, SkillWrapperFinetune
-from src.environment_wrappers.tasks_wrappers import HalfCheetahTaskWrapper, WalkerTaskWrapper, AntTaskWrapper
+# from src.environment_wrappers.tasks_wrappers import HalfCheetahTaskWrapper, WalkerTaskWrapper, AntTaskWrapper
 from src.utils import best_skill
 from src.mi_lower_bounds import mi_lower_bound
 from src.models.models import Discriminator, SeparableCritic, ConcatCritic
@@ -117,7 +117,7 @@ class DIAYN():
             # create the callback list
             if self.checkpoints:
                 # env_name, alg, discriminator, params, pm, n_samples=100)
-                fineune_callback = EvaluationCallback(self.env_name, self.alg, self.d, self.params, self.parametrization, n_samples=self.n_samples)
+                fineune_callback = EvaluationCallback(self.env_name, self.alg, self.d, self.params, self.parametrization, self.seed, self.directory, self.sw, n_samples=self.n_samples)
                 callbacks = [discriminator_callback, eval_callback, fineune_callback]
             else:
                 callbacks = [discriminator_callback, eval_callback]
@@ -137,7 +137,7 @@ class DIAYN():
                         gradient_steps=self.alg_params['gradient_steps'],
                         learning_starts=self.alg_params['learning_starts'],
                         policy_kwargs=dict(net_arch=dict(pi=[self.conf.layer_size_policy, self.conf.layer_size_policy], qf=[
-                                           self.conf.layer_size_q, self.conf.layer_size_q]), n_critics=1),
+                                           self.conf.layer_size_q, self.conf.layer_size_q]), n_critics=2),
                         tensorboard_log=self.directory,
                         seed=self.seed
                         )
@@ -160,7 +160,7 @@ class DIAYN():
             # create the callback list
             if self.checkpoints:
                 # env_name, alg, discriminator, params, pm, n_samples=100)
-                fineune_callback = EvaluationCallback(self.env_name, self.alg, self.d, self.params, self.parametrization, n_samples=self.n_samples)
+                fineune_callback = EvaluationCallback(self.env_name, self.alg, self.d, self.params, self.parametrization, self.seed, self.directory, self.sw, n_samples=self.n_samples)
                 callbacks = [discriminator_callback, eval_callback, fineune_callback]
             else:
                 callbacks = [discriminator_callback, eval_callback]
