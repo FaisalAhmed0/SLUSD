@@ -212,10 +212,10 @@ ppo_hyperparams = dict(
     n_steps = 2048,
     learning_rate = 3e-4,
     n_epochs = 10,
-    batch_size = 4096,
+    batch_size = 4096//4,
     gamma = 0.99,
     gae_lambda = 0.95,
-    clip_range = 0.2,
+    clip_range = 0.1,
     ent_coef='auto',
     n_actors = 32,
     algorithm = "ppo",
@@ -401,12 +401,12 @@ def train_all(env_params, results_df_list, plots_d_list, seed , time, params_cop
                 asym = asymp_perofrmance[env]
                 # asym = 1
                 # save results
-                seed_results.append([intrinsic_reward_mean, reward_beforeFinetune_mean/asym, reward_mean/asym, entropy_mean])
+                seed_results.append([intrinsic_reward_mean, reward_beforeFinetune_mean/asym*100, reward_mean/asym*100, entropy_mean])
                 d = {'Algorithm': alg.upper(), 
-                     "Reward After Adaptation": reward_mean/asym, 
+                     "Reward After Adaptation": reward_mean/asym*100, 
                      "Intrinsic Reward": intrinsic_reward_mean, 
                      "State Entropy": entropy_mean, 
-                     "Reward Before Adaptation": reward_beforeFinetune_mean/asym,
+                     "Reward Before Adaptation": reward_beforeFinetune_mean/asym*100,
                      "Environment": env[: env.index('-')] if env != "MountainCarContinuous-v0" else "MountainCar"
                     }
                 results_df = results_df.append(d, ignore_index=True)

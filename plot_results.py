@@ -128,14 +128,14 @@ def extract_results(env_name, n_skills, pm, alg, stamp, lb):
             finetuned_model_dir =  seed_dir + f"best_finetuned_model_skillIndex:{best_skill}/" + "/best_model"
             adapted_policy = SAC.load(finetuned_model_dir, env=env, seed=seed)
         
-        # intrinsic_reward_mean, reward_beforeFinetune_mean, reward_mean, entropy_mean = evaluate(env_name, n_skills, pretrained_policy, adapted_policy, discriminator, pm, best_skill, alg)
+        intrinsic_reward_mean, reward_beforeFinetune_mean, reward_mean, entropy_mean = evaluate(env_name, n_skills, pretrained_policy, adapted_policy, discriminator, pm, best_skill, alg)
         # for testing 
-        intrinsic_reward_mean, reward_beforeFinetune_mean, reward_mean, entropy_mean = (1 + np.random.randn()*0.25, 1 + np.random.randn()*0.25, 1 + np.random.randn()*0.25, 1 + np.random.randn()*0.25)
+        # intrinsic_reward_mean, reward_beforeFinetune_mean, reward_mean, entropy_mean = (1 + np.random.randn()*0.25, 1 + np.random.randn()*0.25, 1 + np.random.randn()*0.25, 1 + np.random.randn()*0.25)
         d = {'Algorithm': alg.upper(), 
-                     "Normalized Extrinsic Return After Adaptation (%)": reward_mean/asym, 
+                     "Normalized Extrinsic Return After Adaptation (%)": reward_mean/asym*100, 
                      "Intrinsic Return": intrinsic_reward_mean, 
                      "State Entropy": entropy_mean, 
-                     "Normalized Extrinsic Return Before Adaptation (%)": reward_beforeFinetune_mean/asym,
+                     "Normalized Extrinsic Return Before Adaptation (Best Skill) (%)": reward_beforeFinetune_mean/asym*100,
                      "Environment": env_name[: env_name.index('-')] if env != "MountainCarContinuous-v0" else "MountainCar"
                     }
         results_list.append(d)
