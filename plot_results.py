@@ -195,139 +195,148 @@ if __name__ == "__main__":
     # file_dir = conf.log_dir_finetune + f"{args.alg}_{args.env}_{args.stamp}/" + "eval_results/" + "evaluations.npz"
     # file_dir = conf.log_dir_finetune + f"{args.alg}_{args.env}_{args.stamp}/" + "evaluations.npz"
     print("######## BarPlot ########")
-    env_names = ["MountainCarContinuous-v0", "MountainCarContinuous-v0"]
-    skills_l = [10, 10]
+    env_names = ["MountainCarContinuous-v0", "MountainCarContinuous-v0", "HalfCheetah-v2", "HalfCheetah-v2", "Walker2d-v2", "Walker2d-v2", "Ant-v2", "Ant-v2"]
+    skills_l = [10, 10, 30, 30, 30, 30, 30, 30]
     algs = ["sac", "ppo"]
-    stamps = [1643572784.9260342, 1644513661.0212696]
-    pms = ["MLP", "MLP"]
-    lbs = ["ba", "ba"]
+    # MC MC HC HC W-SAC, W-PPO, Ant-SAC, Ant-PPO
+    stamps = [1645398097.9415703, 1645398097.927781, 1645375267.8525789, 1645312624.386389, 1645375267.87822, 1645398097.9635289, 1645375267.904899, 1645312624.4639032]
+    pms = ["MLP"]*6
+    lbs = ["ba"]*6
     colors = ["b", "r"]
     barplot(env_names, skills_l, lbs, pms, algs, stamps, colors)
     print("######## Skills evaluation ########")
-    env_name = "MountainCarContinuous-v0"
-    skills_l = [10, 10]
-    algs = ["sac", "ppo"]
-    stamps = [1643572784.9260342, 1644513661.0212696]
-    cls = ["MLP", "MLP"]
-    lbs = ["ba", "ba"]
-    colors = ["b", "r"]
-    legends = [a.upper() for a in algs]
-    plt.figure()
-    title = "MountainCar" if env_name == "MountainCarContinuous-v0" else env_name[: env_name.index('-')]
-    plt.title(title)
-    xlabel = "Environment Timesteps"
-    ylabel = "Intrinsic Return"
-    asym = asymp_perofrmance[env_name]
-    for i in range(len(algs)):
-        skills = skills_l[i]
-        pm = cls[i]
-        lb = lbs[i]
-        alg = algs[i]
-        print(f"Algorithm: {alg}")
-        plot_color = colors[i]
-        stamp = stamps[i]
-        # legend = alg
-        main_exper_dir = conf.log_dir_finetune + f"cls:{pm}, lb:{lb}/"
-        env_dir = main_exper_dir + f"env: {env_name}, alg:{alg}, stamp:{stamp}/"
-        seeds_list = []
-        for seed in seeds:
-            seed_everything(seed)
-            seed_dir = env_dir + f"seed:{seed}/"
-            file_dir_skills = seed_dir + "eval_results/" + "evaluations.npz"
-            files = np.load(file_dir_skills)
-            steps = files['timesteps']
-            results = files['results']
-            print(f"results.shape: {results.shape}")
-            seeds_list.append(results.mean(axis=1).reshape(-1))
-            # data_mean = results.mean(axis=1)
-            # data_std = results.std(axis=1)
-            # print(f"mean: {data_mean[-1]}")
-            # print(f"std: {data_std[-1]}")
-        data_mean = np.mean(seeds_list, axis=0)
-        print(f"seeds list shape {np.array(seeds_list).shape}")
-        # input()
-        data_std = np.std(seeds_list, axis=0)
-        # data_mean = np.convolve(data_mean, np.ones(10)/10, mode='valid') 
-        # data_std = np.convolve(data_std, np.ones(10)/10, mode='valid') 
-        # steps = np.convolve(steps, np.ones(10)/10, mode='valid') 
-        print(f"data shape: {data_mean.shape}")
-        print(f"steps shape: {steps.shape}")
-        # input()
+    env_names = ["MountainCarContinuous-v0", "HalfCheetah-v2", "Walker2d-v2", "Ant-v2"]
+    stamps_l = [[1645398097.9415703, 1645398097.927781], [1645375267.8525789, 1645312624.386389], [1645375267.87822, 1645398097.9635289], [1645375267.904899, 1645312624.4639032]]
+    skill_l = [[10, 10], [30, 30], [30, 30], [30, 30]]
+    for j in range(len(env_names)):
+        env_name = env_names[j]
+        skills_l = skill_l[j]
+        algs = ["sac", "ppo"]
+        stamps = stamps_l[j]
+        cls = ["MLP", "MLP"]
+        lbs = ["ba", "ba"]
+        colors = ["b", "r"]
+        legends = [a.upper() for a in algs]
+        plt.figure()
+        title = "MountainCar" if env_name == "MountainCarContinuous-v0" else env_name[: env_name.index('-')]
+        plt.title(title)
+        xlabel = "Environment Timesteps"
+        ylabel = "Intrinsic Return"
+        asym = asymp_perofrmance[env_name]
+        for i in range(len(algs)):
+            skills = skills_l[i]
+            pm = cls[i]
+            lb = lbs[i]
+            alg = algs[i]
+            print(f"Algorithm: {alg}")
+            plot_color = colors[i]
+            stamp = stamps[i]
+            # legend = alg
+            main_exper_dir = conf.log_dir_finetune + f"cls:{pm}, lb:{lb}/"
+            env_dir = main_exper_dir + f"env: {env_name}, alg:{alg}, stamp:{stamp}/"
+            seeds_list = []
+            for seed in seeds:
+                seed_everything(seed)
+                seed_dir = env_dir + f"seed:{seed}/"
+                file_dir_skills = seed_dir + "eval_results/" + "evaluations.npz"
+                files = np.load(file_dir_skills)
+                steps = files['timesteps']
+                results = files['results']
+                print(f"results.shape: {results.shape}")
+                seeds_list.append(results.mean(axis=1).reshape(-1))
+                # data_mean = results.mean(axis=1)
+                # data_std = results.std(axis=1)
+                # print(f"mean: {data_mean[-1]}")
+                # print(f"std: {data_std[-1]}")
+            data_mean = np.mean(seeds_list, axis=0)
+            print(f"seeds list shape {np.array(seeds_list).shape}")
+            # input()
+            data_std = np.std(seeds_list, axis=0)
+            # data_mean = np.convolve(data_mean, np.ones(10)/10, mode='valid') 
+            # data_std = np.convolve(data_std, np.ones(10)/10, mode='valid') 
+            # steps = np.convolve(steps, np.ones(10)/10, mode='valid') 
+            print(f"data shape: {data_mean.shape}")
+            print(f"steps shape: {steps.shape}")
+            # input()
+            if len(algs) > 1:
+                sns.lineplot(x=steps, y=data_mean, label=legends[i], color=plot_color)
+                plt.legend()
+            else:
+                sns.lineplot(x=steps, y=data_mean, color=plot_color)
+            plt.fill_between(steps, (data_mean-data_std), (data_mean+data_std), color=plot_color, alpha=0.3)
+            plt.xlabel(xlabel)
+            plt.ylabel(ylabel)
+            # plt.grid(False)
+            if len(algs) == 1:
+                filename = f"{env_name}_pretraining_{alg}"
+                files_dir = f"Vis/{env_name}"
+                os.makedirs(files_dir, exist_ok=True)
+                plt.savefig(f'{files_dir}/{filename}')    
         if len(algs) > 1:
-            sns.lineplot(x=steps, y=data_mean, label=legends[i], color=plot_color)
-            plt.legend()
-        else:
-            sns.lineplot(x=steps, y=data_mean, color=plot_color)
-        plt.fill_between(steps, (data_mean-data_std), (data_mean+data_std), color=plot_color, alpha=0.3)
-        plt.xlabel(xlabel)
-        plt.ylabel(ylabel)
-        # plt.grid(False)
-        if len(algs) == 1:
-            filename = f"{env_name}_pretraining_{alg}"
-            files_dir = f"Vis/{env_name}"
-            os.makedirs(files_dir, exist_ok=True)
-            plt.savefig(f'{files_dir}/{filename}')    
-    if len(algs) > 1:
-        filename = f"{env_name}_pretraining_all_algs"
-        files_dir = f"Vis/{env_name}_cls:{pm}_lb:{lb}"
-        os.makedirs(files_dir, exist_ok=True)
-        plt.savefig(f'{files_dir}/{filename}')    
-    
-    # loop throgh the finetuning results
-    # loop throgh the finetuning results
-    plt.figure()
-    title = "MountainCar" if env_name == "MountainCarContinuous-v0" else env_name[: env_name.index('-')]
-    plt.title(title)
-    print("######## Finetine evaluation ########")
-    seeds_list = []
-    ylabel = "Normalized Extrinsic Return (%)"
-    for i in range(len(algs)):
-        skills = skills_l[i]
-        pm = cls[i]
-        lb = lbs[i]
-        alg = algs[i]
-        print(f"Algorithm: {alg}")
-        plot_color = colors[i]
-        stamp = stamps[i]
-        legend = alg
-        main_exper_dir = conf.log_dir_finetune + f"cls:{pm}, lb:{lb}/"
-        env_dir = main_exper_dir + f"env: {env_name}, alg:{alg}, stamp:{stamp}/"
-        seed_list = []
-        for seed in seeds:
-            seed_everything(seed)
-            seed_dir = env_dir + f"seed:{seed}/"
-            file_dir_finetune = seed_dir + "finetune_eval_results/" + "evaluations.npz"
-            files = np.load(file_dir_finetune)
-            steps = files['timesteps']
-            results = files['results']
-            seeds_list.append(results.mean(axis=1).reshape(-1))
-        data_mean = np.mean(seeds_list, axis=0)
-        data_std = np.std(seeds_list, axis=0)
-        if len(algs) > 1:
-            ax = sns.lineplot(x=steps, y=data_mean, label=legends[i], color=plot_color)
-        else:
-            ax = sns.lineplot(x=steps, y=data_mean, color=plot_color)
-        plt.fill_between(steps, (data_mean-data_std), (data_mean+data_std), color=plot_color, alpha=0.3)
-        plt.xlabel(xlabel)
-        plt.ylabel(ylabel)
-        # plt.grid(False)
-        r = random_performance[env_name]
-        if len(algs) == 1:
-            ax.axhline(r/asym * 100, label="Random Policy",  c='black', linestyle='dashed')
-            ax.axhline(100, label="Expert Policy",  c='black', linestyle='dotted')
-            plt.legend()
-            filename = f"{env_name}_finetune_{alg}"
+            filename = f"{env_name}_pretraining_all_algs"
             files_dir = f"Vis/{env_name}_cls:{pm}_lb:{lb}"
             os.makedirs(files_dir, exist_ok=True)
             plt.savefig(f'{files_dir}/{filename}')    
-    if len(algs) > 1:
-        ax.axhline(r/asym * 100, label="Random Policy",  c='black', linestyle='dashed')
-        ax.axhline(100, label="Expert Policy",  c='black', linestyle='dotted')
-        plt.legend()
-        filename = f"{env_name}_finetune_all_algs"
-        files_dir = f"Vis/{env_name}"
-        os.makedirs(files_dir, exist_ok=True)
-        plt.savefig(f'{files_dir}/{filename}')  
+
+        # loop throgh the finetuning results
+        # loop throgh the finetuning results
+        plt.figure()
+        title = "MountainCar" if env_name == "MountainCarContinuous-v0" else env_name[: env_name.index('-')]
+        plt.title(title)
+    print("######## Finetine evaluation ########")
+    seeds_list = []
+    ylabel = "Normalized Extrinsic Return (%)"
+    for j in range(len(env_names)):
+        env_name = env_names[j]
+        skills_l = skill_l[j]
+        stamps = stamps_l[j]
+        for i in range(len(algs)):
+            skills = skills_l[i]
+            pm = cls[i]
+            lb = lbs[i]
+            alg = algs[i]
+            print(f"Algorithm: {alg}")
+            plot_color = colors[i]
+            stamp = stamps[i]
+            legend = alg
+            main_exper_dir = conf.log_dir_finetune + f"cls:{pm}, lb:{lb}/"
+            env_dir = main_exper_dir + f"env: {env_name}, alg:{alg}, stamp:{stamp}/"
+            seed_list = []
+            for seed in seeds:
+                seed_everything(seed)
+                seed_dir = env_dir + f"seed:{seed}/"
+                file_dir_finetune = seed_dir + "finetune_eval_results/" + "evaluations.npz"
+                files = np.load(file_dir_finetune)
+                steps = files['timesteps']
+                results = files['results']
+                seeds_list.append(results.mean(axis=1).reshape(-1))
+            data_mean = np.mean(seeds_list, axis=0)
+            data_std = np.std(seeds_list, axis=0)
+            if len(algs) > 1:
+                ax = sns.lineplot(x=steps, y=data_mean, label=legends[i], color=plot_color)
+            else:
+                ax = sns.lineplot(x=steps, y=data_mean, color=plot_color)
+            plt.fill_between(steps, (data_mean-data_std), (data_mean+data_std), color=plot_color, alpha=0.3)
+            plt.xlabel(xlabel)
+            plt.ylabel(ylabel)
+            # plt.grid(False)
+            r = random_performance[env_name]
+            if len(algs) == 1:
+                ax.axhline(r/asym * 100, label="Random Policy",  c='black', linestyle='dashed')
+                ax.axhline(100, label="Expert Policy",  c='black', linestyle='dotted')
+                plt.legend()
+                filename = f"{env_name}_finetune_{alg}"
+                files_dir = f"Vis/{env_name}_cls:{pm}_lb:{lb}"
+                os.makedirs(files_dir, exist_ok=True)
+                plt.savefig(f'{files_dir}/{filename}')    
+        if len(algs) > 1:
+            ax.axhline(r/asym * 100, label="Random Policy",  c='black', linestyle='dashed')
+            ax.axhline(100, label="Expert Policy",  c='black', linestyle='dotted')
+            plt.legend()
+            filename = f"{env_name}_finetune_all_algs"
+            files_dir = f"Vis/{env_name}"
+            os.makedirs(files_dir, exist_ok=True)
+            plt.savefig(f'{files_dir}/{filename}')  
     
         
         

@@ -48,7 +48,7 @@ params = dict( n_skills = 30,
            pretrain_steps = int(20e3),
            finetune_steps = int(1e5),
            buffer_size = int(1e6),
-           min_train_size = int(1e2),
+           min_train_size = int(1e4),
              )
 
 
@@ -58,7 +58,7 @@ envs_mp = [
     { # 1 dof
      'ppo':{
         'MountainCarContinuous-v0': dict( 
-           pretrain_steps = int(45e6), 
+           pretrain_steps = int(100e6), 
             n_skills = 10 
              ),
         },
@@ -67,7 +67,7 @@ envs_mp = [
     {
         'sac':{
         'MountainCarContinuous-v0': dict( 
-           pretrain_steps = int (4e5),
+           pretrain_steps = int (7e5),
             n_skills = 10 
              ), 
         },
@@ -91,23 +91,23 @@ envs_mp = [
 #         },
 #     },
     # 2
-    { # 6 dof
-     'ppo':{
-        'HalfCheetah-v2': dict( 
-           pretrain_steps = int(50e6),
-            n_skills = 30
-             ), 
-        },
-    },
+#     { # 6 dof
+#      'ppo':{
+#         'HalfCheetah-v2': dict( 
+#            pretrain_steps = int(60e6),
+#             n_skills = 30
+#              ), 
+#         },
+#     },
     
-    {
-      'sac':{
-        'HalfCheetah-v2': dict( 
-           pretrain_steps = int(5e5),
-            n_skills = 30
-             ), 
-        },
-    },
+    # {
+    #   'sac':{
+    #     'HalfCheetah-v2': dict( 
+    #        pretrain_steps = int(1e6),
+    #         n_skills = 30
+    #          ), 
+    #     },
+    # },
     
 #     {
 #       'es':{
@@ -130,21 +130,21 @@ envs_mp = [
     { # 6 dof
      'ppo':{
         'Walker2d-v2': dict( 
-           pretrain_steps = int(70e6),
+           pretrain_steps = int(120e6),
             n_skills = 30
              ),
         },
         
     },
     
-    {
-      'sac':{
-        'Walker2d-v2': dict( 
-           pretrain_steps = int(7e5),
-            n_skills = 30
-             ),
-        },
-    },
+    # {
+    #   'sac':{
+    #     'Walker2d-v2': dict( 
+    #        pretrain_steps = int(1e6),
+    #         n_skills = 30
+    #          ),
+    #     },
+    # },
     
 #     {
 #       'es':{
@@ -165,25 +165,25 @@ envs_mp = [
 #     },
     
     # 4
-    { # 8 dof
-     'ppo':{
-        'Ant-v2': dict( 
-           pretrain_steps = int(100e6),
-            n_skills = 30
-             ), 
-        },
+#     { # 8 dof
+#      'ppo':{
+#         'Ant-v2': dict( 
+#            pretrain_steps = int(100e6),
+#             n_skills = 30
+#              ), 
+#         },
     
-    },
+#     },
     
-    {
-    'sac':{
-        'Ant-v2': dict( 
-           pretrain_steps = int(1e6),
-            n_skills = 30
-             ), 
-        },
+#     {
+#     'sac':{
+#         'Ant-v2': dict( 
+#            pretrain_steps = int(1.2e6),
+#             n_skills = 30
+#              ), 
+#         },
         
-    },
+#     },
     
 #     {
 #      'es':{
@@ -210,9 +210,9 @@ envs_mp = [
 # ppo hyperparams
 ppo_hyperparams = dict(
     n_steps = 2048,
-    learning_rate = 3e-4,
+    learning_rate = 1e-4,
     n_epochs = 10,
-    batch_size = 4096//4,
+    batch_size = 4096,
     gamma = 0.99,
     gae_lambda = 0.95,
     clip_range = 0.1,
@@ -454,6 +454,9 @@ if __name__ == "__main__":
         results_df_list = manager.list()
         plots_d_list = manager.list()
         n_processes = len(envs_mp)
+        # print(n_processes)
+        # print(envs_mp[:1])
+        # input()
         processes_list = []
         seeds = conf.seeds
         for i in range(n_processes):
