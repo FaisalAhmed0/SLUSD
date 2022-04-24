@@ -482,7 +482,7 @@ class DIAYN_MB():
                 env = HalfCheetahTaskWrapper(gym.make("HalfCheetah-v2"), task=self.task)
                 env = DummyVecEnv([lambda: SkillWrapperFinetune(Monitor(env,  f"{self.directory}/finetune_train_results"), self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, skill=best_skill_index)])
                 eval_env = HalfCheetahTaskWrapper(gym.make(self.env_name), task=self.task)
-                eval_env = SkillWrapperFinetune(eval_env, self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, r_seed=None, skill=best_skill_index)
+                eval_env = SkillWrapperFinetune(eval_env, self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, seed=None, skill=best_skill_index)
                 
             # # WalkerTaskWrapper, AntTaskWrapper
             elif self.env_name == "Walker2d-v2":
@@ -491,7 +491,7 @@ class DIAYN_MB():
                 env = WalkerTaskWrapper(gym.make("Walker2d-v2"), task=self.task)
                 env = DummyVecEnv([lambda: SkillWrapperFinetune(Monitor(env,  f"{self.directory}/finetune_train_results"), self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, skill=best_skill_index)])
                 eval_env = WalkerTaskWrapper(gym.make(self.env_name), task=self.task)
-                eval_env = SkillWrapperFinetune(eval_env, self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, r_seed=None, skill=best_skill_index)
+                eval_env = SkillWrapperFinetune(eval_env, self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, seed=None, skill=best_skill_index)
                 
             elif self.env_name == "Ant-v2":
                 # print(f"environment: {self.env_name}")
@@ -499,14 +499,14 @@ class DIAYN_MB():
                 env = AntTaskWrapper(gym.make("Ant-v2"), task=self.task)
                 env = DummyVecEnv([lambda: SkillWrapperFinetune(Monitor(env,  f"{self.directory}/finetune_train_results"), self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, skill=best_skill_index)])
                 eval_env = AntTaskWrapper(gym.make(self.env_name), task=self.task)
-                eval_env = SkillWrapperFinetune(eval_env, self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, r_seed=None, skill=best_skill_index)
+                eval_env = SkillWrapperFinetune(eval_env, self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, seed=None, skill=best_skill_index)
                 
         else:
             # print(f"Just ")
             env = DummyVecEnv([lambda: SkillWrapperFinetune(Monitor(gym.make(
-    self.env_name),  f"{self.directory}/finetune_train_results"), self.params['n_skills'], r_seed=None,max_steps=gym.make(self.env_name)._max_episode_steps, skill=best_skill_index)])
+    self.env_name),  f"{self.directory}/finetune_train_results"), self.params['n_skills'], seed=None,max_steps=gym.make(self.env_name)._max_episode_steps, skill=best_skill_index)])
             eval_env = SkillWrapperFinetune(gym.make(
-            self.env_name), self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, r_seed=None, skill=best_skill_index)
+            self.env_name), self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, seed=None, skill=best_skill_index)
             
         return env, eval_env
     

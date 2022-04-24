@@ -30,3 +30,9 @@ generalization_exper/
 logs_scalability_exper/
 Scalability_Experiment*
 regularization_exper/
+r.csv
+regularization_exper_final/
+result.csv
+test.png
+untitled.py
+plot_results.py

@@ -137,7 +137,7 @@ class DIAYN():
                         gradient_steps=self.alg_params['gradient_steps'],
                         learning_starts=self.alg_params['learning_starts'],
                         policy_kwargs=dict(net_arch=dict(pi=[self.conf.layer_size_policy, self.conf.layer_size_policy], qf=[
-                                           self.conf.layer_size_q, self.conf.layer_size_q]), n_critics=1),
+                                           self.conf.layer_size_q, self.conf.layer_size_q]), n_critics=2),
                         tensorboard_log=self.directory,
                         seed=self.seed
                         )
@@ -252,13 +252,14 @@ class DIAYN():
             self.adaptation_model.actor.log_std.load_state_dict(sac_model.actor.log_std.state_dict())
             self.adaptation_model.actor.optimizer = opt.Adam(self.adaptation_model.actor.parameters(), lr=self.adapt_params['learning_rate'])
             # # load the discriminator
-            self.d.layers[0] = nn.Linear(gym.make(self.env_name).observation_space.shape[0] + self.params['n_skills']  + gym.make(self.env_name).action_space.shape[0], self.conf.layer_size_discriminator)
-            self.d.layers[-1] = nn.Linear(self.conf.layer_size_discriminator, 1)
-            seq = nn.Sequential(*self.d.layers)
-            # # print(d)
-            self.d.eval()
-            self.adaptation_model.critic.qf0.load_state_dict(seq.state_dict())
-            self.adaptation_model.critic.qf1.load_state_dict(seq.state_dict())
+            # self.d.layers[0] = nn.Linear(gym.make(self.env_name).observation_space.shape[0] + self.params['n_skills']  + gym.make(self.env_name).action_space.shape[0], self.conf.layer_size_discriminator)
+            # self.d.layers[-1] = nn.Linear(self.conf.layer_size_discriminator, 1)
+            # layers = [l for l in self.d.layers if "linear" in f"{type(l)}" or "ReLU" in f"{type(l)}"]
+            # seq = nn.Sequential(*layers)
+            # # # print(d)
+            # self.d.eval()
+            self.adaptation_model.critic.qf0.load_state_dict(sac_model.critic.qf0.state_dict())
+            self.adaptation_model.critic.qf1.load_state_dict(sac_model.critic.qf1.state_dict())
             self.adaptation_model.critic_target.load_state_dict(self.adaptation_model.critic.state_dict())
             self.adaptation_model.critic.optimizer = opt.Adam(self.adaptation_model.critic.parameters(), lr=self.adapt_params['learning_rate'])
             self.adaptation_model.learn(total_timesteps=self.params['finetune_steps'],
@@ -310,7 +311,7 @@ class DIAYN():
                 env = HalfCheetahTaskWrapper(gym.make("HalfCheetah-v2"), task=self.task)
                 env = DummyVecEnv([lambda: SkillWrapperFinetune(Monitor(env,  f"{self.directory}/finetune_train_results"), self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, skill=best_skill_index)])
                 eval_env = HalfCheetahTaskWrapper(gym.make(self.env_name), task=self.task)
-                eval_env = SkillWrapperFinetune(eval_env, self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, r_seed=None, skill=best_skill_index)
+                eval_env = SkillWrapperFinetune(eval_env, self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, seed=None, skill=best_skill_index)
                 
             # # WalkerTaskWrapper, AntTaskWrapper
             elif self.env_name == "Walker2d-v2":
@@ -319,7 +320,7 @@ class DIAYN():
                 env = WalkerTaskWrapper(gym.make("Walker2d-v2"), task=self.task)
                 env = DummyVecEnv([lambda: SkillWrapperFinetune(Monitor(env,  f"{self.directory}/finetune_train_results"), self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, skill=best_skill_index)])
                 eval_env = WalkerTaskWrapper(gym.make(self.env_name), task=self.task)
-                eval_env = SkillWrapperFinetune(eval_env, self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, r_seed=None, skill=best_skill_index)
+                eval_env = SkillWrapperFinetune(eval_env, self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, seed=None, skill=best_skill_index)
                 
             elif self.env_name == "Ant-v2":
                 # print(f"environment: {self.env_name}")
@@ -327,14 +328,14 @@ class DIAYN():
                 env = AntTaskWrapper(gym.make("Ant-v2"), task=self.task)
                 env = DummyVecEnv([lambda: SkillWrapperFinetune(Monitor(env,  f"{self.directory}/finetune_train_results"), self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, skill=best_skill_index)])
                 eval_env = AntTaskWrapper(gym.make(self.env_name), task=self.task)
-                eval_env = SkillWrapperFinetune(eval_env, self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, r_seed=None, skill=best_skill_index)
+                eval_env = SkillWrapperFinetune(eval_env, self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, seed=None, skill=best_skill_index)
                 
         else:
             # print(f"Just ")
             env = DummyVecEnv([lambda: SkillWrapperFinetune(Monitor(gym.make(
-    self.env_name),  f"{self.directory}/finetune_train_results"), self.params['n_skills'], r_seed=None,max_steps=gym.make(self.env_name)._max_episode_steps, skill=best_skill_index)])
+    self.env_name),  f"{self.directory}/finetune_train_results"), self.params['n_skills'], seed=None,max_steps=gym.make(self.env_name)._max_episode_steps, skill=best_skill_index)])
             eval_env = SkillWrapperFinetune(gym.make(
-            self.env_name), self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, r_seed=None, skill=best_skill_index)
+            self.env_name), self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, seed=None, skill=best_skill_index)
             
         return env, eval_env
         

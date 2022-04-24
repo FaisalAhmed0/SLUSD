@@ -17,8 +17,6 @@ torch.set_num_threads(1)
 torch.multiprocessing.set_sharing_strategy('file_system')
 
 
-import numpy as np
-import pandas as pd
 import gym
 
 import time
@@ -26,11 +24,15 @@ import os
 import random
 from collections import defaultdict
 
+import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-sns.set_theme(style="darkgrid")
-sns.set(font_scale = conf.font_scale)
-
+import pandas as pd
+sns.set()
+sns.set_style('whitegrid')
+sns.set_context("paper", font_scale = conf.font_scale)
+from matplotlib.ticker import (MultipleLocator, FormatStrFormatter,
+                               AutoMinorLocator)
 from copy import deepcopy
 
 # Asymptotic performance of the expert
@@ -46,7 +48,7 @@ asymp_perofrmance = {
 params = dict( n_skills = 30,
            pretrain_steps = int(20e3),
            finetune_steps = int(1e5),
-           buffer_size = int(1e7),
+           buffer_size = int(1e6),
            min_train_size = int(1e4),
              )
 
@@ -57,24 +59,78 @@ envs_mp = [
     {   # 1
         'weight_decay':{
             'MountainCarContinuous-v0': dict(
-                pretrain_steps = int(4.5e5),
+                pretrain_steps = int(7e5),
                 n_skills = 10,
-                value = [1e-1, 1e-3, 1e-5]
+                value = [1e-1]
             ),
             'HalfCheetah-v2': dict(
-                pretrain_steps = int(6e5),
+                pretrain_steps = int(1e6),
                 n_skills = 30,
-                value = [1e-1, 1e-3, 1e-5]
+                value = [1e-1]
             ),
             'Walker2d-v2': dict(
-                pretrain_steps = int(7e5),
+                pretrain_steps = int(1e6),
                 n_skills = 30,
-                value = [1e-1, 1e-3, 1e-5]
+                value = [1e-1]
             ),
             'Ant-v2': dict(
                 pretrain_steps = int(1e6),
                 n_skills = 30,
-                value = [1e-1, 1e-3, 1e-5]
+                value = [1e-1]
+            ),
+            
+        }
+        
+        
+    },
+    {   # 1
+        'weight_decay':{
+            'MountainCarContinuous-v0': dict(
+                pretrain_steps = int(7e5),
+                n_skills = 10,
+                value = [1e-3]
+            ),
+            'HalfCheetah-v2': dict(
+                pretrain_steps = int(1e6),
+                n_skills = 30,
+                value = [1e-3]
+            ),
+            'Walker2d-v2': dict(
+                pretrain_steps = int(1e6),
+                n_skills = 30,
+                value = [1e-3]
+            ),
+            'Ant-v2': dict(
+                pretrain_steps = int(1e6),
+                n_skills = 30,
+                value = [1e-3]
+            ),
+            
+        }
+        
+        
+    },
+    {   # 1
+        'weight_decay':{
+            'MountainCarContinuous-v0': dict(
+                pretrain_steps = int(7e5),
+                n_skills = 10,
+                value = [1e-5]
+            ),
+            'HalfCheetah-v2': dict(
+                pretrain_steps = int(1e6),
+                n_skills = 30,
+                value = [1e-5]
+            ),
+            'Walker2d-v2': dict(
+                pretrain_steps = int(1e6),
+                n_skills = 30,
+                value = [1e-5]
+            ),
+            'Ant-v2': dict(
+                pretrain_steps = int(1e6),
+                n_skills = 30,
+                value = [1e-5]
             ),
             
         }
@@ -84,24 +140,76 @@ envs_mp = [
     {   # 2
         'dropout':{
             'MountainCarContinuous-v0': dict(
-                pretrain_steps = int(4.5e5),
+                pretrain_steps = int(7e5),
                 n_skills = 10,
-                value = [0.1, 0.5, 0.9]
+                value = [0.1]
             ),
             'HalfCheetah-v2': dict(
-                pretrain_steps = int(6e5),
+                pretrain_steps = int(1e6),
                 n_skills = 30,
-                value = [0.1, 0.5, 0.9]
+                value = [0.1]
             ),
             'Walker2d-v2': dict(
-                pretrain_steps = int(7e5),
+                pretrain_steps = int(1e6),
                 n_skills = 30,
-                value = [0.1, 0.5, 0.9]
+                value = [0.1]
             ),
             'Ant-v2': dict(
                 pretrain_steps = int(1e6),
                 n_skills = 30,
-                value = [0.1, 0.5, 0.9]
+                value = [0.1]
+            ),
+        }
+        
+        
+    },
+    {   # 2
+        'dropout':{
+            'MountainCarContinuous-v0': dict(
+                pretrain_steps = int(7e5),
+                n_skills = 10,
+                value = [0.5]
+            ),
+            'HalfCheetah-v2': dict(
+                pretrain_steps = int(1e6),
+                n_skills = 30,
+                value = [0.5]
+            ),
+            'Walker2d-v2': dict(
+                pretrain_steps = int(1e6),
+                n_skills = 30,
+                value = [0.5]
+            ),
+            'Ant-v2': dict(
+                pretrain_steps = int(1e6),
+                n_skills = 30,
+                value = [0.5]
+            ),
+        }
+        
+        
+    },
+    {   # 2
+        'dropout':{
+            'MountainCarContinuous-v0': dict(
+                pretrain_steps = int(7e5),
+                n_skills = 10,
+                value = [0.9]
+            ),
+            'HalfCheetah-v2': dict(
+                pretrain_steps = int(1e6),
+                n_skills = 30,
+                value = [0.9]
+            ),
+            'Walker2d-v2': dict(
+                pretrain_steps = int(1e6),
+                n_skills = 30,
+                value = [0.9]
+            ),
+            'Ant-v2': dict(
+                pretrain_steps = int(1e6),
+                n_skills = 30,
+                value = [0.9]
             ),
         }
         
@@ -110,24 +218,50 @@ envs_mp = [
     {   # 3
         'gp':{
             'MountainCarContinuous-v0': dict(
-                pretrain_steps = int(4.5e5),
+                pretrain_steps = int(7e5),
                 n_skills = 10,
-                value = [1, 5, 10]
+                value = [5]
             ),
             'HalfCheetah-v2': dict(
-                pretrain_steps = int(6e5),
+                pretrain_steps = int(1e6),
                 n_skills = 30,
-                value = [1, 5, 10]
+                value = [5]
             ),
             'Walker2d-v2': dict(
-                pretrain_steps = int(7e5),
+                pretrain_steps = int(1e6),
                 n_skills = 30,
-                value = [1, 5, 10]
+                value = [5]
             ),
             'Ant-v2': dict(
                 pretrain_steps = int(1e6),
                 n_skills = 30,
-                value = [1, 5, 10]
+                value = [5]
+            ),
+        }
+        
+        
+    },
+    {   # 3
+        'gp':{
+            'MountainCarContinuous-v0': dict(
+                pretrain_steps = int(7e5),
+                n_skills = 10,
+                value = [10]
+            ),
+            'HalfCheetah-v2': dict(
+                pretrain_steps = int(1e6),
+                n_skills = 30,
+                value = [10]
+            ),
+            'Walker2d-v2': dict(
+                pretrain_steps = int(1e6),
+                n_skills = 30,
+                value = [10]
+            ),
+            'Ant-v2': dict(
+                pretrain_steps = int(1e6),
+                n_skills = 30,
+                value = [10]
             ),
         }
         
@@ -136,24 +270,24 @@ envs_mp = [
     {   # 4
         'label_smoothing':{
             'MountainCarContinuous-v0': dict(
-                pretrain_steps = int(4.5e5),
+                pretrain_steps = int(7e5),
                 n_skills = 10,
-                value = [0.2]
+                value = [0.3]
             ),
             'HalfCheetah-v2': dict(
-                pretrain_steps = int(6e5),
+                pretrain_steps = int(1e6),
                 n_skills = 30,
-                value = [0.2]
+                value = [0.3]
             ),
             'Walker2d-v2': dict(
-                pretrain_steps = int(7e5),
+                pretrain_steps = int(1e6),
                 n_skills = 30,
-                value = [0.2]
+                value = [0.3]
             ),
             'Ant-v2': dict(
                 pretrain_steps = int(1e6),
                 n_skills = 30,
-                value = [0.2]
+                value = [0.3]
             ),
         }
         
@@ -162,17 +296,17 @@ envs_mp = [
     {   # 5
         'mixup':{
             'MountainCarContinuous-v0': dict(
-                pretrain_steps = int(4.5e5),
+                pretrain_steps = int(7e5),
                 n_skills = 10,
                 value = [True]
             ),
             'HalfCheetah-v2': dict(
-                pretrain_steps = int(6e5),
+                pretrain_steps = int(1e6),
                 n_skills = 30,
                 value = [True]
             ),
             'Walker2d-v2': dict(
-                pretrain_steps = int(7e5),
+                pretrain_steps = int(1e6),
                 n_skills = 30,
                 value = [True]
             ),
@@ -188,17 +322,16 @@ envs_mp = [
     
 ]
 
-
 # ppo hyperparams
 ppo_hyperparams = dict(
     n_steps = 2048,
     learning_rate = 3e-4,
     n_epochs = 10,
-    batch_size = 64,
+    batch_size = 256,
     gamma = 0.99,
     gae_lambda = 0.95,
     clip_range = 0.1,
-    ent_coef=0.5,
+    ent_coef=0.1,
     n_actors = 8,
     algorithm = "ppo",
     
@@ -208,11 +341,11 @@ ppo_hyperparams = dict(
 sac_hyperparams = dict(
     learning_rate = 3e-4,
     gamma = 0.99,
-    buffer_size = int(1e7),
+    buffer_size = int(1e6),
     batch_size = 128,
-    tau = 0.005,
+    tau = 0.01,
     gradient_steps = 1,
-    ent_coef=0.5,
+    ent_coef=0.1,
     learning_starts = 10000,
     algorithm = "sac"
 )
@@ -220,13 +353,13 @@ sac_hyperparams = dict(
 # PETS Hyperparameters 
 pets_hyperparams = dict(
     learning_rate = 1e-3,
-    batch_size = 128,
+    batch_size = 256,
     ensemble_size = 5,
     trial_length = 200,
-    population_size = 250,
+    population_size = 150,
     planning_horizon = 10,
     elite_ratio = 0.05,
-    num_particles = 20,
+    num_particles = 5,
     weight_decay = 5e-5,
     algorithm = "pets"
 )
@@ -234,9 +367,9 @@ pets_hyperparams = dict(
 
 # Evolution Stratigies Hyperparameters after hyperparameters search
 es_hyperparams = dict(
-    lr = 1e-2, # learning rate 
+    lr = 1e-3, # learning rate 
     iterations = 100, # iterations 
-    pop_size = 500, # population size
+    pop_size = 2, # population size testing
     algorithm = "es"
 )
 
@@ -249,6 +382,22 @@ hyperparams = {
 
 # Discriminator Hyperparameters
 discriminator_hyperparams = dict(
+    learning_rate = 3e-4,
+    batch_size = 128,
+    n_epochs = 1,
+    weight_decay = 0, 
+    dropout = None, # The dropout probability
+    label_smoothing = 0.0, # usually 0.2
+    gp = None, # the weight of the gradient penalty term
+    mixup = False,
+    gradient_clip = None,
+    temperature = 1,
+    parametrization = "MLP", # TODO: add this as a CMD argument MLP, Linear, Separable, Concat
+    lower_bound = "ba", # ba, tuba, nwj, nce, interpolate
+    log_baseline = None, 
+    alpha_logit = -5., # small value of alpha => reduce the variance of nwj by introduce some nce bias 
+)
+default_disc_params = dict(
     learning_rate = 3e-4,
     batch_size = 64,
     n_epochs = 1,
@@ -263,23 +412,6 @@ discriminator_hyperparams = dict(
     lower_bound = "ba", # ba, tuba, nwj, nce, interpolate
     log_baseline = None, 
     alpha_logit = -5., # small value of alpha => reduce the variance of nwj by introduce some nce bias 
-)
-
-default_disc_params = dict(
-        learning_rate = 3e-4,
-        batch_size = 64,
-        n_epochs = 1,
-        weight_decay = 0, 
-        dropout = None, # The dropout probability
-        label_smoothing = 0.0, # usually 0.2
-        gp = None, # the weight of the gradient penalty term
-        mixup = False,
-        gradient_clip = None,
-        temperature = 1,
-        parametrization = "MLP", # TODO: add this as a CMD argument MLP, Linear, Separable, Concat
-        lower_bound = "ba", # ba, tuba, nwj, nce, interpolate
-        log_baseline = None, 
-        alpha_logit = -5., # small value of alpha => reduce the variance of nwj by introduce some nce bias 
 )
 
 
@@ -326,7 +458,7 @@ def save_params(alg, directory, discriminator_hyperparams):
 def train_all(env_params, results_df_list, seed, time, discriminator_hyperparams_copy=deepcopy(discriminator_hyperparams), default_disc_params_copy=deepcopy(default_disc_params), 
               params_copy=deepcopy(params)):
     plots_dict = {}
-    columns = ['Regularization', "Environment", "Reward After Adaptation", "State Entropy", "Intrinsic Reward" , "Reward Before Adaptation (Best Skill)"]
+    columns = ['Regularization', "Environment", "Normalized Reward After Adaptation (%)", "State Entropy", "Intrinsic Reward" , "Normalized Reward Before Adaptation (%) (Best Skill)"]
     results_df = pd.DataFrame(columns=columns)
     print(f"{env_params}")
     alg = "sac"
@@ -370,16 +502,17 @@ def train_all(env_params, results_df_list, seed, time, discriminator_hyperparams
                         
                     asym = asymp_perofrmance[env]
                     # save results
-                    seed_results.append([intrinsic_reward_mean, reward_beforeFinetune_mean/asym, reward_mean/asym, entropy_mean])
+                    seed_results.append([intrinsic_reward_mean, reward_beforeFinetune_mean/asym*100, reward_mean/asym*100, entropy_mean])
                     label = reg_label(reg, v)
                     d = {'Regularization': label, 
-                         "Reward After Adaptation": reward_mean/asym, 
+                         "Normalized Reward After Adaptation (%)": reward_mean/asym*100, 
                          "Intrinsic Reward": intrinsic_reward_mean, 
                          "State Entropy": entropy_mean, 
-                         "Reward Before Adaptation (Best Skill)": reward_beforeFinetune_mean/asym,
+                         "Normalized Reward Before Adaptation (%) (Best Skill)": reward_beforeFinetune_mean/asym*100,
                          "Environment": env[: env.index('-')] if env != "MountainCarContinuous-v0" else "MountainCar"
                         }
                     results_df = results_df.append(d, ignore_index=True)
+                    save_final_results(seed_results, seed_dir)
                 # add to the plot dict
                 # if "algs" not in plots_dict[env]:
                 #     plots_dict[env]["algs"] = []
@@ -397,11 +530,10 @@ def train_all(env_params, results_df_list, seed, time, discriminator_hyperparams
                 # plots_dict[env]["skills"].append(params['n_skills'])
                 # plots_dict[env]["pms"].append(discriminator_hyperparams['parametrization'])
                 # plots_dict[env]["lbs"].append(discriminator_hyperparams['lower_bound'])
-        
-            save_final_results(seed_results, env_dir)
-            results_df_list.append(results_df)
-            # plots_d_list.append(plots_dict)
-            discriminator_hyperparams_copy[reg] = default_disc_params_copy[reg]
+                # print(seed_results)
+                results_df_list.append(results_df)
+                # plots_d_list.append(plots_dict)
+                discriminator_hyperparams_copy[reg] = default_disc_params_copy[reg]
     
     
 def df_from_list(df_list, columns):
@@ -452,7 +584,7 @@ if __name__ == "__main__":
     main_exper_dir = None
     main_exper_dir = conf.regularization_exper_dir + f"cls:{discriminator_hyperparams['parametrization']}, lb:{discriminator_hyperparams['lower_bound']}/"
     
-    columns = ['Regularization', "Environment", "Reward After Adaptation", "State Entropy", "Intrinsic Reward" , "Reward Before Adaptation (Best Skill)"]
+    columns = ['Regularization', "Environment", "Normalized Reward After Adaptation (%)", "State Entropy", "Intrinsic Reward" , "Normalized Reward Before Adaptation (%) (Best Skill)"]
         
     if run_all:
         # for mp
@@ -489,9 +621,11 @@ if __name__ == "__main__":
             plt.figure(figsize=conf.barplot_figsize)
             y_axis = col
             # ax = sns.barplot(x="Algorithm", y=y_axis, data=results_df, hue="Environment")
-            if col == "Reward After Adaptation":
+            if col == "Normalized Reward After Adaptation (%)":
                 ax = sns.barplot(x="Environment", y=y_axis, data=results_df, hue="Regularization",)
                 ax.legend_.remove()
+                ax.yaxis.set_major_locator(MultipleLocator(20))
+                # ax.yaxis.set_minor_locator(MultipleLocator(5))
                 filename = f"regularization_experiment_final_{y_axis}.png"
                 files_dir = f"Vis/regularization_experiment_cls:{discriminator_hyperparams['parametrization']}, lb:{discriminator_hyperparams['lower_bound']}/"
                 os.makedirs(files_dir, exist_ok=True)
@@ -507,6 +641,8 @@ if __name__ == "__main__":
             else:
                 ax = sns.barplot(x="Environment", y=y_axis, data=results_df, hue="Regularization",)
                 ax.legend_.remove()
+                if col == "Normalized Reward Before Adaptation (%) (Best Skill)":
+                    ax.yaxis.set_major_locator(MultipleLocator(20))
                 filename = f"regularization_experiment_final_{y_axis}.png"
                 os.makedirs(files_dir, exist_ok=True)
                 plt.savefig(files_dir + filename)
