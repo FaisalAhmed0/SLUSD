@@ -55,6 +55,11 @@ skills| Number of skills to  learn|  Positive integers|6|
 presteps| Number of pretraining steps | Positive integers|1000000
 lb | Mutual Information lower bound|"ba" for $I_{BA}$, "nce" for $I_{NCE}$, "nwj" for $I_{NWJ} and "interpolate" for $I_{\alpha}$. | ba
 pm | Discriminator parameterization |  "MLP" for a feed forward neural network, "Seprabale" for the seperable architecture, and "Concat" for the concatenation architecture and "linear" for the linear parametrization| MLP
+
+## To run the same scalability expeirment of the paper.
+```bash
+python src/experiments/scalability_exper.py --run_all True
+```
 ### To observe the training dynamics run tensorboard inside the SLUSD folder
 ```bash
 tensorboard --logdir ./logs_finetune

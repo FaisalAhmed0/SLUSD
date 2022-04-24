@@ -140,7 +140,7 @@ envs_mp = [
     {
       'sac':{
         'Walker2d-v2': dict( 
-           pretrain_steps = int(2.5e6),
+           pretrain_steps = int(7e5),
             n_skills = 30
              ),
         },
@@ -367,7 +367,7 @@ def train_all(env_params, results_df_list, plots_d_list, seed , time, params_cop
                     # pretraining step
                     pretrained_policy, discriminator = diayn.pretrain()
                     # fine-tuning step 
-                    adapted_policy, best_skill = diayn.finetune()
+                    # adapted_policy, best_skill = diayn.finetune()
                     # Evaluate the policy 
                     intrinsic_reward_mean, reward_beforeFinetune_mean, reward_mean, entropy_mean = evaluate(env, params_copy['n_skills'], pretrained_policy, adapted_policy, discriminator, 
                                                                                                         discriminator_hyperparams['parametrization'], best_skill, alg)
@@ -379,7 +379,7 @@ def train_all(env_params, results_df_list, plots_d_list, seed , time, params_cop
                     # pretraining step
                     pretrained_policy, discriminator = diayn.pretrain()
                     # fine-tune step
-                    adapted_policy, best_skill = diayn.finetune()
+                    # adapted_policy, best_skill = diayn.finetune()
                     # Evaluate the policy 
                     intrinsic_reward_mean, reward_beforeFinetune_mean, reward_mean, entropy_mean = evaluate(env, params_copy['n_skills'], pretrained_policy, adapted_policy, discriminator, 
                                                                                                         discriminator_hyperparams['parametrization'], best_skill, alg)
@@ -391,7 +391,7 @@ def train_all(env_params, results_df_list, plots_d_list, seed , time, params_cop
                     # pretraining step
                     pretrained_policy, discriminator = diayn.pretrain()
                     # adaptation step
-                    adapted_policy, best_skill = diayn.finetune()
+                    # adapted_policy, best_skill = diayn.finetune()
                     # Evaluate the policy 
                     intrinsic_reward_mean, reward_beforeFinetune_mean, reward_mean, entropy_mean = evaluate(env, params_copy['n_skills'], pretrained_policy, adapted_policy, discriminator, 
                                                                                                         discriminator_hyperparams['parametrization'], best_skill, alg)
@@ -503,7 +503,6 @@ if __name__ == "__main__":
         with open(f"{main_exper_dir}/results.txt", "w") as o:
             for i in plots_d_list:
                 o.write(f"{i}\n")
-                
     else:
         # save a timestamp
         timestamp = time.time()

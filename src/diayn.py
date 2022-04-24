@@ -117,7 +117,7 @@ class DIAYN():
             # create the callback list
             if self.checkpoints:
                 # env_name, alg, discriminator, params, pm, n_samples=100)
-                fineune_callback = EvaluationCallback(self.env_name, self.alg, self.d, self.params, self.parametrization, n_samples=self.n_samples)
+                fineune_callback = EvaluationCallback(self.env_name, self.alg, self.d, self.adapt_params,self.params, self.parametrization, self.seed, self.directory, self.sw, n_samples=self.n_samples)
                 callbacks = [discriminator_callback, eval_callback, fineune_callback]
             else:
                 callbacks = [discriminator_callback, eval_callback]
@@ -162,7 +162,7 @@ class DIAYN():
             # create the callback list
             if self.checkpoints:
                 # env_name, alg, discriminator, params, pm, n_samples=100)
-                fineune_callback = EvaluationCallback(self.env_name, self.alg, self.d, self.params, self.parametrization, n_samples=self.n_samples)
+                fineune_callback = EvaluationCallback(self.env_name, self.alg, self.d, self.adapt_params,self.params, self.parametrization, self.seed, self.directory, self.sw, n_samples=self.n_samples)
                 callbacks = [discriminator_callback, eval_callback, fineune_callback]
             else:
                 callbacks = [discriminator_callback, eval_callback]
@@ -289,7 +289,6 @@ class DIAYN():
         self.adaptation_model.actor.mu.load_state_dict(ppo_actor.action_net.state_dict())
         self.adaptation_model.actor.log_std.load_state_dict(nn.Linear(in_features=self.conf.layer_size_policy, out_features=gym.make(self.env_name).action_space.shape[0], bias=True).state_dict())
         self.adaptation_model.actor.optimizer = opt.Adam(self.adaptation_model.actor.parameters(), lr=self.adapt_params['learning_rate'])
-        
         layers = [nn.Linear(gym.make(self.env_name).observation_space.shape[0] + self.params['n_skills']  + gym.make(self.env_name).action_space.shape[0], self.conf.layer_size_discriminator)]
         for l in range(len(self.ppo_model.policy.mlp_extractor.value_net)):
             if l != 0:
