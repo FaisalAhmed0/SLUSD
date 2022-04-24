@@ -178,30 +178,32 @@ class SkillWrapperFinetune(gym.Wrapper):
   """
   gym wrapper that augment the state with random chosen skill index
   """
-  def __init__(self, env, n_skills, skill, r_seed=None, max_steps=1000):
+  def __init__(self, env, n_skills, skill, seed=None, max_steps=1000, l=None):
     super(SkillWrapperFinetune, self).__init__(env)
     # skills distribution
     # print("Hello I am here")
     self.n_skills = n_skills
+    self.env = env
     self.skill = skill
     low, high = env.observation_space.low, env.observation_space.high
     low, high= np.concatenate((low, [0]*n_skills)), np.concatenate((high, [1]*n_skills))
     shape = env.observation_space.shape[0]
     self.observation_space = gym.spaces.Box(low=low, high=high, dtype=np.float32, shape=[shape+n_skills,])
     self.env._max_episode_steps = max_steps
+    self.env.seed(seed)
+    self.l = l
     # seeds for the 5 evaluation runs
-    self.manual_seed = r_seed
   
   def reset(self):
     """
     Reset the environment 
     """
-    if self.manual_seed is not None:
-        self.env.seed(self.manual_seed)
     obs = self.env.reset()
+    self.t = 0
     # print("I am here")
     onehot = self.one_hot(self.skill)
     obs = np.array(list(obs) + list(onehot)).astype(np.float32)
+    # self.total = 0
     return obs
 
   def step(self, action):
@@ -209,9 +211,18 @@ class SkillWrapperFinetune(gym.Wrapper):
     :param action: ([float] or int) Action taken by the agent
     :return: (np.ndarray, float, bool, dict) observation, reward, is the episode over?, additional informations
     """
+    self.t += 1
     obs, reward, done, info = self.env.step(action)
+    # self.total += reward
     onehot = self.one_hot(self.skill)
     obs = np.array(list(obs.copy()) + list(onehot)).astype(np.float32)
+    # print(self.l)
+    # print(f"action: {action}")
+    # print(f"obs: {obs}")
+    # print(f"reward: {reward}")
+    # print(f"total reward: {self.total}")
+    # print(f"total steps: {self.t}")
+    # input()
     return obs, reward, done, info
 
   def one_hot(self, index):
