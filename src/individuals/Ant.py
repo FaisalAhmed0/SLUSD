@@ -19,7 +19,7 @@ from evostrat import Individual
 from src.models.models import MLP_policy
 from src.config import conf
 from src.environment_wrappers.env_wrappers import SkillWrapper, RewardWrapper, SkillWrapperFinetune
-
+from src.environment_wrappers.tasks_wrappers import AntTaskWrapper
 
 class Ant(Individual):
     """
@@ -30,6 +30,7 @@ class Ant(Individual):
     n_skills = None # the number of skills
     skill = None # skill for the case of finetuning
     paramerization = None
+    task = None
     def __init__(self):
         self.net = MLP_policy(111 + Ant.n_skills, [conf.layer_size_policy, conf.layer_size_policy], 8)
         self.conf = conf
@@ -81,3 +82,17 @@ class Ant(Individual):
         env_obs = torch.clone(torch.tensor(obs[: -Ant.n_skills]))
         skills = torch.argmax(torch.tensor(obs[-Ant.n_skills:]), dim=-1)
         return env_obs, skills
+    
+    def environment(self):
+        '''
+        Return a gym environment according to the class variables
+        '''
+        if Ant.task:
+            env = AntTaskWrapper(gym.make("Ant-v2"), task=task)
+        else:
+            env = gym.make("Ant-v2")
+        if Ant.skill:
+            env = SkillWrapperFinetune(env, Ant.n_skills, max_steps=self.conf.max_steps, skill=Ant.skill)
+        else:
+            env = RewardWrapper(SkillWrapper(env, Ant.n_skills, max_steps=self.conf.max_steps), Ant.d, Ant.n_skills, Ant.paramerization)
+        return env

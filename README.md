@@ -60,8 +60,6 @@ pm | Discriminator parameterization |  "MLP" for a feed forward neural network, 
 ```bash
 python src/experiments/scalability_exper.py --run_all True
 ```
-
-
 ### To observe the training dynamics run tensorboard inside the SLUSD folder
 ```bash
 tensorboard --logdir ./logs_finetune
@@ -80,6 +78,3 @@ And run your the recording script.
 ```bash
 xvfb-run -a python record.py --env <env_name> --stamp <timestamp> --skills <no. skills> --cls <pm> --lb <mi lower bound>
 ```
-
-
-

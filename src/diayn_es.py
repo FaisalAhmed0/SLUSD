@@ -20,7 +20,7 @@ from stable_baselines3.common.callbacks import EvalCallback
 from stable_baselines3.common.monitor import Monitor
 
 from src.environment_wrappers.env_wrappers import RewardWrapper, SkillWrapper, SkillWrapperFinetune
-# from src.environment_wrappers.tasks_wrappers import HalfCheetahTaskWrapper, WalkerTaskWrapper, AntTaskWrapper
+from src.environment_wrappers.tasks_wrappers import HalfCheetahTaskWrapper, WalkerTaskWrapper, AntTaskWrapper
 from src.utils import  best_skill, evaluate_pretrained_policy_intr, evaluate_pretrained_policy_ext
 from src.models.models import Discriminator, MLP_policy
 from src.replayBuffers import DataBuffer
@@ -200,6 +200,8 @@ class DIAYN_ES():
         # set up the training loop
         optim = opt.Adam(population.parameters(), lr=lr)
         pbar = tqdm.tqdm(range(iterations))
+        # testing
+        # pbar = tqdm.tqdm(range(2))
         pool = Pool()
         log_freq = 1
         self.timesteps = 0 
@@ -567,6 +569,7 @@ class DIAYN_ES():
             torch.save(self.d.state_dict(), self.directory + "/disc.pth")
         return epoch_loss, grad_norms, weights_norm
     
+    @torch.no_grad()
     def evaluate_policy(self, population, indv,finetune=False, skill=None):
         # set the seeds
         runs = 10

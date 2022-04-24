@@ -82,44 +82,44 @@ def record_video(env_id, model, n_z, n_calls,video_length=1000, video_folder='vi
     env.close()
 
 
-  # A function to record a video of the agent interacting with the environment
-def record_video_finetune(env_id, skill, model, n_z, video_length=1000, video_folder='videos/', alg="ppo"):
-  """
-  :param env_id: (str)
-  :param model: (RL model)
-  :param video_length: (int)
-  :param prefix: (str)
-  :param video_folder: (str)
-  """
-  eval_env = DummyVecEnv([lambda: (SkillWrapperVideo(gym.make(env_id), n_z))])
-  eval_env = VecVideoRecorder(eval_env, video_folder=video_folder,
-                              record_video_trigger=lambda step: step == 0, video_length=video_length,
-                              name_prefix = f"env: {env_id}, alg: {alg}, skill: {skill}")
+#   # A function to record a video of the agent interacting with the environment
+# def record_video_finetune(env_id, skill, model, n_z, video_length=1000, video_folder='videos/', alg="ppo"):
+#   """
+#   :param env_id: (str)
+#   :param model: (RL model)
+#   :param video_length: (int)
+#   :param prefix: (str)
+#   :param video_folder: (str)
+#   """
+#   eval_env = DummyVecEnv([lambda: (SkillWrapperVideo(gym.make(env_id), n_z))])
+#   eval_env = VecVideoRecorder(eval_env, video_folder=video_folder,
+#                               record_video_trigger=lambda step: step == 0, video_length=video_length,
+#                               name_prefix = f"env: {env_id}, alg: {alg}, skill: {skill}")
                               
-  eval_env.skill = skill
-  obs = eval_env.reset()
-  for _ in range(video_length):
-    action, _ = model.predict(obs, deterministic=True)
-    obs, _, _, _ = eval_env.step(action)
-  # Close the video recorder
-  eval_env.close()
+#   eval_env.skill = skill
+#   obs = eval_env.reset()
+#   for _ in range(video_length):
+#     action, _ = model.predict(obs, deterministic=True)
+#     obs, _, _, _ = eval_env.step(action)
+#   # Close the video recorder
+#   eval_env.close()
 
 
 
-def plot_evaluation(logfile_dir, env_name=None ,save=False):
-  steps = []
-  rewards_mean = []
-  rewards_std = []
-  logs = np.loadtxt(logfile_dir)
-  for log in logs:
-    steps.append(int(log[0]))
-    rewards_mean.append(log[1])
-    rewards_std.append(log[2])
-  plt.errorbar(steps, rewards_mean, yerr=rewards_std, capsize=2)
-  plt.xlabel('Time step')
-  plt.ylabel('Average return')
-  if save:
-    plt.savefig(f"Average return {env_name}")
+# def plot_evaluation(logfile_dir, env_name=None ,save=False):
+#   steps = []
+#   rewards_mean = []
+#   rewards_std = []
+#   logs = np.loadtxt(logfile_dir)
+#   for log in logs:
+#     steps.append(int(log[0]))
+#     rewards_mean.append(log[1])
+#     rewards_std.append(log[2])
+#   plt.errorbar(steps, rewards_mean, yerr=rewards_std, capsize=2)
+#   plt.xlabel('Time step')
+#   plt.ylabel('Average return')
+#   if save:
+#     plt.savefig(f"Average return {env_name}")
 
     
 # A method to augment observations with the skills reperesentation
@@ -132,12 +132,11 @@ def augment_obs(obs, skill, n_skills):
 
 # A method to return the best performing skill
 def best_skill(model, env_name, n_skills, alg_type="rl"):
-    seeds = [0, 10, 1234, 5, 42]
+    runs = 5
     env = gym.make(env_name)
     total = []
-    for seed in seeds:
+    for _ in range(runs):
         rewards = []
-        env.seed(seed)
         for skill in range(n_skills):
             obs = env.reset()
             aug_obs = augment_obs(obs, skill, n_skills)
@@ -147,7 +146,7 @@ def best_skill(model, env_name, n_skills, alg_type="rl"):
                 if alg_type == "rl":
                     action, _ = model.predict(aug_obs, deterministic=True)
                 elif alg_type == "es":
-                    action = model.action(aug_obs.unsqueeze(0))
+                    action = model.action(aug_obs.numpy().reshape(-1))
                 elif alg_type == "pets":
                     action_seq = agent.plan(aug_obs.numpy().reshape(-1))
                     action = action_seq[0]
@@ -156,8 +155,8 @@ def best_skill(model, env_name, n_skills, alg_type="rl"):
                 total_reward += reward
             rewards.append(total_reward)
         total.append(rewards)
-    print(f"All seeds rewards: {total}")
-    print(f"mean across seeds: {np.mean(total, axis=0)}")    
+    print(f"All runs rewards: {total}")
+    print(f"mean across runs: {np.mean(total, axis=0)}")    
     return np.argmax(np.mean(total, axis=0))
 
 
@@ -180,7 +179,7 @@ def evaluate_state_coverage(env_name, n_skills, model, alg):
             if alg in ["ppo", "sac"]:
                 action, _ = model.predict(aug_obs, deterministic=True)
             elif alg == "es":
-                action = model.action(aug_obs.numpy())
+                action = model.action(aug_obs.squeeze().numpy())
             elif alg == "pets":
                 action_seq = model.plan(aug_obs.numpy().reshape(-1))
                 action = action_seq[0]
@@ -270,6 +269,7 @@ def evaluate_adapted_policy(env_name, n_skills, bestskill, model, alg):
     env = gym.make(env_name)
     done = False
     obs = env.reset()
+    print(bestskill)
     aug_obs = augment_obs(obs, bestskill, n_skills)
     total_reward = 0
     while not done:
@@ -288,23 +288,23 @@ def evaluate_adapted_policy(env_name, n_skills, bestskill, model, alg):
 
 
 # report the experiment results and save it in data frame
-def report_resuts(env_name, alg, n_skills, model, data_r, data_i, timestamp, exper_directory):
-    r = {}
-    reward_beforeFinetune_mean, reward_beforeFinetune_std = extract_resultes_intrinsic(env_name, n_skills, model)
-    r['reward_beforeFinetune_mean'] = reward_beforeFinetune_mean
-    r['reward_beforeFinetune_std'] = reward_beforeFinetune_std
-    reward_mean, reward_std = extract_results(data_r)
-    r['reward_mean'] = reward_mean
-    r['reward_std'] = reward_std
-    entropy_mean, entropy_std = run_pretrained_policy(env_name, n_skills, alg, timestamp)
-    r['entropy_mean'] = entropy_mean
-    r['entropy_std'] = entropy_std
-    intrinsic_reward_mean, intrinsic_reward_std = extract_results(data_i)
-    r['intrinsic_reward_mean'] = intrinsic_reward_mean
-    r['intrinsic_reward_std'] = intrinsic_reward_std
-    results_df = pd.DataFrame(r, index=[0])
-    results_df.to_csv(f"{exper_directory}/results.csv")
-    return results_df
+# def report_resuts(env_name, alg, n_skills, model, data_r, data_i, timestamp, exper_directory):
+#     r = {}
+#     reward_beforeFinetune_mean, reward_beforeFinetune_std = extract_resultes_intrinsic(env_name, n_skills, model)
+#     r['reward_beforeFinetune_mean'] = reward_beforeFinetune_mean
+#     r['reward_beforeFinetune_std'] = reward_beforeFinetune_std
+#     reward_mean, reward_std = extract_results(data_r)
+#     r['reward_mean'] = reward_mean
+#     r['reward_std'] = reward_std
+#     entropy_mean, entropy_std = run_pretrained_policy(env_name, n_skills, alg, timestamp)
+#     r['entropy_mean'] = entropy_mean
+#     r['entropy_std'] = entropy_std
+#     intrinsic_reward_mean, intrinsic_reward_std = extract_results(data_i)
+#     r['intrinsic_reward_mean'] = intrinsic_reward_mean
+#     r['intrinsic_reward_std'] = intrinsic_reward_std
+#     results_df = pd.DataFrame(r, index=[0])
+#     results_df.to_csv(f"{exper_directory}/results.csv")
+#     return results_df
 
 # evaluate the CPC based policy
 torch.no_grad()
@@ -402,14 +402,15 @@ def softplus_inverse(x):
 
 #### Useful function for the adaptation expeirment ####
 def evaluate(env, n_skills, pretrained_policy, adapted_policy, discriminator, parametrization, bestskill, alg):
+    print(type(bestskill))
     # intrinsic reward
-    intrinsic_reward_mean = np.mean([evaluate_pretrained_policy_intr(env, n_skills, pretrained_policy, discriminator, parametrization, alg) for _ in range(5)])
+    intrinsic_reward_mean = np.mean([evaluate_pretrained_policy_intr(env, n_skills, pretrained_policy, discriminator, parametrization, alg) for _ in range(10)])
     # best skill reward before adaptation
-    reward_beforeFinetune_mean = np.mean([evaluate_pretrained_policy_ext(env, n_skills, pretrained_policy, alg) for _ in range(5)])
+    reward_beforeFinetune_mean = np.mean([evaluate_pretrained_policy_ext(env, n_skills, pretrained_policy, alg) for _ in range(10)])
     # reward after adaptation
-    reward_mean = np.mean([evaluate_adapted_policy(env, n_skills, bestskill, adapted_policy, alg) for _ in range(5)])
+    reward_mean = np.mean([evaluate_adapted_policy(env, n_skills, bestskill, adapted_policy, alg) for _ in range(10)])
     # entropy
-    entropy_mean = np.mean([evaluate_state_coverage(env, n_skills, pretrained_policy, alg) for _ in range(5)])
+    entropy_mean = np.mean([evaluate_state_coverage(env, n_skills, pretrained_policy, alg) for _ in range(10)])
     return intrinsic_reward_mean, reward_beforeFinetune_mean, reward_mean, entropy_mean
 
 def save_final_results(all_results, env_dir):

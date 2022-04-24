@@ -8,7 +8,7 @@ from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.distributions import DiagGaussianDistribution
 
 from src.environment_wrappers.env_wrappers import RewardWrapper, SkillWrapper, SkillWrapperFinetune
-# from src.environment_wrappers.tasks_wrappers import HalfCheetahTaskWrapper, WalkerTaskWrapper, AntTaskWrapper
+from src.environment_wrappers.tasks_wrappers import HalfCheetahTaskWrapper, WalkerTaskWrapper, AntTaskWrapper
 from src.utils import best_skill
 from src.mi_lower_bounds import mi_lower_bound
 from src.models.models import Discriminator, SeparableCritic, ConcatCritic
@@ -112,7 +112,7 @@ class DIAYN():
                 self.env_name), self.params['n_skills'], ev=True), self.d, self.params['n_skills'], parametrization=self.parametrization)
             eval_env = Monitor(eval_env, f"{self.directory}/eval_results")
             eval_callback = EvalCallback(eval_env, best_model_save_path=self.directory,
-                                         log_path=f"{self.directory}/eval_results", eval_freq=self.conf.eval_freq,
+                                         log_path=f"{self.directory}/eval_results", eval_freq=5000,
                                          deterministic=True, render=False, n_eval_episodes=self.conf.eval_runs)
             # create the callback list
             if self.checkpoints:
@@ -123,6 +123,8 @@ class DIAYN():
                 callbacks = [discriminator_callback, eval_callback]
             # train the agent
             model.learn(total_timesteps=self.params['pretrain_steps'], callback=callbacks, log_interval=3, tb_log_name="PPO Pretrain")
+            # for testing
+            # model.learn(total_timesteps=4500, callback=callbacks, log_interval=3, tb_log_name="PPO Pretrain")
         elif self.alg == "sac":
             env = DummyVecEnv([lambda: Monitor(RewardWrapper(SkillWrapper(gym.make(self.env_name), self.params['n_skills'], max_steps=self.conf.max_steps),
                                                              self.d, self.params['n_skills'], parametrization=self.parametrization), self.directory)])
@@ -171,6 +173,8 @@ class DIAYN():
                 model.learn(total_timesteps=self.params['pretrain_steps'], callback=callbacks, log_interval=3, tb_log_name="SAC Pretrain", d=self.d, mi_estimator=mi_estimate)
             elif self.parametrization in ["MLP", "Linear"]:
                 model.learn(total_timesteps=self.params['pretrain_steps'], callback=callbacks, log_interval=3, tb_log_name="SAC Pretrain")
+                 # for testing
+                # model.learn(total_timesteps=2000, callback=callbacks, log_interval=3, tb_log_name="SAC Pretrain")
             else:
                 raise ValueError(f"{discriminator_hyperparams['parametrization']} is invalid parametrization")
         if self.checkpoints:
@@ -266,11 +270,11 @@ class DIAYN():
 
         # if the model for the prratrining is PPO load the discrimunator and actor from ppo into sac models
         elif self.alg == "ppo":
-            ppo_model = PPO.load(model_dir, env=env, tensorboard_log=self.directory,
+            self.ppo_model = PPO.load(model_dir, env=env, tensorboard_log=self.directory,
                             clip_range=get_schedule_fn(self.alg_params['clip_range']))
             # adaptation_model.actor.action_dist = DiagGaussianDistribution(env.action_space.shape[0])
             # load the policy ppo 
-            ppo_actor = ppo_model.policy
+            ppo_actor = self.ppo_model.policy
             self.load_state_dicts(ppo_actor)
             self.adaptation_model.learn(total_timesteps=self.params['finetune_steps'],
                         callback=eval_callback, tb_log_name="PPO_FineTune", d=None, mi_estimator=None)
@@ -285,7 +289,6 @@ class DIAYN():
         self.adaptation_model.actor.mu.load_state_dict(ppo_actor.action_net.state_dict())
         self.adaptation_model.actor.log_std.load_state_dict(nn.Linear(in_features=self.conf.layer_size_policy, out_features=gym.make(self.env_name).action_space.shape[0], bias=True).state_dict())
         self.adaptation_model.actor.optimizer = opt.Adam(self.adaptation_model.actor.parameters(), lr=self.adapt_params['learning_rate'])
-        # initlialize the adaptation critic with the discriminator weights
         layers = [nn.Linear(gym.make(self.env_name).observation_space.shape[0] + self.params['n_skills']  + gym.make(self.env_name).action_space.shape[0], self.conf.layer_size_discriminator)]
         for l in range(len(self.ppo_model.policy.mlp_extractor.value_net)):
             if l != 0:
@@ -298,7 +301,6 @@ class DIAYN():
         self.adaptation_model.critic.qf1.load_state_dict(seq.state_dict())
         self.adaptation_model.critic_target.load_state_dict(self.adaptation_model.critic.state_dict())
         self.adaptation_model.critic.optimizer = opt.Adam(self.adaptation_model.critic.parameters(), lr=self.adapt_params['learning_rate'])
-        
         
     def adaptation_environment(self, best_skill_index):
         '''

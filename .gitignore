@@ -30,3 +30,9 @@ generalization_exper/
 logs_scalability_exper/
 Scalability_Experiment*
 logs_scalability_exper_final/
+regularization_exper/
+random_init_baselines/
+run-*
+Adaptation_experiment_final_results.csv
+logs_finetune_final/
+sac.png

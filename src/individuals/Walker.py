@@ -19,6 +19,7 @@ from evostrat import Individual
 from src.models.models import MLP_policy
 from src.config import conf
 from src.environment_wrappers.env_wrappers import SkillWrapper, RewardWrapper, SkillWrapperFinetune
+from src.environment_wrappers.tasks_wrappers import WalkerTaskWrapper
 
 
 class Walker(Individual):
@@ -30,6 +31,7 @@ class Walker(Individual):
     n_skills = None # the number of skills
     skill = None # skill for the case of finetuning
     paramerization = None
+    task = None
     def __init__(self):
         self.net = MLP_policy(17 + Walker.n_skills, [conf.layer_size_policy, conf.layer_size_policy], 6)
         self.conf = conf
@@ -46,10 +48,7 @@ class Walker(Individual):
         assert not (Walker.n_skills == None)
         # save the data for the discriminator replay buffer
         data = []
-        if Walker.skill:
-            env = SkillWrapperFinetune(gym.make("Walker2d-v2"), Walker.n_skills, max_steps=self.conf.max_steps, skill=Walker.skill)
-        else:
-            env = RewardWrapper(SkillWrapper(gym.make("Walker2d-v2"), Walker.n_skills, max_steps=self.conf.max_steps), Walker.d, Walker.n_skills, Walker.paramerization)
+        env = self.environment()
         obs = env.reset()
         done = False
         r_tot = 0
@@ -81,4 +80,18 @@ class Walker(Individual):
         env_obs = torch.clone(torch.tensor(obs[: -Walker.n_skills]))
         skills = torch.argmax(torch.tensor(obs[-Walker.n_skills:]), dim=-1)
         return env_obs, skills
+    
+    def environment(self):
+        '''
+        Return a gym environment according to the class variables
+        '''
+        if Walker.task:
+            env = WalkerTaskWrapper(gym.make("Walker2d-v2"), task=task)
+        else:
+            env = gym.make("Walker2d-v2")
+        if Walker.skill:
+            env = SkillWrapperFinetune(env, Walker.n_skills, max_steps=self.conf.max_steps, skill=Walker.skill)
+        else:
+            env = RewardWrapper(SkillWrapper(env, Walker.n_skills, max_steps=self.conf.max_steps), Walker.d, Walker.n_skills, Walker.paramerization)
+        return env
 

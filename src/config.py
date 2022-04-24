@@ -20,6 +20,8 @@ scalability_exper_dir = "logs_scalability_exper/",
 # generalization experiment directory
 generalization_exper_dir = "generalization_exper/",
     
+regularization_exper_dir = "regularization_exper/",
+    
 # number of the runs for the agent evaluation
 eval_runs = 5,
     
@@ -60,17 +62,17 @@ min_train_size = int(1e4),
 max_steps = 1000,
     
 # bar plot figure size
-barplot_figsize = (8, 6),
+barplot_figsize = (15, 10),
 
 # font scale
-font_scale = 2.8,
+font_scale = 2.5,
     
 # learning curve fig size
-learning_curve_figsize = (10, 8.5),
+learning_curve_figsize = (10, 8),
     
 # random seeds
 seeds = (0, 10, 42), #(0, 10, 1234),
 
 # device
-device = "cpu"
+device = "cpu",
 )
