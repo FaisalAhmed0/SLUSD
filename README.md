@@ -1,6 +1,14 @@
 # An Empirical Investigation of Mutual Information Skill Learning.
 ## Abstract
-Unsupervised skill learning methods are a form of unsupervised pre-training for reinforcement learning (RL) that has the potential to improve the sample efficiency of solving downstream tasks. Prior work has proposed several methods for unsupervised skill discovery based on mutual information (MI) objectives, with different methods varying in how this mutual information is estimated and optimized. This paper studies how different design decisions in skill learning algorithms affect the sample efficiency of solving downstream tasks. Our key findings are that the sample efficiency of downstream adaptation under off-policy backbones is better than their on-policy counterparts. In contrast, on-policy backbones result in better state coverage, moreover, regularizing the discriminator gives better downstream results, and careful choice of the mutual information lower bound and the discriminator architecture yields significant improvements in downstream returns, also, we show empirically that the learned representations during the pre-training step correspond to the controllable aspects of the environment.
+Unsupervised skill learning methods are a form of unsupervised pre-training for
+reinforcement learning (RL) that has the potential to improve the sample efficiency of solving downstream tasks. Prior work has proposed several methods for
+unsupervised skill discovery based on mutual information (MI) objectives, with
+different methods varying in how this mutual information is estimated and opti-
+mized. This paper studies how different design decisions in skill learning algorithms affect the sample efficiency of solving downstream tasks. Our key findings
+are that the sample efficiency of downstream adaptation under off-policy backbones is better than their on-policy counterparts. In contrast, on-policy backbones
+result in better state coverage, moreover, regularizing the discriminator gives better downstream results, and careful choice of the mutual information lower bound
+and the discriminator architecture yields significant improvements in downstream
+returns, also, we show empirically that the learned representations during the pre-training step correspond to the controllable aspects of the environment.
 
 ## Getting Started
 ### Clone the repository
@@ -60,6 +68,11 @@ pm | Discriminator parameterization |  "MLP" for a feed forward neural network, 
 ```bash
 python src/experiments/scalability_exper.py --run_all True
 ```
+## For the regulrization experiment
+```bash
+python src/experiments/regularization_exper.py --run_all True
+```
+
 ### To observe the training dynamics run tensorboard inside the SLUSD folder
 ```bash
 tensorboard --logdir ./logs_finetune
@@ -78,3 +91,6 @@ And run your the recording script.
 ```bash
 xvfb-run -a python record.py --env <env_name> --stamp <timestamp> --skills <no. skills> --cls <pm> --lb <mi lower bound>
 ```
+
+
+
