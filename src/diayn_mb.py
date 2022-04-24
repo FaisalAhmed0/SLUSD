@@ -293,6 +293,8 @@ class DIAYN_MB():
             plt.tight_layout()
             filename = f"Scalability_Experiment_realtime_env:{self.env_name}_alg:pets_xaxis:Intrinsic Reward.png"
             plt.savefig(f'{filename}', dpi=150) 
+        # for testing 
+        # num_trials = 1
         for trial in range(num_trials):
           # initilization
             obs = env.reset()    
@@ -340,8 +342,7 @@ class DIAYN_MB():
                 skill = torch.tensor(skill, device=conf.device)
                 self.buffer.add(obs_t, skill)
                 
-                # if timesteps % (conf.eval_freq * 5) == 0:
-                if timesteps % (conf.eval_freq) == 0:
+                if timesteps % (conf.eval_freq * 5) == 0:
                     print("In Evaluation")
                     rewards = self.evaluate_policy(self.env_name, model_env)
                     if rewards > best_eval_reward:
@@ -358,6 +359,7 @@ class DIAYN_MB():
                     # add to tensorboard
                     self.sw.add_scalar("eval/mean_reward", rewards, timesteps)
                     print(f"TimeStep: {timesteps}, Evaluation reward: {rewards}")
+                    # break
                     
                 # if checkpoints is true add to the logs
                 if self.checkpoints and (timesteps%freq == 0):
@@ -390,6 +392,7 @@ class DIAYN_MB():
                 total_reward += reward
                 steps_trial += 1
                 print(int(steps_trial) == int(trial_length))
+                # break
                 if int(steps_trial) == int(trial_length):
                     self.sw.add_scalar("rollout/ep_rew_mean", total_reward, timesteps)
                     print(f"TimeStep: {timesteps}, Rollout reward: {total_reward}")
@@ -555,7 +558,7 @@ class DIAYN_MB():
         agent_cfg = omegaconf.OmegaConf.create({
         # this class evaluates many trajectories and picks the best one
         "_target_": "mbrl.planning.TrajectoryOptimizerAgent",
-        "planning_horizon": self.alg_params['planning_horizon'],
+        "planning_horizon": 10,
         "replan_freq": 1,
         "verbose": False,
         "action_lb": "???",
@@ -583,8 +586,8 @@ class DIAYN_MB():
         env = RewardWrapper(SkillWrapper(gym.make(env_name), self.params['n_skills']), self.d, self.n_skills, self.paramerization)
         total_reward = 0
         obs = env.reset()
-        for i in range(self.trial_length):
-            # print(f"Step: {i}")
+        for i in range(1000):
+            print(f"Step: {i}")
             action_seq = agent.plan(obs)
             obs, reward, done, _ = env.step(action_seq[0])
             total_reward += reward

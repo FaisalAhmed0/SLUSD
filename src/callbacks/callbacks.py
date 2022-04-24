@@ -19,14 +19,17 @@ from stable_baselines3.common.monitor import Monitor
 
 
 from src.environment_wrappers.env_wrappers import RewardWrapper, SkillWrapper, SkillWrapperFinetune
-from src.utils import record_video, best_skill, evaluate_mi, evaluate_pretrained_policy_intr, evaluate_pretrained_policy_ext
+from src.utils import record_video, best_skill, evaluate_mi, evaluate_pretrained_policy_intr, evaluate_pretrained_policy_ext, evaluate_adapted_policy
 from src.mi_lower_bounds import mi_lower_bound
 from src.config import conf
 
+import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-sns.set_theme(style="darkgrid")
-sns.set(font_scale = conf.font_scale)
+import pandas as pd
+sns.set()
+sns.set_style('whitegrid')
+sns.set_context("paper", font_scale = conf.font_scale)
 
 
 # callback to save a video while training
@@ -306,7 +309,7 @@ class EvaluationCallback(BaseCallback):
     A callback to check the peroformance of the downstream task every N steps 
     '''
 
-    def __init__(self, env_name, alg, discriminator, params, pm, n_samples=100):
+    def __init__(self, env_name, alg, discriminator, adaptation_params, params, pm, seed, directory, tb, n_samples=100):
         super().__init__()
         self.env_name = env_name
         self.params = params
@@ -320,8 +323,11 @@ class EvaluationCallback(BaseCallback):
         self.steps = []
         self.intr_rewards = []
         self.extr_rewards = []
+        self.seed = seed
+        self.directory = directory
+        self.tb = tb
+        self.adapt_params = adaptation_params
         
-
     def _on_step(self):
         """
         This method will be called by the model after each call to `env.step()`.
@@ -340,27 +346,130 @@ class EvaluationCallback(BaseCallback):
             # print(self.num_timesteps == 0)
             # print(f"Time step: {self.num_timesteps}")
             intr_reward = np.mean( [evaluate_pretrained_policy_intr(self.env_name, self.skills, self.pretrained_policy, self.d, self.pm, self.alg) for _ in range(5) ] )
-            extr_reward = np.mean( [evaluate_pretrained_policy_ext(self.env_name, self.skills, self.pretrained_policy, self.alg) for _ in range(5)] )
+            adapted_model, bestskill = self.finetune()
+            extr_reward = np.mean([evaluate_adapted_policy(self.env_name, self.skills, bestskill, adapted_model, self.alg)])
+            # extr_reward = np.mean( [evaluate_pretrained_policy_ext(self.env_name, self.skills, self.pretrained_policy, self.alg) for _ in range(5)] )
             self.steps.append(self.num_timesteps)
             self.intr_rewards.append(intr_reward)
             self.extr_rewards.append(extr_reward)
+            self.tb.add_scalar("Extrinsic Reward (Best Skill)", extr_reward, self.num_timesteps)
+            
+            #####
+            timesteps = np.array(self.steps)
+            # print(f"results: {self.results}")
+            intr_rewards = np.array(self.intr_rewards)
+            extr_rewards = np.array(self.extr_rewards)
+            np.savez(f"{self.directory}/scalability_evaluations.npz", timesteps=timesteps, intr_rewards=intr_rewards, extr_rewards=extr_rewards)
+            #####
+            
             plt.figure()
             plt.plot(self.steps, self.extr_rewards, label=self.alg.upper())
             plt.xlabel("Pretraining Steps")
-            plt.ylabel("Extrinsic Reward")
+            plt.ylabel("Extrinsic Reward (Best Skill)")
             plt.legend()
             plt.tight_layout()
-            filename = f"Scalability_Experiment_realtime_env:{self.env_name}_alg:{self.alg}_xaxis:Pretraining Steps.png"
+            filename = f"{self.directory}/Scalability_Experiment_realtime_env:{self.env_name}_alg:{self.alg}_xaxis:Pretraining Steps, seed:{self.seed}.png"
             plt.savefig(f'{filename}', dpi=150) 
             plt.figure()
-            plt.plot(self.intr_rewards, self.extr_rewards, label=self.alg.upper())
+            plt.scatter(self.intr_rewards, self.extr_rewards, label=self.alg.upper())
             plt.xlabel("Intrinsic Reward")
-            plt.ylabel("Extrinsic Reward")
+            plt.ylabel("Extrinsic Reward (Best Skill)")
             plt.legend()
             plt.tight_layout()
-            filename = f"Scalability_Experiment_realtime_env:{self.env_name}_alg:{self.alg}_xaxis:Intrinsic Reward.png"
+            filename = f"{self.directory}/Scalability_Experiment_realtime_env:{self.env_name}_alg:{self.alg}_xaxis:Intrinsic Reward, seed:{self.seed}.png"
             plt.savefig(f'{filename}', dpi=150) 
+            
         return True
+    
+    def finetune(self):
+        # pick the best skill
+        bestskill = best_skill(
+            self.model, self.env_name,  self.skills)
+        
+        # create the adaptation environment
+        env, eval_env = self.adaptation_environment(bestskill)
+        
+        eval_callback = EvalCallback(eval_env, best_model_save_path=self.directory + f"/best_finetuned_model_skillIndex:{bestskill}",
+                                    log_path=f"{self.directory}/finetune_eval_results", eval_freq=25000,
+                                    deterministic=True, render=False)
+        
+        
+        # create the adapration model
+        self.adaptation_model = SAC('MlpPolicy', env, verbose=1,
+                    learning_rate=self.adapt_params['learning_rate'],
+                    batch_size=self.adapt_params['batch_size'],
+                    gamma=self.adapt_params['gamma'],
+                    buffer_size=self.adapt_params['buffer_size'],
+                    tau=self.adapt_params['tau'],
+                    ent_coef=self.adapt_params['ent_coef'],
+                    gradient_steps=self.adapt_params['gradient_steps'],
+                    learning_starts=self.adapt_params['learning_starts'],
+                    policy_kwargs=dict(net_arch=dict(pi=[conf.layer_size_policy, conf.layer_size_policy], qf=[
+                                       conf.layer_size_q, conf.layer_size_q]), n_critics=2),
+                    tensorboard_log=self.directory,
+                    seed=self.seed
+                    )
+        if self.alg == "sac":
+            sac_model = self.model
+            
+            self.adaptation_model.actor.latent_pi.load_state_dict(sac_model.actor.latent_pi.state_dict())
+            self.adaptation_model.actor.mu.load_state_dict(sac_model.actor.mu.state_dict())
+            self.adaptation_model.actor.log_std.load_state_dict(sac_model.actor.log_std.state_dict())
+            self.adaptation_model.actor.optimizer = opt.Adam(self.adaptation_model.actor.parameters(), lr=self.adapt_params['learning_rate'])
+            
+            self.adaptation_model.critic.qf0.load_state_dict(sac_model.critic.qf0.state_dict())
+            self.adaptation_model.critic.qf1.load_state_dict(sac_model.critic.qf1.state_dict())
+            self.adaptation_model.critic_target.load_state_dict(self.adaptation_model.critic.state_dict())
+            self.adaptation_model.critic.optimizer = opt.Adam(self.adaptation_model.critic.parameters(), lr=self.adapt_params['learning_rate'])
+            
+            self.adaptation_model.learn(total_timesteps=self.params['finetune_steps'],
+                        callback=eval_callback, tb_log_name="SAC_FineTune", d=None, mi_estimator=None)
+            
+            return self.adaptation_model, bestskill
+        
+        elif self.alg == "ppo":
+            ppo_model = self.model
+            ppo_actor = ppo_model.policy
+            # initlialize the adaptation policy with the pretrained model
+            self.adaptation_model.actor.latent_pi.load_state_dict(ppo_actor.mlp_extractor.policy_net.state_dict())
+            self.adaptation_model.actor.mu.load_state_dict(ppo_actor.action_net.state_dict())
+            self.adaptation_model.actor.log_std.load_state_dict(nn.Linear(in_features=conf.layer_size_policy, out_features=gym.make(self.env_name).action_space.shape[0], bias=True).state_dict())
+            self.adaptation_model.actor.optimizer = opt.Adam(self.adaptation_model.actor.parameters(), lr=self.adapt_params['learning_rate'])
+            # initlialize the adaptation critic with the discriminator weights
+            layers = [nn.Linear(gym.make(self.env_name).observation_space.shape[0] + self.params['n_skills']  + gym.make(self.env_name).action_space.shape[0], conf.layer_size_discriminator)]
+            for l in range(len(ppo_model.policy.mlp_extractor.value_net)):
+                if l != 0:
+                    layers.append(ppo_model.policy.mlp_extractor.value_net[l])
+            layers.append(nn.Linear(conf.layer_size_discriminator, 1))
+            seq = nn.Sequential(*layers)
+            # print(seq)
+            # input()
+            self.adaptation_model.critic.qf0.load_state_dict(seq.state_dict())
+            self.adaptation_model.critic.qf1.load_state_dict(seq.state_dict())
+            self.adaptation_model.critic_target.load_state_dict(self.adaptation_model.critic.state_dict())
+            self.adaptation_model.critic.optimizer = opt.Adam(self.adaptation_model.critic.parameters(), lr=self.adapt_params['learning_rate'])
+            
+            self.adaptation_model.learn(total_timesteps=self.params['finetune_steps'],
+                        callback=eval_callback, tb_log_name="PPO_FineTune", d=None, mi_estimator=None)
+            
+            return self.adaptation_model, bestskill
+        
+    def adaptation_environment(self, best_skill_index):
+        '''
+        Create the adaptation environment according to the task reward
+        '''
+        env = DummyVecEnv([lambda: SkillWrapperFinetune(Monitor(gym.make(
+    self.env_name),  f"{self.directory}/finetune_train_results"), self.params['n_skills'], r_seed=None,max_steps=gym.make(self.env_name)._max_episode_steps, skill=best_skill_index)])
+        eval_env = SkillWrapperFinetune(gym.make(
+            self.env_name), self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, r_seed=None, skill=best_skill_index)
+            
+        return env, eval_env
+            
+            
+            
+        
+        
+        
         
 
 # Callback for evaluation 

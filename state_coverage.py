@@ -5,67 +5,104 @@ import torch
 import gym
 import argparse
 
-import numpy as np
-import matplotlib.pyplot as plt
 
 from src.utils import augment_obs
 from src.environment_wrappers.env_wrappers import SkillWrapper
 from src.config import conf
+from src.utils import seed_everything
 
 from stable_baselines3.common.vec_env import VecVideoRecorder, DummyVecEnv
 from stable_baselines3.common.utils import get_schedule_fn
 from stable_baselines3 import PPO, SAC
 
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+import pandas as pd
+sns.set()
+sns.set_style('whitegrid')
+sns.set_context("paper", font_scale = conf.font_scale)
+
 import os
 # Extract arguments from terminal
-def cmd_args():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--env', type=str, default="MountainCarContinuous-v0")
-    parser.add_argument("--algs", nargs="*", type=str, default=["ppo"]) # pass the algorithms that correspond to each timestamp
-    parser.add_argument("--skills", type=int, default=6)
-    parser.add_argument("--stamps", nargs="*", type=str, required=True) # pass the timestamps as a list
-    parser.add_argument("--colors", nargs="*", type=str, required=False, default=['b', 'r']) # pass the timestamps as a list
-    parser.add_argument("--labels", nargs="*", type=str, required=False, default=None) # add custom labels 
-    args = parser.parse_args()
-    return args
+seeds = [0, 10, 42]
 
 
-def run_pretrained_policy(args):
+
+def run_pretrained_policy(env_name, n_skills, pm, lb, alg, stamp):
     # load the model
-    env = DummyVecEnv([lambda: SkillWrapper(gym.make(args.env), args.skills, max_steps=1000)])
-    # directory =  conf.log_dir_finetune + f"{args.alg}_{args.env}_{args.stamp}" + "/best_model"
-    directory = conf.log_dir_finetune + f"{args.alg}_{args.env}_skills:{args.skills}_{args.stamp}" + "/best_model"
-    if args.alg == "sac":
-        model = SAC.load(directory)
-    elif args.alg == "ppo":
-        model = PPO.load(directory, clip_range= get_schedule_fn(0.1))
-    # run the model to collect the data
-    # print(model)
-    seeds = [0, 10, 1234, 5, 42]
-    entropy_list = []
+    main_exper_dir = conf.log_dir_finetune + f"cls:{pm}, lb:{lb}/"
+    env_dir = main_exper_dir + f"env: {env_name}, alg:{alg}, stamp:{stamp}/"
     data = []
+    skills_list = []
     for seed in seeds:
+        seed_dir = env_dir + f"seed:{seed}/"
+        seed_everything(seed)
+        env = DummyVecEnv([lambda: SkillWrapper(gym.make(env_name), n_skills, max_steps=1000)])
+        if alg == "sac":
+            model_dir = seed_dir + "/best_model"
+            model = SAC.load(model_dir, env=env, seed=seed)
+        elif alg == "ppo":
+            model_dir = seed_dir + "/best_model"
+            hyper_params = pd.read_csv(env_dir + "ppo_hyperparams.csv").to_dict('records')[0]
+            model = PPO.load(model_dir, env=env, seed=seed, clip_range= get_schedule_fn(hyper_params['clip_range']))
+        data_per_seed = []
         with torch.no_grad():
-            for i in range(5):
-                env = DummyVecEnv([lambda: gym.make(args.env) ])
+            for i in range(1):
+                env = DummyVecEnv([lambda: gym.make(env_name) ])
                 env.seed(seed)
-                for skill in range(args.skills):
+                for skill in range(n_skills):
                     obs = env.reset()
                     obs = obs[0]
-                    data.append(obs.copy())
-                    aug_obs = augment_obs(obs, skill, args.skills)
+                    data_per_seed.append(obs.copy())
+                    if seed == 0:
+                        skills_list.append(skill)
+                    aug_obs = augment_obs(obs, skill, n_skills)
                     total_reward = 0
                     done = False
-                    while not done:
+                    i = 0
+                    for _ in range(1000):
+                        i += 1
                         action, _ = model.predict(aug_obs, deterministic=False)
                         obs, _, done, _ = env.step(action)
                         obs = obs[0]
                         # print(obs)
-                        data.append(obs.copy())
-                        aug_obs = augment_obs(obs, skill, args.skills)
-    data = np.array(data)
+                        data_per_seed.append(obs.copy())
+                        if seed == 0:
+                            skills_list.append(skill)
+                        aug_obs = augment_obs(obs, skill, n_skills)
+                        # if done:
+                        #     print(f"in done")
+                        #     obs = env.reset()
+                        #     obs = obs[0]
+                        #     data_per_seed.append(obs.copy())
+                        #     aug_obs = augment_obs(obs, skill, n_skills)
+                        #     if seed == 0:
+                        #         skills_list.append(skill)
+                        #     total_reward = 0
+                        #     done = False
+                    print(f"i: {i}")
+                print(obs.shape)
+                print(len(data_per_seed))
+            
+        data.append(np.array(data_per_seed).astype(np.float32))
+        print(np.array(data_per_seed))
+        print(f"data per seed shape: {np.array(data_per_seed).shape}")
+    data = np.array(data).mean(axis=0)
+    data_d = {
+        "Algorithm": alg.upper(),
+        "Car Position": data[:,0],
+        "Car Velocity": data[:,1],
+        "Skill": skills_list
+    }
+    print(alg)
+    print(data.shape)
+    print(len(skills_list))
+    # input()
+    df = pd.DataFrame(data_d)
+    print(data.shape)
     np.random.shuffle(data)
-    return data
+    return data, df
     
 def scatter_plotter(data, alg, color):
     plt.scatter(data[:, 0], data[:, 1], c=color, label=alg, alpha=0.2)
@@ -73,19 +110,35 @@ def scatter_plotter(data, alg, color):
     
     
 if __name__ == "__main__":
-    args = cmd_args()
     # run_pretrained_policy(args)
-    stamps = args.stamps
-    colors = args.colors
-    algs = args.algs
+    env_name = "MountainCarContinuous-v0"
+    skills_l = [10, 10]
+    algs = ["sac", "ppo"]
+    stamps = [1643572784.9260342, 1644513661.0212696]
+    cls = ["MLP", "MLP"]
+    lbs = ["ba", "ba"]
+    colors = ["b", "r"]
+    legends = [a.upper() for a in algs]
     plt.figure()
     plt.title("MountainCar \nState Coverage")
+    dfs = []
     for i in range(len(algs)):
         color = colors[i]
         alg = algs[i]
-        args.stamp = stamps[i]
-        args.alg = alg
-        data = run_pretrained_policy(args)
+        stamp = stamps[i]
+        pm = cls[i]
+        lb = lbs[i]
+        n_skills = skills_l[i]
+        data, df = run_pretrained_policy(env_name, n_skills, pm, lb, alg, stamp)
+        dfs.append(df)
         scatter_plotter(data, algs[i], color)
     plt.legend()
-    plt.savefig("Vis/MountainCarContinuous-v0/MountainCar state covarge.png")
+    os.makedirs("Vis", exist_ok=True)
+    plt.savefig(f"Vis/MountainCar_state_covarge.png")
+    for i in range(len(dfs)):
+        plt.figure()
+        d = dfs[i]
+        sns.scatterplot(x="Car Position", y="Car Velocity", hue="Skill", data=d)
+        plt.legend()
+        plt.savefig(f"Vis/MountainCar state covarge, {algs[i]}.png")
+        
