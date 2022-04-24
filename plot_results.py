@@ -44,28 +44,17 @@ random_performance = {
     'Ant-v2': 0.39107815,
     "MountainCarContinuous-v0": -0.04685473, 
 }
-# across all seeds
-random_init = [
-    {"Environment": 'HalfCheetah', "Normalized Extrinsic Return After Adaptation (%)": 3.977155901244182132e+03/asymp_perofrmance['HalfCheetah-v2']*100, "Algorithm": "Random init"},
-    {"Environment": 'HalfCheetah', "Normalized Extrinsic Return After Adaptation (%)": 3.661330217032705150e+03/asymp_perofrmance['HalfCheetah-v2']*100, "Algorithm": "Random init"},
-    {"Environment": 'HalfCheetah', "Normalized Extrinsic Return After Adaptation (%)": 3.777719310452177979e+03/asymp_perofrmance['HalfCheetah-v2']*100, "Algorithm": "Random init"},
-    
-    {"Environment": 'Walker2d', "Normalized Extrinsic Return After Adaptation (%)": 4.950961607268399121e+02/asymp_perofrmance['Walker2d-v2']*100, "Algorithm": "Random init"},
-    {"Environment": 'Walker2d', "Normalized Extrinsic Return After Adaptation (%)": 5.050660942998074461e+02/asymp_perofrmance['Walker2d-v2']*100, "Algorithm": "Random init"},
-    {"Environment": 'Walker2d', "Normalized Extrinsic Return After Adaptation (%)": 2.915505078088318669e+02/asymp_perofrmance['Walker2d-v2']*100, "Algorithm": "Random init"},
-    
-    {"Environment": 'Ant', "Normalized Extrinsic Return After Adaptation (%)": 4.935468207680875139e+02/asymp_perofrmance['Ant-v2']*100, "Algorithm": "Random init"},
-    {"Environment": 'Ant', "Normalized Extrinsic Return After Adaptation (%)": 2.522865492915514665e+02/asymp_perofrmance['Ant-v2']*100, "Algorithm": "Random init"},
-    {"Environment": 'Ant', "Normalized Extrinsic Return After Adaptation (%)": 7.162829405419695377e+02/asymp_perofrmance['Ant-v2']*100, "Algorithm": "Random init"},
-    
-    {"Environment": 'MountainCarContinuous', "Normalized Extrinsic Return After Adaptation (%)": -1.697574145149261080e-04/asymp_perofrmance['MountainCarContinuous-v0']*100, "Algorithm": "Random init"},
-    {"Environment": 'MountainCarContinuous', "Normalized Extrinsic Return After Adaptation (%)": -3.889756080078754464e-04/asymp_perofrmance['MountainCarContinuous-v0']*100, "Algorithm": "Random init"},
-    {"Environment": 'MountainCarContinuous', "Normalized Extrinsic Return After Adaptation (%)": -3.093423134238547888e-04/asymp_perofrmance['MountainCarContinuous-v0']*100, "Algorithm": "Random init"},
-    
-]
+
+random_initlized_performance = {
+    'HalfCheetah-v2': np.mean([3.977155901244182132e+03, 3.661330217032705150e+03, 3.777719310452177979e+03]),
+    'Walker2d-v2': np.mean([4.950961607268399121e+02, 5.050660942998074461e+02, 2.915505078088318669e+02]),
+    'Ant-v2': np.mean([4.935468207680875139e+02, 2.522865492915514665e+02, 7.162829405419695377e+02]),
+    "MountainCarContinuous-v0": np.mean([-1.697574145149261080e-04, -3.889756080078754464e-04, -3.093423134238547888e-04]),
+}
 
 
-seeds = [0, 10] # 10, 42 ]#, 1234, 5]#, 42]
+
+seeds = [0, 10, 42] # 10, 42 ]#, 1234, 5]#, 42]
 # cmd arguments
 # cmd arguments
 def cmd_args():
@@ -107,32 +96,31 @@ def scalability_plots(env_name, alg, pm, lb, stamp, color, label, ax1, ax2):
         seed_list_intr_reward.append(intr_rewards)
         
     timesteps = files['timesteps']
-    data_mean = np.mean(seeds_list, axis=0)
-    data_std = np.std(seeds_list, axis=0)
+    data_mean = np.mean(seeds_list, axis=0)/asym * 100
+    data_std = np.std(seeds_list, axis=0)/asym * 100
     
+    
+    ax1.set_xscale('log')
+    # ax1.set_yscale('log')
     ax1.set_xlabel("Pre-training Timesteps")
     ax1.set_ylabel("Normalized Extrinsic Return (Best Skill) (%)")
     
     ax1.plot(timesteps, data_mean, label=label, color=color)
     ax1.fill_between(timesteps, (data_mean-data_std), (data_mean+data_std), color=color, alpha=0.3)
     
+    ax2.set_xscale('log')
     ax2.set_xlabel("Intrinsic Reward")
     ax2.set_ylabel("Normalized Extrinsic Return (Best Skill) (%)")
     
     data_mean_x = np.mean(seed_list_intr_reward, axis=0)
     data_std_x = np.std(seed_list_intr_reward, axis=0)
     ax2.scatter(data_mean_x, data_mean, label=label, color=color)
-    ax2.errorbar(data_mean_x, data_mean, yerr=data_std, xerr=data_std_x ,ecolor=color, fmt=' ', zorder=-1)
-    
-
-
+    # sns.regplot(x=data_mean_x, y=data_mean, ci=68, truncate=False)
+    return ax1, ax2
     
     
+    # ax2.errorbar(data_mean_x, data_mean, yerr=data_std, xerr=data_std_x ,ecolor=color, fmt=' ', zorder=-1)
     
-        
-    
-    
-
 if __name__ == "__main__":
     # args = cmd_args()
     # algs = args.algs
@@ -145,36 +133,56 @@ if __name__ == "__main__":
     env_names = ['MountainCarContinuous-v0', 'HalfCheetah-v2', 'Walker2d-v2', 'Ant-v2' ]
     algs = ['sac', 'ppo']
     colors = ['b', 'r']
-    stamps = [ "1645215334.8562694", "1645207392.8617382" ]
+    stamps = [ [1645717501.9848473, 1645717501.971655], [1645717502.0205646, 1645717501.9979885], [1645717502.0579038, 1645717502.0401757], [1645717502.0999389, 1645717502.0758302]  ]
     legends = algs
     pm = "MLP"
     lb = "ba"
     # This is for testing comment it when the test pass
-    algs = ['ppo']
-    colors = ['r']
-    stamps = ["1645207392.8617382"]
-    legends = algs
-    for env_name in env_names[:1]:
+    # algs = ['ppo']
+    # colors = ['r']
+    # stamps = ["1645207392.8617382"]
+    # legends = algs
+    for i in range(len(env_names)):
+        env_name = env_names[i]
+        asym = asymp_perofrmance[env_name]
         # set_title
-        fig1 = plt.figure()
+        fig1 = plt.figure(figsize=conf.learning_curve_figsize)
         ax1 = fig1.add_subplot(111)
         ax1.set_title(f"{env_name[: env_name.index('-')]}")
-        fig2 = plt.figure()
+        r = random_performance[env_name]
+        ri = random_initlized_performance[env_name]
+
+        ax1.axhline(r/asym * 100, label="Random Policy",  c='black', linestyle='dashed')
+        ax1.axhline(ri/asym * 100, label="RL from Scratch (100k steps)",  c='black', linestyle='solid')
+        ax1.axhline(100, label="Expert Policy",  c='black', linestyle='dotted')
+        fig2 = plt.figure(figsize=conf.learning_curve_figsize)
         ax2 = fig2.add_subplot(111)
         ax2.set_title(f"{env_name[: env_name.index('-')]}")
-        for i in range(len(algs)):
-            alg = algs[i]
-            stamp = stamps[i]
-            color = colors[i]
-            scalability_plots(env_name, alg, pm, lb, stamp, color, alg.upper(), ax1, ax2)
+        ax2.axhline(r/asym * 100, label="Random Policy",  c='black', linestyle='dashed')
+        ax2.axhline(100, label="Expert Policy",  c='black', linestyle='dotted')
+        ax2.axhline(ri/asym * 100, label="RL from Scratch (100k steps)",  c='black', linestyle='solid')
+    
+        for j in range(len(algs)):
+            alg = algs[j]
+            stamp = stamps[i][j]
+            # print(env_name, alg, stamp)
+            color = colors[j]
+            ax1, ax2 = scalability_plots(env_name, alg, pm, lb, stamp, color, alg.upper(), ax1, ax2)
             ax1.legend()
-            # ax1.legend()
+            ax2.legend()
+            ax1.legend_.remove()
+            ax2.legend_.remove()
             files_dir = f"Vis/{env_name}_cls:{pm}_lb:{lb}"
             os.makedirs(files_dir, exist_ok=True)
             filename = f"{env_name}_scalability_experiment_pretraining_steps.png"
             fig1.savefig(f'{files_dir}/{filename}')  
             filename = f"{env_name}_scalability_experiment_intrinsic_reward.png"
             fig2.savefig(f'{files_dir}/{filename}')  
+    # ax1.legend_.remove()
+    # ax2.legend_.remove()
+    figLegend = plt.figure(figsize = (9.2,0.5))
+    plt.figlegend(*ax1.get_legend_handles_labels(), loc = 'upper left', frameon=False, ncol=5, bbox_to_anchor=(0, 1), fontsize='small')
+    plt.savefig(f"{files_dir}/scalability_experiment_learning_curve_legend.png")
             
             
     print("Done")

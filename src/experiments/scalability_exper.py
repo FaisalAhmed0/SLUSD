@@ -5,6 +5,7 @@ Todos:
 3. add the realtime plots to tensorboard
 4. Put best PPO hyperparams when you find it.
 5. plotting stuff (y-axis, x-axis, colors, ...)
+6. baselines
 '''
 import gym
 import argparse
@@ -45,8 +46,6 @@ torch.set_num_threads(1)
 torch.multiprocessing.set_sharing_strategy('file_system')
 
 
-import numpy as np
-import pandas as pd
 import gym
 
 import time
@@ -54,10 +53,13 @@ import os
 import random
 from collections import defaultdict
 
+import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-sns.set_theme(style="darkgrid")
-sns.set(font_scale = conf.font_scale)
+import pandas as pd
+sns.set()
+sns.set_style('whitegrid')
+sns.set_context("paper", font_scale = conf.font_scale)
 
 # set the seed
 # seed = 10
@@ -81,7 +83,7 @@ params = dict( n_skills = 30,
            pretrain_steps = int(20e3),
            finetune_steps = int(1e5),
            buffer_size = int(1e6),
-           min_train_size = int(1e2),
+           min_train_size = int(1e4),
              )
 
 
@@ -100,7 +102,7 @@ envs_mp = [
     {
         'sac':{
         'MountainCarContinuous-v0': dict( 
-           pretrain_steps = int (4e5),
+           pretrain_steps = int (6e5),
             n_skills = 10 
              ), 
         },
@@ -127,7 +129,7 @@ envs_mp = [
     { # 6 dof
      'ppo':{
         'HalfCheetah-v2': dict( 
-           pretrain_steps = int(50e6),
+           pretrain_steps = int(60e6),
             n_skills = 30
              ), 
         },
@@ -136,7 +138,7 @@ envs_mp = [
     {
       'sac':{
         'HalfCheetah-v2': dict( 
-           pretrain_steps = int(5e5),
+           pretrain_steps = int(1e6),
             n_skills = 30
              ), 
         },
@@ -173,7 +175,7 @@ envs_mp = [
     {
       'sac':{
         'Walker2d-v2': dict( 
-           pretrain_steps = int(7e5),
+           pretrain_steps = int(1e6),
             n_skills = 30
              ),
         },
@@ -243,13 +245,13 @@ envs_mp = [
 # ppo hyperparams
 ppo_hyperparams = dict(
     n_steps = 2048,
-    learning_rate = 3e-4,
+    learning_rate = 1e-4,
     n_epochs = 10,
-    batch_size = 4096//4,
+    batch_size = 4096,
     gamma = 0.99,
     gae_lambda = 0.95,
     clip_range = 0.1,
-    ent_coef='auto',
+    ent_coef=0.1,
     n_actors = 32,
     algorithm = "ppo",
     
@@ -260,11 +262,11 @@ sac_hyperparams = dict(
     learning_rate = 3e-4,
     gamma = 0.99,
     buffer_size = int(1e6),
-    batch_size = 256,
-    tau = 0.005,
+    batch_size = 128,
+    tau = 0.01,
     gradient_steps = 1,
-    ent_coef='auto',
-    learning_starts = 100,
+    ent_coef=0.1,
+    learning_starts = 10000,
     algorithm = "sac"
 )
 
@@ -301,7 +303,7 @@ hyperparams = {
 # Discriminator Hyperparameters
 discriminator_hyperparams = dict(
     learning_rate = 3e-4,
-    batch_size = 64,
+    batch_size = 128,
     n_epochs = 1,
     weight_decay = 0, 
     dropout = None, # The dropout probability
@@ -327,7 +329,7 @@ def cmd_args():
     parser.add_argument("--presteps", type=int, default=int(1e6))
     parser.add_argument("--pm", type=str, default="MLP")
     parser.add_argument("--lb", type=str, default="ba")
-    parser.add_argument("--samples", type=int, default=50)
+    parser.add_argument("--samples", type=int, default=30)
     parser.add_argument("--run_all", type=bool, default=False)
     args = parser.parse_args()
     return args

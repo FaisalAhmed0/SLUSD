@@ -30,25 +30,25 @@ eval_freq = 10000,
 total_timesteps = int(1e8),
 
 # layer size of the shared network
-layer_size_shared = 512,
+layer_size_shared = 300,
     
 # layer size of the actor
-layer_size_policy = 512,
+layer_size_policy = 300,
 
 # layer size of the value function critic
-layer_size_value = 512,
+layer_size_value = 300,
     
 # layer size of the Q-function critic
-layer_size_q = 512,
+layer_size_q = 300,
 
 # layer size of the skills discriminator
-layer_size_discriminator = 512,
+layer_size_discriminator = 300,
     
 # layer size of the skills discriminator
 num_layers_discriminator = 2,
 
 # size of the latent vector in CPC style discriminator
-latent_size = 64,
+latent_size = 512,
 
 # buffer size for the discriminator 
 buffer_size = int(1e6),
@@ -63,14 +63,14 @@ max_steps = 1000,
 barplot_figsize = (8, 6),
 
 # font scale
-font_scale = 1.2,
+font_scale = 2.8,
     
 # learning curve fig size
-learning_curve_figsize = (8, 6),
+learning_curve_figsize = (10, 8.5),
     
 # random seeds
 seeds = (0, 10, 42), #(0, 10, 1234),
 
 # device
-device = "cuda" if torch.cuda.is_available() else "cpu",
+device = "cpu"
 )

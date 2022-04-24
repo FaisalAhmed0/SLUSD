@@ -117,7 +117,7 @@ class DIAYN():
             # create the callback list
             if self.checkpoints:
                 # env_name, alg, discriminator, params, pm, n_samples=100)
-                fineune_callback = EvaluationCallback(self.env_name, self.alg, self.d, self.params, self.parametrization, self.seed, self.directory, self.sw, n_samples=self.n_samples)
+                fineune_callback = EvaluationCallback(self.env_name, self.alg, self.d, self.adapt_params,self.params, self.parametrization, self.seed, self.directory, self.sw, n_samples=self.n_samples)
                 callbacks = [discriminator_callback, eval_callback, fineune_callback]
             else:
                 callbacks = [discriminator_callback, eval_callback]
@@ -160,7 +160,7 @@ class DIAYN():
             # create the callback list
             if self.checkpoints:
                 # env_name, alg, discriminator, params, pm, n_samples=100)
-                fineune_callback = EvaluationCallback(self.env_name, self.alg, self.d, self.params, self.parametrization, self.seed, self.directory, self.sw, n_samples=self.n_samples)
+                fineune_callback = EvaluationCallback(self.env_name, self.alg, self.d, self.adapt_params,self.params, self.parametrization, self.seed, self.directory, self.sw, n_samples=self.n_samples)
                 callbacks = [discriminator_callback, eval_callback, fineune_callback]
             else:
                 callbacks = [discriminator_callback, eval_callback]
@@ -252,13 +252,13 @@ class DIAYN():
             self.adaptation_model.actor.log_std.load_state_dict(sac_model.actor.log_std.state_dict())
             self.adaptation_model.actor.optimizer = opt.Adam(self.adaptation_model.actor.parameters(), lr=self.adapt_params['learning_rate'])
             # # load the discriminator
-            self.d.layers[0] = nn.Linear(gym.make(self.env_name).observation_space.shape[0] + self.params['n_skills']  + gym.make(self.env_name).action_space.shape[0], self.conf.layer_size_discriminator)
-            self.d.layers[-1] = nn.Linear(self.conf.layer_size_discriminator, 1)
-            seq = nn.Sequential(*self.d.layers)
-            # # print(d)
-            self.d.eval()
-            self.adaptation_model.critic.qf0.load_state_dict(seq.state_dict())
-            self.adaptation_model.critic.qf1.load_state_dict(seq.state_dict())
+            # self.d.layers[0] = nn.Linear(gym.make(self.env_name).observation_space.shape[0] + self.params['n_skills']  + gym.make(self.env_name).action_space.shape[0], self.conf.layer_size_discriminator)
+            # self.d.layers[-1] = nn.Linear(self.conf.layer_size_discriminator, 1)
+            # seq = nn.Sequential(*self.d.layers)
+            # # # print(d)
+            # self.d.eval()
+            self.adaptation_model.critic.qf0.load_state_dict(sac_model.critic.qf0.state_dict())
+            self.adaptation_model.critic.qf1.load_state_dict(sac_model.critic.qf1.state_dict())
             self.adaptation_model.critic_target.load_state_dict(self.adaptation_model.critic.state_dict())
             self.adaptation_model.critic.optimizer = opt.Adam(self.adaptation_model.critic.parameters(), lr=self.adapt_params['learning_rate'])
             self.adaptation_model.learn(total_timesteps=self.params['finetune_steps'],
@@ -286,16 +286,19 @@ class DIAYN():
         self.adaptation_model.actor.log_std.load_state_dict(nn.Linear(in_features=self.conf.layer_size_policy, out_features=gym.make(self.env_name).action_space.shape[0], bias=True).state_dict())
         self.adaptation_model.actor.optimizer = opt.Adam(self.adaptation_model.actor.parameters(), lr=self.adapt_params['learning_rate'])
         # initlialize the adaptation critic with the discriminator weights
-        self.d.eval()
-        
-        self.d.layers[0] = nn.Linear(gym.make(self.env_name).observation_space.shape[0] + self.params['n_skills']  + gym.make(self.env_name).action_space.shape[0], self.conf.layer_size_discriminator)
-        self.d.layers[-1] = nn.Linear(self.conf.layer_size_discriminator, 1)
-        layers = [l for l in self.d.layers if "linear" in f"{type(l)}" or "ReLU" in f"{type(l)}"]
+        layers = [nn.Linear(gym.make(self.env_name).observation_space.shape[0] + self.params['n_skills']  + gym.make(self.env_name).action_space.shape[0], self.conf.layer_size_discriminator)]
+        for l in range(len(self.ppo_model.policy.mlp_extractor.value_net)):
+            if l != 0:
+                layers.append(self.ppo_model.policy.mlp_extractor.value_net[l])
+        layers.append(nn.Linear(self.conf.layer_size_discriminator, 1))
         seq = nn.Sequential(*layers)
+        print(seq)
+        # input()
         self.adaptation_model.critic.qf0.load_state_dict(seq.state_dict())
         self.adaptation_model.critic.qf1.load_state_dict(seq.state_dict())
         self.adaptation_model.critic_target.load_state_dict(self.adaptation_model.critic.state_dict())
         self.adaptation_model.critic.optimizer = opt.Adam(self.adaptation_model.critic.parameters(), lr=self.adapt_params['learning_rate'])
+        
         
     def adaptation_environment(self, best_skill_index):
         '''
