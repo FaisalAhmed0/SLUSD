@@ -269,6 +269,7 @@ def evaluate_adapted_policy(env_name, n_skills, bestskill, model, alg):
     env = gym.make(env_name)
     done = False
     obs = env.reset()
+    print(bestskill)
     aug_obs = augment_obs(obs, bestskill, n_skills)
     total_reward = 0
     while not done:
@@ -401,6 +402,7 @@ def softplus_inverse(x):
 
 #### Useful function for the adaptation expeirment ####
 def evaluate(env, n_skills, pretrained_policy, adapted_policy, discriminator, parametrization, bestskill, alg):
+    print(type(bestskill))
     # intrinsic reward
     intrinsic_reward_mean = np.mean([evaluate_pretrained_policy_intr(env, n_skills, pretrained_policy, discriminator, parametrization, alg) for _ in range(10)])
     # best skill reward before adaptation

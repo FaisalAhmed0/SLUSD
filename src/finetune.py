@@ -55,23 +55,23 @@ params = dict( n_skills = 30,
 # list for multip-processing
 envs_mp = [
     # 1
-    { # 1 dof
-     'ppo':{
-        'MountainCarContinuous-v0': dict( 
-           pretrain_steps = int(100e6), 
-            n_skills = 10 
-             ),
-        },
-    },
+#     { # 1 dof
+#      'ppo':{
+#         'MountainCarContinuous-v0': dict( 
+#            pretrain_steps = int(100e6), 
+#             n_skills = 10 
+#              ),
+#         },
+#     },
     
-    {
-        'sac':{
-        'MountainCarContinuous-v0': dict( 
-           pretrain_steps = int (7e5),
-            n_skills = 10 
-             ), 
-        },
-    },
+#     {
+#         'sac':{
+#         'MountainCarContinuous-v0': dict( 
+#            pretrain_steps = int (7e5),
+#             n_skills = 10 
+#              ), 
+#         },
+#     },
     
 #     {
 #         'es':{
@@ -94,20 +94,20 @@ envs_mp = [
 #     { # 6 dof
 #      'ppo':{
 #         'HalfCheetah-v2': dict( 
-#            pretrain_steps = int(60e6),
+#            pretrain_steps = int(100e6),
 #             n_skills = 30
 #              ), 
 #         },
 #     },
     
-    # {
-    #   'sac':{
-    #     'HalfCheetah-v2': dict( 
-    #        pretrain_steps = int(1e6),
-    #         n_skills = 30
-    #          ), 
-    #     },
-    # },
+#     {
+#       'sac':{
+#         'HalfCheetah-v2': dict( 
+#            pretrain_steps = int(2e6),
+#             n_skills = 30
+#              ), 
+#         },
+#     },
     
 #     {
 #       'es':{
@@ -127,24 +127,24 @@ envs_mp = [
 #         },
 #     },
     # 3
-    { # 6 dof
-     'ppo':{
+#     { # 6 dof
+#      'ppo':{
+#         'Walker2d-v2': dict( 
+#            pretrain_steps = int(150e6),
+#             n_skills = 30
+#              ),
+#         },
+        
+#     },
+    
+    {
+      'sac':{
         'Walker2d-v2': dict( 
-           pretrain_steps = int(120e6),
+           pretrain_steps = int(2.5e6),
             n_skills = 30
              ),
         },
-        
     },
-    
-    # {
-    #   'sac':{
-    #     'Walker2d-v2': dict( 
-    #        pretrain_steps = int(1e6),
-    #         n_skills = 30
-    #          ),
-    #     },
-    # },
     
 #     {
 #       'es':{
@@ -168,7 +168,7 @@ envs_mp = [
 #     { # 8 dof
 #      'ppo':{
 #         'Ant-v2': dict( 
-#            pretrain_steps = int(100e6),
+#            pretrain_steps = int(150e6),
 #             n_skills = 30
 #              ), 
 #         },
@@ -178,7 +178,7 @@ envs_mp = [
 #     {
 #     'sac':{
 #         'Ant-v2': dict( 
-#            pretrain_steps = int(1.2e6),
+#            pretrain_steps = int(2e6),
 #             n_skills = 30
 #              ), 
 #         },
@@ -216,7 +216,7 @@ ppo_hyperparams = dict(
     gamma = 0.99,
     gae_lambda = 0.95,
     clip_range = 0.1,
-    ent_coef='auto',
+    ent_coef=0.1,
     n_actors = 32,
     algorithm = "ppo",
     
@@ -226,12 +226,12 @@ ppo_hyperparams = dict(
 sac_hyperparams = dict(
     learning_rate = 3e-4,
     gamma = 0.99,
-    buffer_size = int(1e6),
-    batch_size = 256,
-    tau = 0.005,
+    buffer_size = int(1e7),
+    batch_size = 128,
+    tau = 0.001,
     gradient_steps = 1,
-    ent_coef='auto',
-    learning_starts = 100,
+    ent_coef=0.1,
+    learning_starts = 10000,
     algorithm = "sac"
 )
 
@@ -268,7 +268,7 @@ hyperparams = {
 # Discriminator Hyperparameters
 discriminator_hyperparams = dict(
     learning_rate = 3e-4,
-    batch_size = 64,
+    batch_size = 128,
     n_epochs = 1,
     weight_decay = 0, 
     dropout = None, # The dropout probability
@@ -458,6 +458,8 @@ if __name__ == "__main__":
         # print(envs_mp[:1])
         # input()
         processes_list = []
+        # [[1645398097.9415703, 1645398097.927781], [1645375267.8525789, 1645312624.386389], [1645375267.87822, 1645398097.9635289], [1645375267.904899, 1645312624.4639032]]
+        # stamps_list = [1645398097.927781, 1645398097.9415703, 1645312624.386389, 1645375267.8525789, 1645398097.9635289, 1645375267.87822, 1645312624.4639032, 1645375267.904899 ]
         seeds = conf.seeds
         for i in range(n_processes):
             timestamp = time.time()

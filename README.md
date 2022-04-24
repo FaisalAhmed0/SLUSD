@@ -1,34 +1,73 @@
-# The Scaling Limits of Unsupervised Skill Discovery
-An emprical study of mutual information based skill discovery.
+# An Empirical Investigation of Mutual Information Skill Learning.
+## Abstract
+Unsupervised skill learning methods are a form of unsupervised pre-training for
+reinforcement learning (RL) that has the potential to improve the sample effi-
+ciency of solving downstream tasks. Prior work has proposed several methods for
+unsupervised skill discovery based on mutual information (MI) objectives, with
+different methods varying in how this mutual information is estimated and opti-
+mized. This paper studies how different design decisions in skill learning algo-
+rithms affect the sample efficiency of solving downstream tasks. Our key findings
+are that the sample efficiency of downstream adaptation under off-policy back-
+bones is better than their on-policy counterparts. In contrast, on-policy backbones
+result in better state coverage, moreover, regularizing the discriminator gives bet-
+ter downstream results, and careful choice of the mutual information lower bound
+and the discriminator architecture yields significant improvements in downstream
+returns, also, we show empirically that the learned representations during the pre-
+training step correspond to the controllable aspects of the environment.
 
-# Getting Started
+## Getting Started
 ### Clone the repository
 
 ```bash
 git clone https://github.com/FaisalAhmed0/SLUSD
 ```
 
-### Create a new environment, install requirements.txt, run the setup, and activate the environment
+### Create a new conda environment and activate it
 
 ```bash
 cd SLUSD
 conda create -n slusd python=3.8
 conda activate slusd
+```
+
+### Install a custom version of stablebaselines 3
+```bash
+git clone https://github.com/FaisalAhmed0/stable-baselines3.git
+cd stable-baselines3
+pip install -e .
+```
+### Install MBRL 
+```bash
+git clone https://github.com/facebookresearch/mbrl-lib.git
+cd ../mbrl-lib
+pip install -e .
+```
+### Make sure that mujoco is installed by following the instruction in https://github.com/openai/mujoco-py
+
+
+### Install the paper specific code
+```bash
+cd ../SLUSD
+pip install -r requirements.txt
 pip3 install -e .
 ```
 
-### An Example for running a finetuning expeirment with a deep RL algorithm
+## To run the same adaptation expeirment of the paper.
 ```bash
-python src/diyan_ppo.py --env "MountainCarContinuous-v0"  --alg "sac" --skills 6 --presteps 500000
+python src/finetune.py --run_all True
 ```
-The cmd arguemnts are
+When running with run_all is True, all random seeds will run on parallel.
+
+
+## To run for a specific environment the cmd args are as follows
 |Arg|Description|Supported values|Default Value
 |--|-----|------|----|
 |env|Environment name|All OpenAI gym environment with continuous actions and state vectros|"MountainCarContinuous-v0"|
 alg|Deep RL algorithm|"sac" for soft-Actor critic, "ppo" for Proximal Policy Optimization|"ppo"|
-skills| Number of skills to  learn|  Any positive integer|6|
-presteps| Number of pretraining timesteps | Any positive integer|1000000
-
+skills| Number of skills to  learn|  Positive integers|6|
+presteps| Number of pretraining steps | Positive integers|1000000
+lb | Mutual Information lower bound|"ba" for $I_{BA}$, "nce" for $I_{NCE}$, "nwj" for $I_{NWJ} and "interpolate" for $I_{\alpha}$. | ba
+pm | Discriminator parameterization |  "MLP" for a feed forward neural network, "Seprabale" for the seperable architecture, and "Concat" for the concatenation architecture and "linear" for the linear parametrization| MLP
 ### To observe the training dynamics run tensorboard inside the SLUSD folder
 ```bash
 tensorboard --logdir ./logs_finetune
@@ -36,15 +75,14 @@ tensorboard --logdir ./logs_finetune
 
 ### To record a video for all skills
 ```bash
-python record.py --stamp "<timestamp>" --alg ppo --skills 6
+python record.py --env <env_name> --stamp <timestamp> --skills <no. skills> --cls <pm> --lb <mi lower bound>
 ```
-where stamp is the timestamp for the experiment
-
-### To calculate the state coverage (Entropy) 
+Where stamp is the timestamp for the experiment you can copy it from the experiment's folder name.
+If you are running this code on a server make sure xvfb is installed.
 ```bash
-python src/state_coverage.py --stamp "<timestamp>" --alg ppo --skills 6
+sudo apt-get install xvfb
 ```
-### To plot the results of a finetuning experiment
+And run your the recording script.
 ```bash
-python plot_results.py --stamp "<timestamp>" --alg ppo --skills 6
+xvfb-run -a python record.py --env <env_name> --stamp <timestamp> --skills <no. skills> --cls <pm> --lb <mi lower bound>
 ```

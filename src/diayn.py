@@ -256,13 +256,13 @@ class DIAYN():
             self.adaptation_model.actor.log_std.load_state_dict(sac_model.actor.log_std.state_dict())
             self.adaptation_model.actor.optimizer = opt.Adam(self.adaptation_model.actor.parameters(), lr=self.adapt_params['learning_rate'])
             # # load the discriminator
-            self.d.layers[0] = nn.Linear(gym.make(self.env_name).observation_space.shape[0] + self.params['n_skills']  + gym.make(self.env_name).action_space.shape[0], self.conf.layer_size_discriminator)
-            self.d.layers[-1] = nn.Linear(self.conf.layer_size_discriminator, 1)
-            seq = nn.Sequential(*self.d.layers)
-            # # print(d)
-            self.d.eval()
-            self.adaptation_model.critic.qf0.load_state_dict(seq.state_dict())
-            self.adaptation_model.critic.qf1.load_state_dict(seq.state_dict())
+            # self.d.layers[0] = nn.Linear(gym.make(self.env_name).observation_space.shape[0] + self.params['n_skills']  + gym.make(self.env_name).action_space.shape[0], self.conf.layer_size_discriminator)
+            # self.d.layers[-1] = nn.Linear(self.conf.layer_size_discriminator, 1)
+            # seq = nn.Sequential(*self.d.layers)
+            # # # print(d)
+            # self.d.eval()
+            self.adaptation_model.critic.qf0.load_state_dict(sac_model.critic.qf0.state_dict())
+            self.adaptation_model.critic.qf1.load_state_dict(sac_model.critic.qf1.state_dict())
             self.adaptation_model.critic_target.load_state_dict(self.adaptation_model.critic.state_dict())
             self.adaptation_model.critic.optimizer = opt.Adam(self.adaptation_model.critic.parameters(), lr=self.adapt_params['learning_rate'])
             self.adaptation_model.learn(total_timesteps=self.params['finetune_steps'],
@@ -270,11 +270,11 @@ class DIAYN():
 
         # if the model for the prratrining is PPO load the discrimunator and actor from ppo into sac models
         elif self.alg == "ppo":
-            ppo_model = PPO.load(model_dir, env=env, tensorboard_log=self.directory,
+            self.ppo_model = PPO.load(model_dir, env=env, tensorboard_log=self.directory,
                             clip_range=get_schedule_fn(self.alg_params['clip_range']))
             # adaptation_model.actor.action_dist = DiagGaussianDistribution(env.action_space.shape[0])
             # load the policy ppo 
-            ppo_actor = ppo_model.policy
+            ppo_actor = self.ppo_model.policy
             self.load_state_dicts(ppo_actor)
             self.adaptation_model.learn(total_timesteps=self.params['finetune_steps'],
                         callback=eval_callback, tb_log_name="PPO_FineTune", d=None, mi_estimator=None)
@@ -289,13 +289,15 @@ class DIAYN():
         self.adaptation_model.actor.mu.load_state_dict(ppo_actor.action_net.state_dict())
         self.adaptation_model.actor.log_std.load_state_dict(nn.Linear(in_features=self.conf.layer_size_policy, out_features=gym.make(self.env_name).action_space.shape[0], bias=True).state_dict())
         self.adaptation_model.actor.optimizer = opt.Adam(self.adaptation_model.actor.parameters(), lr=self.adapt_params['learning_rate'])
-        # initlialize the adaptation critic with the discriminator weights
-        self.d.eval()
         
-        self.d.layers[0] = nn.Linear(gym.make(self.env_name).observation_space.shape[0] + self.params['n_skills']  + gym.make(self.env_name).action_space.shape[0], self.conf.layer_size_discriminator)
-        self.d.layers[-1] = nn.Linear(self.conf.layer_size_discriminator, 1)
-        layers = [l for l in self.d.layers if "linear" in f"{type(l)}" or "ReLU" in f"{type(l)}"]
+        layers = [nn.Linear(gym.make(self.env_name).observation_space.shape[0] + self.params['n_skills']  + gym.make(self.env_name).action_space.shape[0], self.conf.layer_size_discriminator)]
+        for l in range(len(self.ppo_model.policy.mlp_extractor.value_net)):
+            if l != 0:
+                layers.append(self.ppo_model.policy.mlp_extractor.value_net[l])
+        layers.append(nn.Linear(self.conf.layer_size_discriminator, 1))
         seq = nn.Sequential(*layers)
+        print(seq)
+        # input()
         self.adaptation_model.critic.qf0.load_state_dict(seq.state_dict())
         self.adaptation_model.critic.qf1.load_state_dict(seq.state_dict())
         self.adaptation_model.critic_target.load_state_dict(self.adaptation_model.critic.state_dict())

@@ -1,6 +1,3 @@
-'''
-This script plot the results of a finetune experiment given the environment, list of algorithms, timestamps, labels (optional), and the number of skills.
-'''
 import argparse
 import ast
 import math
@@ -46,46 +43,39 @@ random_performance = {
 }
 # across all seeds
 random_init = [
-    {"Environment": 'HalfCheetah', "Normalized Extrinsic Return After Adaptation (%)": 3.977155901244182132e+03/asymp_perofrmance['HalfCheetah-v2']*100, "Algorithm": "Random init"},
-    {"Environment": 'HalfCheetah', "Normalized Extrinsic Return After Adaptation (%)": 3.661330217032705150e+03/asymp_perofrmance['HalfCheetah-v2']*100, "Algorithm": "Random init"},
-    {"Environment": 'HalfCheetah', "Normalized Extrinsic Return After Adaptation (%)": 3.777719310452177979e+03/asymp_perofrmance['HalfCheetah-v2']*100, "Algorithm": "Random init"},
+    {"Environment": 'HalfCheetah', "Normalized Extrinsic Return After Adaptation (%)": 3.977155901244182132e+03/asymp_perofrmance['HalfCheetah-v2']*100, "Algorithm": "RL from Scratch (100k steps)"},
+    {"Environment": 'HalfCheetah', "Normalized Extrinsic Return After Adaptation (%)": 3.661330217032705150e+03/asymp_perofrmance['HalfCheetah-v2']*100, "Algorithm": "RL from Scratch (100k steps)"},
+    {"Environment": 'HalfCheetah', "Normalized Extrinsic Return After Adaptation (%)": 3.777719310452177979e+03/asymp_perofrmance['HalfCheetah-v2']*100, "Algorithm": "RL from Scratch (100k steps)"},
     
-    {"Environment": 'Walker2d', "Normalized Extrinsic Return After Adaptation (%)": 4.950961607268399121e+02/asymp_perofrmance['Walker2d-v2']*100, "Algorithm": "Random init"},
-    {"Environment": 'Walker2d', "Normalized Extrinsic Return After Adaptation (%)": 5.050660942998074461e+02/asymp_perofrmance['Walker2d-v2']*100, "Algorithm": "Random init"},
-    {"Environment": 'Walker2d', "Normalized Extrinsic Return After Adaptation (%)": 2.915505078088318669e+02/asymp_perofrmance['Walker2d-v2']*100, "Algorithm": "Random init"},
+    {"Environment": 'Walker2d', "Normalized Extrinsic Return After Adaptation (%)": 4.950961607268399121e+02/asymp_perofrmance['Walker2d-v2']*100, "Algorithm": "RL from Scratch (100k steps)"},
+    {"Environment": 'Walker2d', "Normalized Extrinsic Return After Adaptation (%)": 5.050660942998074461e+02/asymp_perofrmance['Walker2d-v2']*100, "Algorithm": "RL from Scratch (100k steps)"},
+    {"Environment": 'Walker2d', "Normalized Extrinsic Return After Adaptation (%)": 2.915505078088318669e+02/asymp_perofrmance['Walker2d-v2']*100, "Algorithm": "RL from Scratch (100k steps)"},
     
-    {"Environment": 'Ant', "Normalized Extrinsic Return After Adaptation (%)": 4.935468207680875139e+02/asymp_perofrmance['Ant-v2']*100, "Algorithm": "Random init"},
-    {"Environment": 'Ant', "Normalized Extrinsic Return After Adaptation (%)": 2.522865492915514665e+02/asymp_perofrmance['Ant-v2']*100, "Algorithm": "Random init"},
-    {"Environment": 'Ant', "Normalized Extrinsic Return After Adaptation (%)": 7.162829405419695377e+02/asymp_perofrmance['Ant-v2']*100, "Algorithm": "Random init"},
+    {"Environment": 'Ant', "Normalized Extrinsic Return After Adaptation (%)": 4.935468207680875139e+02/asymp_perofrmance['Ant-v2']*100, "Algorithm": "RL from Scratch (100k steps)"},
+    {"Environment": 'Ant', "Normalized Extrinsic Return After Adaptation (%)": 2.522865492915514665e+02/asymp_perofrmance['Ant-v2']*100, "Algorithm": "RL from Scratch (100k steps)"},
+    {"Environment": 'Ant', "Normalized Extrinsic Return After Adaptation (%)": 7.162829405419695377e+02/asymp_perofrmance['Ant-v2']*100, "Algorithm": "RL from Scratch (100k steps)"},
     
-    {"Environment": 'MountainCarContinuous', "Normalized Extrinsic Return After Adaptation (%)": -1.697574145149261080e-04/asymp_perofrmance['MountainCarContinuous-v0']*100, "Algorithm": "Random init"},
-    {"Environment": 'MountainCarContinuous', "Normalized Extrinsic Return After Adaptation (%)": -3.889756080078754464e-04/asymp_perofrmance['MountainCarContinuous-v0']*100, "Algorithm": "Random init"},
-    {"Environment": 'MountainCarContinuous', "Normalized Extrinsic Return After Adaptation (%)": -3.093423134238547888e-04/asymp_perofrmance['MountainCarContinuous-v0']*100, "Algorithm": "Random init"},
+    {"Environment": 'MountainCarContinuous', "Normalized Extrinsic Return After Adaptation (%)": -1.697574145149261080e-04/asymp_perofrmance['MountainCarContinuous-v0']*100, "Algorithm": "RL from Scratch (100k steps)"},
+    {"Environment": 'MountainCarContinuous', "Normalized Extrinsic Return After Adaptation (%)": -3.889756080078754464e-04/asymp_perofrmance['MountainCarContinuous-v0']*100, "Algorithm": "RL from Scratch (100k steps)"},
+    {"Environment": 'MountainCarContinuous', "Normalized Extrinsic Return After Adaptation (%)": -3.093423134238547888e-04/asymp_perofrmance['MountainCarContinuous-v0']*100, "Algorithm": "RL from Scratch (100k steps)"},
     
 ]
 
-
-seeds = [0, 10, 42 ]#, 1234, 5]#, 42]
-columns = ['Algorithm', "Environment", "Normalized Extrinsic Return After Adaptation (%)", "State Entropy", "Intrinsic Return" , "Normalized Extrinsic Return Before Adaptation (%)"]
-# cmd arguments
-def cmd_args():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--env', type=str, default="MountainCarContinuous-v0")
-    parser.add_argument("--algs", nargs="*", type=str, default=["ppo"]) # pass the algorithms that correspond to each timestamp
-    parser.add_argument("--skills", nargs="*", type=int, default=[6])
-    parser.add_argument("--stamps", nargs="*", type=str, required=True) # pass the timestamps as a list
-    parser.add_argument("--colors", nargs="*", type=str, required=False, default=['b', 'r']) # pass the timestamps as a list
-    parser.add_argument("--labels", nargs="*", type=str, required=False, default=None) # add custom labels 
-    parser.add_argument("--cls", nargs="*", type=str, required=True) # pass the timestamps as a list
-    parser.add_argument("--lbs", nargs="*", type=str, required=True) # pass the timestamps as a list
-    parser.add_argument("--suffix", type=str, required=False, default="") # add custom labels 
-    args = parser.parse_args()
-    return args
+# random seeds
+seeds = conf.seeds
+# Columns of the result dataframe
+columns = ['Algorithm', "Environment", "Normalized Extrinsic Return After Adaptation (%)", "State Entropy", "Intrinsic Return" , "Normalized Extrinsic Return Before Adaptation (Best Skill) (%)"]
 
 def extract_results(env_name, n_skills, pm, alg, stamp, lb):
+    '''
+    Extract the results saved during the training process.
+    '''
     seeds_list = []
     asym = asymp_perofrmance[env_name]
+    
+    # experiment directory
     main_exper_dir = conf.log_dir_finetune + f"cls:{pm}, lb:{lb}/"
+    # environment directory
     env_dir = main_exper_dir + f"env: {env_name}, alg:{alg}, stamp:{stamp}/"
     
     params = pd.read_csv(env_dir + "params.csv").to_dict()
@@ -123,14 +113,16 @@ def extract_results(env_name, n_skills, pm, alg, stamp, lb):
             hyper_params = pd.read_csv(env_dir + "ppo_hyperparams.csv").to_dict('records')[0]
             pretrained_policy = PPO.load(model_dir, env=env, seed=seed, clip_range= get_schedule_fn(hyper_params['clip_range']))
             
-            best_skill = [ d[d.index(":")+1:] for d in  os.listdir(seed_dir) if "best_finetuned_model_skillIndex:" in d][0]
-            print(best_skill)
+            best_skill = int([ d[d.index(":")+1:] for d in  os.listdir(seed_dir) if "best_finetuned_model_skillIndex:" in d][0])
+            # print(best_skill)
             finetuned_model_dir =  seed_dir + f"best_finetuned_model_skillIndex:{best_skill}/" + "/best_model"
             adapted_policy = SAC.load(finetuned_model_dir, env=env, seed=seed)
         
         intrinsic_reward_mean, reward_beforeFinetune_mean, reward_mean, entropy_mean = evaluate(env_name, n_skills, pretrained_policy, adapted_policy, discriminator, pm, best_skill, alg)
+        # intrinsic_reward_mean= evaluate(env_name, n_skills, pretrained_policy, adapted_policy, discriminator, pm, best_skill, alg)
+        # continue
         # for testing 
-        # intrinsic_reward_mean, reward_beforeFinetune_mean, reward_mean, entropy_mean = (1 + np.random.randn()*0.25, 1 + np.random.randn()*0.25, 1 + np.random.randn()*0.25, 1 + np.random.randn()*0.25)
+        # intrinsic_reward_mean, reward_beforeFinetune_mean, reward_mean, entropy_mean = (100 + np.random.randn()*0.25, 100 + np.random.randn()*0.25, 100 + np.random.randn()*0.25, 100 + np.random.randn()*0.25)
         d = {'Algorithm': alg.upper(), 
                      "Normalized Extrinsic Return After Adaptation (%)": reward_mean/asym*100, 
                      "Intrinsic Return": intrinsic_reward_mean, 
@@ -149,8 +141,8 @@ def barplot(env_names, n_skills_list, lbs, pms, algs, stamps, colors):
         n_skills = n_skills_list[i]
         pm = pms[i]
         lb = lbs[i]
-        alg = algs[i]
         stamp = stamps[i]
+        alg = algs[i]
         main_exper_dir = conf.log_dir_finetune + f"cls:{pm}, lb:{lb}/"
         env_dir = main_exper_dir + f"env: {env_name}, alg:{alg}, stamp:{stamp}/"
         discriminator_hyperparams = pd.read_csv(env_dir + "discriminator_hyperparams.csv").to_dict('records')[0]
@@ -158,7 +150,8 @@ def barplot(env_names, n_skills_list, lbs, pms, algs, stamps, colors):
         r = extract_results(env_name, n_skills, pm, alg, stamp, lb)
         results.extend(r)
     results_df = pd.DataFrame(results)
-    results_df.to_csv("result.csv")
+    files_dir = f"Vis/adaptation_experiment_cls:{discriminator_hyperparams['parametrization']}, lb:{discriminator_hyperparams['lower_bound']}/"
+    results_df.to_csv(files_dir + "result.csv")
     for col in columns[2:]:
         plt.figure(figsize=conf.barplot_figsize)
         y_axis = col
@@ -174,16 +167,20 @@ def barplot(env_names, n_skills_list, lbs, pms, algs, stamps, colors):
                 print(d)
                 results_copy = results_copy.append(d)
             print(results_copy)
-            input()
-            ax = sns.barplot(x="Environment", y=y_axis, data=results_copy, hue="Algorithm", hue_order=[a.upper() for a in algs] + ["Random init"], palette=colors)
-            sns.move_legend(ax, "lower left", title='Algorithm')
+            results_copy.to_csv("Adaptation_experiment_final_results.csv")
+            # input()
+            ax = sns.barplot(x="Environment", y=y_axis, data=results_copy, hue="Algorithm", hue_order=[a.upper() for a in ["sac", "ppo"]] + ["RL from Scratch (100k steps)"], palette=colors)
+            ax.legend_.remove()
         else:
-            ax = sns.barplot(x="Environment", y=y_axis, data=results_df, hue="Algorithm", hue_order=[a.upper() for a in algs], palette=colors)
+            ax = sns.barplot(x="Environment", y=y_axis, data=results_df, hue="Algorithm", hue_order=[a.upper() for a in ["sac", "ppo"]] + ["RL from Scratch (100k steps)"], palette=colors)
             ax.legend_.remove()
         filename = f"adaptation_experiment_final_{y_axis}.png"
         files_dir = f"Vis/adaptation_experiment_cls:{discriminator_hyperparams['parametrization']}, lb:{discriminator_hyperparams['lower_bound']}/"
         os.makedirs(files_dir, exist_ok=True)
         plt.savefig(files_dir + filename)
+        figLegend = plt.figure(figsize = (8.2,0.5))
+        plt.figlegend(*ax.get_legend_handles_labels(), loc = 'upper left', frameon=False, ncol=3, bbox_to_anchor=(0, 1), fontsize='small')
+        plt.savefig(f"{files_dir}/adaptation_experiment_barplot_legend.png")
         
     
     
@@ -194,19 +191,21 @@ if __name__ == "__main__":
     # args = cmd_args()
     # file_dir = conf.log_dir_finetune + f"{args.alg}_{args.env}_{args.stamp}/" + "eval_results/" + "evaluations.npz"
     # file_dir = conf.log_dir_finetune + f"{args.alg}_{args.env}_{args.stamp}/" + "evaluations.npz"
-    print("######## BarPlot ########")
+    # print("######## BarPlot ########")
     env_names = ["MountainCarContinuous-v0", "MountainCarContinuous-v0", "HalfCheetah-v2", "HalfCheetah-v2", "Walker2d-v2", "Walker2d-v2", "Ant-v2", "Ant-v2"]
+    # env_names = ["Walker2d-v2", "Walker2d-v2"]
     skills_l = [10, 10, 30, 30, 30, 30, 30, 30]
-    algs = ["sac", "ppo"]
+    # skills_l = [30, 30]
+    algs = ["sac", "ppo", "sac", "ppo", "sac", "ppo", "sac", "ppo"]
     # MC MC HC HC W-SAC, W-PPO, Ant-SAC, Ant-PPO
-    stamps = [1645398097.9415703, 1645398097.927781, 1645375267.8525789, 1645312624.386389, 1645375267.87822, 1645398097.9635289, 1645375267.904899, 1645312624.4639032]
-    pms = ["MLP"]*6
-    lbs = ["ba"]*6
-    colors = ["b", "r"]
-    barplot(env_names, skills_l, lbs, pms, algs, stamps, colors)
+    stamps = [1645692889.4627287, 1645692889.4497814, 1645692889.5071442, 1645692889.484781, 1646209337.3552468, 1645692889.5303376, 1645692889.6045046, 1645692889.5788283]
+    pms = ["MLP"]*8
+    lbs = ["ba"]*8
+    colors = ["b", "r", 'g']
+    # barplot(env_names, skills_l, lbs, pms, algs, stamps, colors)
     print("######## Skills evaluation ########")
     env_names = ["MountainCarContinuous-v0", "HalfCheetah-v2", "Walker2d-v2", "Ant-v2"]
-    stamps_l = [[1645398097.9415703, 1645398097.927781], [1645375267.8525789, 1645312624.386389], [1645375267.87822, 1645398097.9635289], [1645375267.904899, 1645312624.4639032]]
+    stamps_l = [[1645692889.4627287, 1645692889.4497814], [1645692889.5071442, 1645692889.484781], [1646209337.3552468, 1645692889.5303376], [1645692889.6045046, 1645692889.5788283]]
     skill_l = [[10, 10], [30, 30], [30, 30], [30, 30]]
     for j in range(len(env_names)):
         env_name = env_names[j]
@@ -280,16 +279,17 @@ if __name__ == "__main__":
 
         # loop throgh the finetuning results
         # loop throgh the finetuning results
-        plt.figure()
-        title = "MountainCar" if env_name == "MountainCarContinuous-v0" else env_name[: env_name.index('-')]
-        plt.title(title)
     print("######## Finetine evaluation ########")
-    seeds_list = []
     ylabel = "Normalized Extrinsic Return (%)"
     for j in range(len(env_names)):
         env_name = env_names[j]
         skills_l = skill_l[j]
         stamps = stamps_l[j]
+        plt.figure(figsize = conf.learning_curve_figsize)
+        title = "MountainCar" if env_name == "MountainCarContinuous-v0" else env_name[: env_name.index('-')]
+        plt.title(title)
+        baseline = False
+        asym = asymp_perofrmance[env_name]
         for i in range(len(algs)):
             skills = skills_l[i]
             pm = cls[i]
@@ -300,44 +300,76 @@ if __name__ == "__main__":
             stamp = stamps[i]
             legend = alg
             main_exper_dir = conf.log_dir_finetune + f"cls:{pm}, lb:{lb}/"
+            main_baseline_dir = "random_init_baselines/"
             env_dir = main_exper_dir + f"env: {env_name}, alg:{alg}, stamp:{stamp}/"
-            seed_list = []
+            discriminator_hyperparams = pd.read_csv(env_dir + "discriminator_hyperparams.csv").to_dict('records')[0]
+            seeds_list = []
+            seed_list_b = []
             for seed in seeds:
                 seed_everything(seed)
                 seed_dir = env_dir + f"seed:{seed}/"
                 file_dir_finetune = seed_dir + "finetune_eval_results/" + "evaluations.npz"
+                if not baseline:
+                    baseline_values = pd.read_csv(f"run-{env_name}_seed_{seed}_SAC baseline_1-tag-eval_mean_reward.csv")['Value'].to_numpy()
+                    steps_b = pd.read_csv(f"run-{env_name}_seed_{seed}_SAC baseline_1-tag-eval_mean_reward.csv")['Step'].to_numpy()
+                    seed_list_b.append(baseline_values)
                 files = np.load(file_dir_finetune)
                 steps = files['timesteps']
                 results = files['results']
+                # if env_name == "Walker2d-v2" and alg=="sac":
+                #     print(results.shape)
+                #     input()
+                #     print(stamp, alg)
+                #     print(results[:5], results[-5:])
+                #     sns.lineplot(x=steps, y=results.mean(axis=1).reshape(-1), label=legends[i], color=plot_color)
+                #     plt.fill_between(steps, (data_mean-data_std), (data_mean+data_std), color=plot_color, alpha=0.2)
+                    # if env_name == "Walker2d-v2" and alg=="sac":
+                    #     plt.savefig("sac.png")
+                    #     input()
                 seeds_list.append(results.mean(axis=1).reshape(-1))
-            data_mean = np.mean(seeds_list, axis=0)
-            data_std = np.std(seeds_list, axis=0)
-            if len(algs) > 1:
-                ax = sns.lineplot(x=steps, y=data_mean, label=legends[i], color=plot_color)
+                
+            data_mean = np.mean(seeds_list, axis=0)/asym*100
+            data_std = np.std(seeds_list, axis=0)/asym*100
+            
+            if not baseline:
+                data_mean_b = np.mean(seed_list_b, axis=0)/asym * 100
+                data_std_b = np.std(seed_list_b, axis=0)/asym * 100
+                sns.lineplot(x=steps, y=data_mean, label=legends[i], color=plot_color)
+                plt.fill_between(steps, (data_mean-data_std), (data_mean+data_std), color=plot_color, alpha=0.2)
+                # if env_name == "Walker2d-v2" and alg=="sac":
+                #     plt.savefig("sac.png")
+                ax = sns.lineplot(x=steps_b, y=data_mean_b, label="RL from Scratch (100k steps)", color='g')
+                plt.fill_between(steps_b, (data_mean_b-data_std_b), (data_mean_b+data_std_b), color='g', alpha=0.2)
+                baseline = True
             else:
-                ax = sns.lineplot(x=steps, y=data_mean, color=plot_color)
-            plt.fill_between(steps, (data_mean-data_std), (data_mean+data_std), color=plot_color, alpha=0.3)
+                ax = sns.lineplot(x=steps, y=data_mean, label=legends[i], color=plot_color)
+                plt.fill_between(steps, (data_mean-data_std), (data_mean+data_std), color=plot_color, alpha=0.2)
             plt.xlabel(xlabel)
             plt.ylabel(ylabel)
             # plt.grid(False)
             r = random_performance[env_name]
-            if len(algs) == 1:
-                ax.axhline(r/asym * 100, label="Random Policy",  c='black', linestyle='dashed')
-                ax.axhline(100, label="Expert Policy",  c='black', linestyle='dotted')
-                plt.legend()
-                filename = f"{env_name}_finetune_{alg}"
-                files_dir = f"Vis/{env_name}_cls:{pm}_lb:{lb}"
-                os.makedirs(files_dir, exist_ok=True)
-                plt.savefig(f'{files_dir}/{filename}')    
+            # if len(algs) == 1:
+            #     ax.axhline(r/asym * 100, label="Random Policy",  c='black', linestyle='dashed')
+            #     ax.axhline(100, label="Expert Policy",  c='black', linestyle='dotted')
+            #     plt.legend()
+            #     filename = f"{env_name}_finetune_{alg}"
+            #     files_dir = f"Vis/{env_name}_cls:{pm}_lb:{lb}"
+            #     os.makedirs(files_dir, exist_ok=True)
+            #     plt.savefig(f'{files_dir}/{filename}')    
         if len(algs) > 1:
             ax.axhline(r/asym * 100, label="Random Policy",  c='black', linestyle='dashed')
             ax.axhline(100, label="Expert Policy",  c='black', linestyle='dotted')
-            plt.legend()
+            plt.legend(loc = "upper left")
+            # if env_name != "MountainCarContinuous-v0":
+            ax.legend_.remove()
             filename = f"{env_name}_finetune_all_algs"
-            files_dir = f"Vis/{env_name}"
+            files_dir =  f"Vis/adaptation_experiment_cls:{discriminator_hyperparams['parametrization']}, lb:{discriminator_hyperparams['lower_bound']}/"
             os.makedirs(files_dir, exist_ok=True)
             plt.savefig(f'{files_dir}/{filename}')  
-    
+            figLegend = plt.figure(figsize = (9.2,0.5))
+            plt.figlegend(*ax.get_legend_handles_labels(), loc = 'upper left', frameon=False, ncol=5, bbox_to_anchor=(0, 1), fontsize='small')
+            plt.savefig(f"{files_dir}/adaptation_experiment_learning_curve_legend.png")
+
         
         
         
