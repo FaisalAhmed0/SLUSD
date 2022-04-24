@@ -112,17 +112,19 @@ class DIAYN():
                 self.env_name), self.params['n_skills'], ev=True), self.d, self.params['n_skills'], parametrization=self.parametrization)
             eval_env = Monitor(eval_env, f"{self.directory}/eval_results")
             eval_callback = EvalCallback(eval_env, best_model_save_path=self.directory,
-                                         log_path=f"{self.directory}/eval_results", eval_freq=self.conf.eval_freq,
+                                         log_path=f"{self.directory}/eval_results", eval_freq=5000,
                                          deterministic=True, render=False, n_eval_episodes=self.conf.eval_runs)
             # create the callback list
             if self.checkpoints:
                 # env_name, alg, discriminator, params, pm, n_samples=100)
-                fineune_callback = EvaluationCallback(self.env_name, self.alg, self.d, self.params, self.parametrization, n_samples=self.n_samples)
+                fineune_callback = EvaluationCallback(self.env_name, self.alg, self.d, self.adapt_params,self.params, self.parametrization, self.seed, self.directory, self.sw, n_samples=self.n_samples)
                 callbacks = [discriminator_callback, eval_callback, fineune_callback]
             else:
                 callbacks = [discriminator_callback, eval_callback]
             # train the agent
             model.learn(total_timesteps=self.params['pretrain_steps'], callback=callbacks, log_interval=3, tb_log_name="PPO Pretrain")
+            # for testing
+            # model.learn(total_timesteps=4500, callback=callbacks, log_interval=3, tb_log_name="PPO Pretrain")
         elif self.alg == "sac":
             env = DummyVecEnv([lambda: Monitor(RewardWrapper(SkillWrapper(gym.make(self.env_name), self.params['n_skills'], max_steps=self.conf.max_steps),
                                                              self.d, self.params['n_skills'], parametrization=self.parametrization), self.directory)])
@@ -160,7 +162,7 @@ class DIAYN():
             # create the callback list
             if self.checkpoints:
                 # env_name, alg, discriminator, params, pm, n_samples=100)
-                fineune_callback = EvaluationCallback(self.env_name, self.alg, self.d, self.params, self.parametrization, n_samples=self.n_samples)
+                fineune_callback = EvaluationCallback(self.env_name, self.alg, self.d, self.adapt_params,self.params, self.parametrization, self.seed, self.directory, self.sw, n_samples=self.n_samples)
                 callbacks = [discriminator_callback, eval_callback, fineune_callback]
             else:
                 callbacks = [discriminator_callback, eval_callback]
@@ -171,6 +173,8 @@ class DIAYN():
                 model.learn(total_timesteps=self.params['pretrain_steps'], callback=callbacks, log_interval=3, tb_log_name="SAC Pretrain", d=self.d, mi_estimator=mi_estimate)
             elif self.parametrization in ["MLP", "Linear"]:
                 model.learn(total_timesteps=self.params['pretrain_steps'], callback=callbacks, log_interval=3, tb_log_name="SAC Pretrain")
+                 # for testing
+                # model.learn(total_timesteps=2000, callback=callbacks, log_interval=3, tb_log_name="SAC Pretrain")
             else:
                 raise ValueError(f"{discriminator_hyperparams['parametrization']} is invalid parametrization")
         if self.checkpoints:
@@ -254,8 +258,7 @@ class DIAYN():
             # # load the discriminator
             # self.d.layers[0] = nn.Linear(gym.make(self.env_name).observation_space.shape[0] + self.params['n_skills']  + gym.make(self.env_name).action_space.shape[0], self.conf.layer_size_discriminator)
             # self.d.layers[-1] = nn.Linear(self.conf.layer_size_discriminator, 1)
-            # layers = [l for l in self.d.layers if "linear" in f"{type(l)}" or "ReLU" in f"{type(l)}"]
-            # seq = nn.Sequential(*layers)
+            # seq = nn.Sequential(*self.d.layers)
             # # # print(d)
             # self.d.eval()
             self.adaptation_model.critic.qf0.load_state_dict(sac_model.critic.qf0.state_dict())
@@ -267,11 +270,11 @@ class DIAYN():
 
         # if the model for the prratrining is PPO load the discrimunator and actor from ppo into sac models
         elif self.alg == "ppo":
-            ppo_model = PPO.load(model_dir, env=env, tensorboard_log=self.directory,
+            self.ppo_model = PPO.load(model_dir, env=env, tensorboard_log=self.directory,
                             clip_range=get_schedule_fn(self.alg_params['clip_range']))
             # adaptation_model.actor.action_dist = DiagGaussianDistribution(env.action_space.shape[0])
             # load the policy ppo 
-            ppo_actor = ppo_model.policy
+            ppo_actor = self.ppo_model.policy
             self.load_state_dicts(ppo_actor)
             self.adaptation_model.learn(total_timesteps=self.params['finetune_steps'],
                         callback=eval_callback, tb_log_name="PPO_FineTune", d=None, mi_estimator=None)
@@ -286,13 +289,14 @@ class DIAYN():
         self.adaptation_model.actor.mu.load_state_dict(ppo_actor.action_net.state_dict())
         self.adaptation_model.actor.log_std.load_state_dict(nn.Linear(in_features=self.conf.layer_size_policy, out_features=gym.make(self.env_name).action_space.shape[0], bias=True).state_dict())
         self.adaptation_model.actor.optimizer = opt.Adam(self.adaptation_model.actor.parameters(), lr=self.adapt_params['learning_rate'])
-        # initlialize the adaptation critic with the discriminator weights
-        self.d.eval()
-        
-        self.d.layers[0] = nn.Linear(gym.make(self.env_name).observation_space.shape[0] + self.params['n_skills']  + gym.make(self.env_name).action_space.shape[0], self.conf.layer_size_discriminator)
-        self.d.layers[-1] = nn.Linear(self.conf.layer_size_discriminator, 1)
-        layers = [l for l in self.d.layers if "linear" in f"{type(l)}" or "ReLU" in f"{type(l)}"]
+        layers = [nn.Linear(gym.make(self.env_name).observation_space.shape[0] + self.params['n_skills']  + gym.make(self.env_name).action_space.shape[0], self.conf.layer_size_discriminator)]
+        for l in range(len(self.ppo_model.policy.mlp_extractor.value_net)):
+            if l != 0:
+                layers.append(self.ppo_model.policy.mlp_extractor.value_net[l])
+        layers.append(nn.Linear(self.conf.layer_size_discriminator, 1))
         seq = nn.Sequential(*layers)
+        print(seq)
+        # input()
         self.adaptation_model.critic.qf0.load_state_dict(seq.state_dict())
         self.adaptation_model.critic.qf1.load_state_dict(seq.state_dict())
         self.adaptation_model.critic_target.load_state_dict(self.adaptation_model.critic.state_dict())
@@ -311,7 +315,7 @@ class DIAYN():
                 env = HalfCheetahTaskWrapper(gym.make("HalfCheetah-v2"), task=self.task)
                 env = DummyVecEnv([lambda: SkillWrapperFinetune(Monitor(env,  f"{self.directory}/finetune_train_results"), self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, skill=best_skill_index)])
                 eval_env = HalfCheetahTaskWrapper(gym.make(self.env_name), task=self.task)
-                eval_env = SkillWrapperFinetune(eval_env, self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, seed=None, skill=best_skill_index)
+                eval_env = SkillWrapperFinetune(eval_env, self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, r_seed=None, skill=best_skill_index)
                 
             # # WalkerTaskWrapper, AntTaskWrapper
             elif self.env_name == "Walker2d-v2":
@@ -320,7 +324,7 @@ class DIAYN():
                 env = WalkerTaskWrapper(gym.make("Walker2d-v2"), task=self.task)
                 env = DummyVecEnv([lambda: SkillWrapperFinetune(Monitor(env,  f"{self.directory}/finetune_train_results"), self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, skill=best_skill_index)])
                 eval_env = WalkerTaskWrapper(gym.make(self.env_name), task=self.task)
-                eval_env = SkillWrapperFinetune(eval_env, self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, seed=None, skill=best_skill_index)
+                eval_env = SkillWrapperFinetune(eval_env, self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, r_seed=None, skill=best_skill_index)
                 
             elif self.env_name == "Ant-v2":
                 # print(f"environment: {self.env_name}")
@@ -328,14 +332,13 @@ class DIAYN():
                 env = AntTaskWrapper(gym.make("Ant-v2"), task=self.task)
                 env = DummyVecEnv([lambda: SkillWrapperFinetune(Monitor(env,  f"{self.directory}/finetune_train_results"), self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, skill=best_skill_index)])
                 eval_env = AntTaskWrapper(gym.make(self.env_name), task=self.task)
-                eval_env = SkillWrapperFinetune(eval_env, self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, seed=None, skill=best_skill_index)
+                eval_env = SkillWrapperFinetune(eval_env, self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, r_seed=None, skill=best_skill_index)
                 
         else:
             # print(f"Just ")
             env = DummyVecEnv([lambda: SkillWrapperFinetune(Monitor(gym.make(
-    self.env_name),  f"{self.directory}/finetune_train_results"), self.params['n_skills'], seed=None,max_steps=gym.make(self.env_name)._max_episode_steps, skill=best_skill_index)])
+    self.env_name),  f"{self.directory}/finetune_train_results"), self.params['n_skills'], r_seed=None,max_steps=gym.make(self.env_name)._max_episode_steps, skill=best_skill_index)])
             eval_env = SkillWrapperFinetune(gym.make(
-            self.env_name), self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, seed=None, skill=best_skill_index)
+            self.env_name), self.params['n_skills'], max_steps=gym.make(self.env_name)._max_episode_steps, r_seed=None, skill=best_skill_index)
             
         return env, eval_env
-        

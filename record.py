@@ -96,7 +96,6 @@ def cmd_args():
     parser.add_argument("--cls", nargs="*", type=str, required=True) # pass the timestamps as a list
     parser.add_argument("--lbs", nargs="*", type=str, required=True) # pass the timestamps as a list
     parser.add_argument("--exp", nargs="*", type=int, default=[0]) # pass the timestamps as a list
-    parser.add_argument("--suf", nargs="*", type=str, default=['']) # pass the timestamps as a list
     args = parser.parse_args()
     return args
 
@@ -155,9 +154,9 @@ def record_skill(model, env_name, alg, n_skills, stamp):
 
 
 
-def record_skills(env_name, alg, skills, stamp, pm, lb, exper, suffix):
+def record_skills(env_name, alg, skills, stamp, pm, lb, exper):
     main_exper_dir = exper + f"cls:{pm}, lb:{lb}/"
-    env_dir = main_exper_dir + f"env: {env_name}, alg:{alg}, stamp:{stamp}_{suffix}/"
+    env_dir = main_exper_dir + f"env: {env_name}, alg:{alg}, stamp:{stamp}/"
     seed_dir = env_dir + f"seed:{seed}/"
     model_dir = seed_dir + "/best_model"
     env = DummyVecEnv([lambda: SkillWrapper(gym.make(env_name),skills, max_steps=1000)])
@@ -177,13 +176,13 @@ def record_skills(env_name, alg, skills, stamp, pm, lb, exper, suffix):
     print(f"Best skill is {best_skill_index}")
 
 
-def record_learned_agent(best_skill, env_name, alg, skills, stamp, pm, lb, suffix):
+def record_learned_agent(best_skill, env_name, alg, skills, stamp, pm, lb):
     # TODO: test this
     video_folder = f"recorded_agents/env:{env_name}_alg: {alg}_finetune_videos"
     env = SkillWrapperFinetune(gym.make(env_name), skills, max_steps=gym.make(env_name)._max_episode_steps, skill=best_skill)
     env = Monitor(env, video_folder, resume=True,force=False, uid=f"env: {env}, skill: {best_skill}")
-    main_exper_dir = conf.regularization_exper_dir + f"cls:{pm}, lb:{lb}/"
-    env_dir = main_exper_dir + f"env: {env_name}, alg:{alg}, stamp:{stamp}_{suffix}/"
+    main_exper_dir = conf.log_dir_finetune + f"cls:{pm}, lb:{lb}/"
+    env_dir = main_exper_dir + f"env: {env_name}, alg:{alg}, stamp:{stamp}/"
     seed_dir = env_dir + f"seed:{seed}/"
     # I stopped here
     directory =  seed_dir + f"best_finetuned_model_skillIndex:{best_skill}/" + "/best_model"
@@ -371,16 +370,17 @@ if __name__ == "__main__":
     args = cmd_args()
     n = len(args.envs)
     for i in range(n):
-        exper = experiments[args.exp[i]]
+        exper = conf.log_dir_finetune 
         env_name = args.envs[i]
         alg = args.algs[i]
         skills = args.skills[i]
         stamp = args.stamps[i]
         pm = args.cls[i]
         lb = args.lbs[i]
-        best_skill = args.bestskills[i]
-        suffix = args.suf[i]
-        record_skills(env_name, alg, skills, stamp, pm, lb, exper, suffix)
+        main_exper_dir = conf.log_dir_finetune + f"cls:{pm}, lb:{lb}/"
+        env_dir = main_exper_dir + f"env: {env_name}, alg:{alg}, stamp:{stamp}/"
+        seed_dir = env_dir + f"seed:{seed}/"
+        best_skill = int([ d[d.index(":")+1:] for d in  os.listdir(seed_dir) if "best_finetuned_model_skillIndex:" in d][0])
+        record_skills(env_name, alg, skills, stamp, pm, lb, exper)
         if best_skill != -1:    
-            record_learned_agent(best_skill, env_name, alg, skills, stamp, pm, lb, suffix)
-
+            record_learned_agent(best_skill, env_name, alg, skills, stamp, pm, lb)

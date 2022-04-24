@@ -26,7 +26,7 @@ regularization_exper_dir = "regularization_exper/",
 eval_runs = 5,
     
 # evaluation frequency
-eval_freq = 1000,
+eval_freq = 10000,
 
 # total time steps
 total_timesteps = int(1e8),
@@ -62,16 +62,17 @@ min_train_size = int(1e4),
 max_steps = 1000,
     
 # bar plot figure size
-barplot_figsize = (8, 6),
+barplot_figsize = (15, 10),
 
+# font scale
 font_scale = 2.5,
     
 # learning curve fig size
-learning_curve_figsize = (10, 8.5),
+learning_curve_figsize = (10, 8),
     
 # random seeds
 seeds = (0, 10, 42), #(0, 10, 1234),
 
 # device
-device = "cuda" if torch.cuda.is_available() else "cpu",
+device = "cpu",
 )
