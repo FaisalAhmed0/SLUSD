@@ -1,4 +1,4 @@
-# An Empirical Investigation of Mutual Information Skill Learning.
+# [An Empirical Investigation of Mutual Information Skill Learning.](https://openreview.net/forum?id=H_-lBQvWL-5)
 ## Abstract
 Unsupervised skill learning methods are a form of unsupervised pre-training for
 reinforcement learning (RL) that has the potential to improve the sample efficiency of solving downstream tasks. Prior work has proposed several methods for
