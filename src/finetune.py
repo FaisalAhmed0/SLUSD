@@ -10,7 +10,7 @@ from src.diayn import DIAYN
 # diayn with evolution stratigies
 from src.diayn_es import DIAYN_ES 
 # diayn with evolution model-based RL
-from src.diayn_mb import DIAYN_MB 
+# from src.diayn_mb import DIAYN_MB 
 from src.utils import seed_everything, evaluate_pretrained_policy_ext, evaluate_adapted_policy, evaluate_state_coverage, evaluate_pretrained_policy_intr, evaluate, save_final_results, plot_learning_curves
 
 import torch
@@ -374,17 +374,17 @@ def train_all(env_params, results_df_list, plots_d_list, seed , time, params_cop
                     # for testing
                     # intrinsic_reward_mean, reward_beforeFinetune_mean, reward_mean, entropy_mean = (1 + np.random.randn()*0.25,1 + np.random.randn()*0.25, 1 + np.random.randn()*0.25, 1 + np.random.randn()*0.25)
                     
-                elif alg == "pets":
-                    diayn = DIAYN_MB(params_copy, alg_params, discriminator_hyperparams, env, alg, seed_dir, seed=seeds[i], conf=conf, timestamp=timestamp, adapt_params=sac_hyperparams)
-                    # pretraining step
-                    pretrained_policy, discriminator = diayn.pretrain()
-                    # fine-tune step
-                    # adapted_policy, best_skill = diayn.finetune()
-                    # Evaluate the policy 
-                    intrinsic_reward_mean, reward_beforeFinetune_mean, reward_mean, entropy_mean = evaluate(env, params_copy['n_skills'], pretrained_policy, adapted_policy, discriminator, 
-                                                                                                        discriminator_hyperparams['parametrization'], best_skill, alg)
-                    # for testing
-                    # intrinsic_reward_mean, reward_beforeFinetune_mean, reward_mean, entropy_mean = (1 + np.random.randn()*0.25, 1 + np.random.randn()*0.25, 1 + np.random.randn()*0.25, 1 + np.random.randn()*0.25)
+                # elif alg == "pets":
+                #     diayn = DIAYN_MB(params_copy, alg_params, discriminator_hyperparams, env, alg, seed_dir, seed=seeds[i], conf=conf, timestamp=timestamp, adapt_params=sac_hyperparams)
+                #     # pretraining step
+                #     pretrained_policy, discriminator = diayn.pretrain()
+                #     # fine-tune step
+                #     # adapted_policy, best_skill = diayn.finetune()
+                #     # Evaluate the policy 
+                #     intrinsic_reward_mean, reward_beforeFinetune_mean, reward_mean, entropy_mean = evaluate(env, params_copy['n_skills'], pretrained_policy, adapted_policy, discriminator, 
+                #                                                                                         discriminator_hyperparams['parametrization'], best_skill, alg)
+                #     # for testing
+                #     # intrinsic_reward_mean, reward_beforeFinetune_mean, reward_mean, entropy_mean = (1 + np.random.randn()*0.25, 1 + np.random.randn()*0.25, 1 + np.random.randn()*0.25, 1 + np.random.randn()*0.25)
                     
                 elif alg == "es":
                     diayn = DIAYN_ES(params_copy, alg_params, discriminator_hyperparams, env, "es", seed_dir, seed=seeds[i], conf=conf, timestamp=timestamp, adapt_params=sac_hyperparams)
@@ -537,17 +537,17 @@ if __name__ == "__main__":
                 # Evaluate the policy 
                 intrinsic_reward_mean, reward_beforeFinetune_mean, reward_mean, entropy_mean = evaluate(args.env, params['n_skills'], pretrained_policy, adapted_policy, discriminator, 
                                                                                                     discriminator_hyperparams['parametrization'], best_skill, args.alg)
-            elif args.alg == "pets":
-                diayn = DIAYN_MB(params, alg_params, discriminator_hyperparams, args.env, args.alg, seed_dir, seed=conf.seeds[i], conf=conf, timestamp=timestamp, adapt_params=sac_hyperparams)
-                # pretraining step
-                pretrained_policy, discriminator = diayn.pretrain()
-                print("Finished")
-                # fine-tune step
-                adapted_policy, best_skill = diayn.finetune()
-                # Evaluate the policy 
-                # Evaluate the policy 
-                intrinsic_reward_mean, reward_beforeFinetune_mean, reward_mean, entropy_mean = evaluate(args.env, params['n_skills'], pretrained_policy, adapted_policy, discriminator, 
-                                                                                                    discriminator_hyperparams['parametrization'], best_skill, args.alg)
+            # elif args.alg == "pets":
+            #     diayn = DIAYN_MB(params, alg_params, discriminator_hyperparams, args.env, args.alg, seed_dir, seed=conf.seeds[i], conf=conf, timestamp=timestamp, adapt_params=sac_hyperparams)
+            #     # pretraining step
+            #     pretrained_policy, discriminator = diayn.pretrain()
+            #     print("Finished")
+            #     # fine-tune step
+            #     adapted_policy, best_skill = diayn.finetune()
+            #     # Evaluate the policy 
+            #     # Evaluate the policy 
+            #     intrinsic_reward_mean, reward_beforeFinetune_mean, reward_mean, entropy_mean = evaluate(args.env, params['n_skills'], pretrained_policy, adapted_policy, discriminator, 
+                                                                                                    # discriminator_hyperparams['parametrization'], best_skill, args.alg)
             elif args.alg == "es":
                 diayn = DIAYN_ES(params, alg_params, discriminator_hyperparams, args.env, "es", seed_dir, seed=conf.seeds[i], conf=conf, timestamp=timestamp, args=args, adapt_params=sac_hyperparams)
                 # pretraining step
