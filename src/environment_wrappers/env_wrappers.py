@@ -1,4 +1,7 @@
 import gym
+from gym import Wrapper
+from gym import spaces
+import d4rl
 
 import torch
 import numpy as np
@@ -296,3 +299,60 @@ class EvalWrapper(gym.Wrapper):
       done = False
     # print(f"Timestep:{self.t} and done: {done}")
     return obs, reward, done, info
+
+
+class RGBArrayAsObservationWrapper(Wrapper):
+    """
+    Use env.render(rgb_array) as observation
+    rather than the observation environment provides
+    """
+    def __init__(self, env, num_skills, n_stack):
+        '''
+        env: Gym environment object
+        num_skills: number of skill in pretraing
+        n_stack: size of the frame stack
+        '''
+        self.vector_size = num_skills
+        self.env = env
+        self.num_skills = num_skills
+        self.n_stack = n_stack
+        
+        dummy_obs = env.render("rgb_array")
+        self.observation_space_img  = spaces.Box(low=0, high=255, shape=dummy_obs.repeat(n_stack, axis=0).shape, dtype=dummy_obs.dtype)
+        self.observation_space_vec  = spaces.Box(low=0, high=1, shape=(num_skills, ), dtype=np.float32)
+        self.observation_space = spaces.Dict(
+            spaces={
+                "img": self.observation_space_img,
+                "vec": self.observation_space_vec
+            }
+        )
+        
+        self.action_space = self.env.action_space
+
+    def reset(self, **kwargs):
+        skill = np.random.randint(0,self.num_skills )
+        self.env.reset()
+        self.skill_vec = self.onehot(skill)
+        img = self.env.render("rgb_array")
+        self.frames_buffer = np.zeros((self.n_stack, *img.shape ))
+        obs = {
+            "img": self.update_frames_buffer(img),
+            "vec": self.skill_vec}
+        return obs
+
+    def step(self, action):
+        obs, reward, done, info = self.env.step(action)
+        obs = {
+            "img":self.update_frames_buffer(self.env.render("rgb_array")),
+            "vec": self.skill_vec}
+        return obs, reward, done, info
+
+    def onehot(self, skill):
+      skill_vec = np.zeros((self.num_skills))
+      skill_vec[skill] = 1
+      return skill_vec
+
+    def update_frames_buffer(self, obs):
+      self.frames_buffer[:-1] = self.frames_buffer[1:]
+      self.frames_buffer[-1] = obs
+      return self.frames_buffer
